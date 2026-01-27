@@ -1,6 +1,0 @@
-# Uploads directory for file uploads
-# Images for evidence, Excel files for imports, etc.
-
-# This file ensures the uploads directory is tracked by git
-*
-!.gitkeep
