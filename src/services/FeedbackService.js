@@ -1,0 +1,193 @@
+const FeedbackDAO = require('../dao/FeedbackDAO');
+const LogSystemDAO = require('../dao/LogSystemDAO');
+
+class FeedbackService {
+    /**
+     * Get all feedbacks with filters
+     */
+    async getFeedbacks(filters = {}) {
+        try {
+            return await FeedbackDAO.searchAndFilter(filters);
+        } catch (error) {
+            throw new Error(`Get feedbacks failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get feedback by ID
+     */
+    async getFeedbackById(id) {
+        try {
+            const feedbacks = await FeedbackDAO.searchAndFilter({ limit: 1 });
+            const feedback = feedbacks.find(fb => fb.id === id);
+            if (!feedback) {
+                throw new Error('Feedback not found');
+            }
+            return feedback;
+        } catch (error) {
+            throw new Error(`Get feedback failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Create new feedback
+     */
+    async createFeedback(data, userId, req = null) {
+        try {
+            const feedbackId = `feedback-${Date.now()}`;
+            const feedback = await FeedbackDAO.create({
+                id: feedbackId,
+                ...data,
+                user_id: userId,
+                status: 'New'
+            });
+
+            // Log action
+            await LogSystemDAO.log(
+                userId,
+                'CREATE_FEEDBACK',
+                'feedbacks',
+                feedbackId,
+                null,
+                feedback,
+                req
+            );
+
+            return feedback;
+        } catch (error) {
+            throw new Error(`Create feedback failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Update feedback status
+     */
+    async updateFeedbackStatus(id, status, adminId, adminResponse = null, req = null) {
+        try {
+            const oldData = await FeedbackDAO.findById(id);
+            if (!oldData) {
+                throw new Error('Feedback not found');
+            }
+
+            await FeedbackDAO.updateStatus(id, status, adminId, adminResponse);
+
+            // Log action
+            await LogSystemDAO.log(
+                adminId,
+                'UPDATE_FEEDBACK_STATUS',
+                'feedbacks',
+                id,
+                { status: oldData.status },
+                { status, admin_response: adminResponse },
+                req
+            );
+
+            return await FeedbackDAO.findById(id);
+        } catch (error) {
+            throw new Error(`Update feedback status failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get feedbacks by user
+     */
+    async getFeedbacksByUser(userId) {
+        try {
+            return await FeedbackDAO.findByUserId(userId);
+        } catch (error) {
+            throw new Error(`Get user feedbacks failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get feedback statistics
+     */
+    async getStatistics() {
+        try {
+            return await FeedbackDAO.getStatistics();
+        } catch (error) {
+            throw new Error(`Get statistics failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get pending feedbacks count
+     */
+    async getPendingCount() {
+        try {
+            return await FeedbackDAO.getPendingCount();
+        } catch (error) {
+            throw new Error(`Get pending count failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Update feedback
+     */
+    async updateFeedback(id, data, userId, req = null) {
+        try {
+            const oldData = await FeedbackDAO.findById(id);
+            if (!oldData) {
+                throw new Error('Feedback not found');
+            }
+
+            // Only allow user to update their own feedback
+            if (oldData.user_id !== userId) {
+                throw new Error('Unauthorized to update this feedback');
+            }
+
+            await FeedbackDAO.update(id, data);
+
+            // Log action
+            await LogSystemDAO.log(
+                userId,
+                'UPDATE_FEEDBACK',
+                'feedbacks',
+                id,
+                oldData,
+                data,
+                req
+            );
+
+            return await FeedbackDAO.findById(id);
+        } catch (error) {
+            throw new Error(`Update feedback failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Delete feedback
+     */
+    async deleteFeedback(id, userId, req = null) {
+        try {
+            const feedback = await FeedbackDAO.findById(id);
+            if (!feedback) {
+                throw new Error('Feedback not found');
+            }
+
+            // Only allow user to delete their own feedback or admin
+            if (feedback.user_id !== userId && req.user.role !== 'ADMIN') {
+                throw new Error('Unauthorized to delete this feedback');
+            }
+
+            await FeedbackDAO.delete(id);
+
+            // Log action
+            await LogSystemDAO.log(
+                userId,
+                'DELETE_FEEDBACK',
+                'feedbacks',
+                id,
+                feedback,
+                null,
+                req
+            );
+
+            return true;
+        } catch (error) {
+            throw new Error(`Delete feedback failed: ${error.message}`);
+        }
+    }
+}
+
+module.exports = new FeedbackService();
