@@ -13,11 +13,13 @@ const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 5432,
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'your_password',
-  database: process.env.DB_NAME || 'dormitory_db',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'dormitory_system',
 });
 
 async function setupDatabase() {
+  const client = await pool.connect();
+  
   try {
     console.log('🔄 Đang kết nối tới database...');
     
@@ -28,8 +30,11 @@ async function setupDatabase() {
     console.log('📄 Đã đọc file schema.sql');
     console.log('🚀 Bắt đầu tạo database schema...\n');
     
-    // Thực thi toàn bộ schema
-    await pool.query(schema);
+    // Tách các câu lệnh SQL - tránh thực thi nhiều lần
+    // Thực thi toàn bộ schema trong một transaction
+    await client.query('BEGIN');
+    await client.query(schema);
+    await client.query('COMMIT');
     
     console.log('\n✅ Tạo database thành công!');
     console.log('📊 Đã tạo:');
@@ -42,13 +47,16 @@ async function setupDatabase() {
     console.log('  Password: admin123');
     
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('\n❌ Lỗi khi tạo database:', error.message);
     console.error('\n💡 Kiểm tra:');
     console.error('  1. PostgreSQL đã chạy chưa?');
     console.error('  2. Thông tin kết nối database đúng chưa?');
-    console.error('  3. Database đã tồn tại chưa? (tạo bằng: CREATE DATABASE dormitory_db;)');
+    console.error('  3. Database đã tồn tại chưa? (tạo bằng: CREATE DATABASE dormitory_system;)');
+    console.error('\n🔍 Chi tiết lỗi:', error);
     process.exit(1);
   } finally {
+    client.release();
     await pool.end();
   }
 }

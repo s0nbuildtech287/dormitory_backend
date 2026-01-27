@@ -695,11 +695,11 @@ INSERT INTO users (id, email, password, full_name, role, phone) VALUES
 
 -- Phòng mẫu
 INSERT INTO rooms (id, room_number, building, floor, capacity, current_occupancy, gender_type, rent_price, status) VALUES
-('room-1', 'P.101', 'A1', 1, 4, 0, 'Nam', 500000, 'Active'),
-('room-2', 'P.102', 'A1', 1, 4, 0, 'Nam', 500000, 'Active'),
-('room-3', 'P.201', 'A1', 2, 4, 0, 'Nam', 500000, 'Active'),
-('room-4', 'P.101', 'B1', 1, 4, 0, 'Nữ', 500000, 'Active'),
-('room-5', 'P.102', 'B1', 1, 4, 0, 'Nữ', 500000, 'Active');
+('room-1', 'A1-P.101', 'A1', 1, 4, 0, 'Nam', 500000, 'Active'),
+('room-2', 'A1-P.102', 'A1', 1, 4, 0, 'Nam', 500000, 'Active'),
+('room-3', 'A1-P.201', 'A1', 2, 4, 0, 'Nam', 500000, 'Active'),
+('room-4', 'B1-P.101', 'B1', 1, 4, 0, 'Nữ', 500000, 'Active'),
+('room-5', 'B1-P.102', 'B1', 1, 4, 0, 'Nữ', 500000, 'Active');
 
 -- MỚI: Danh mục tài sản mẫu
 INSERT INTO asset_categories (id, code, name, description, unit, depreciation_rate, warranty_period) VALUES
