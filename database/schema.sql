@@ -137,9 +137,10 @@ CREATE TYPE disciplinary_status AS ENUM (
 -- ============================================================================
 -- BƯỚC 4: TẠO BẢNG USERS (Người dùng)
 -- ============================================================================
--- Mục đích: Quản lý tài khoản người dùng (Admin, Sinh viên, Quản lý)
+-- Mục đích: Quản lý tài khoản người dùng (Admin và Sinh viên)
 -- Tối ưu: 
--- - Thêm role MANAGER để quản lý tài sản
+-- - ADMIN: Toàn quyền (quản lý phòng, sinh viên, tài sản, kỷ luật...)
+-- - STUDENT: Chỉ xem thông tin cá nhân, đăng ký, feedback
 -- - Index trên email và role để tìm kiếm nhanh
 -- - Hỗ trợ soft delete với deleted_at
 
@@ -766,7 +767,7 @@ INSERT INTO asset_categories (id, code, name, description, unit, depreciation_ra
 -- ✓ Password đã hash (bcrypt)
 -- ✓ Soft delete thay vì xóa thật
 -- ✓ Tracking user actions qua log_system
--- ✓ Role-based access control (ADMIN, STUDENT, MANAGER)
+-- ✓ Role-based access control (ADMIN và STUDENT)
 
 -- KHUYẾN NGHỊ TIẾP THEO:
 -- 1. Tạo các View cho báo cáo thường dùng
