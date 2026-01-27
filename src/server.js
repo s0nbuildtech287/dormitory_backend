@@ -1,6 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+const express = require("express");
+const cors = require("cors");
+
+// Temporarily disable console.log to hide dotenv messages
+const originalConsoleLog = console.log;
+console.log = () => {}; // Disable logging temporarily
+require("dotenv").config();
+console.log = originalConsoleLog; // Restore logging
 
 const app = express();
 
@@ -10,14 +15,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to the Dormitory System Backend!' });
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to the Dormitory System Backend!" });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(500).json({ message: "Something went wrong!" });
 });
 
 const PORT = process.env.PORT || 5000;
