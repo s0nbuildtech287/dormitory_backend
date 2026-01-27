@@ -55,7 +55,7 @@ DROP TYPE IF EXISTS disciplinary_level CASCADE;
 -- Mục đích: Đảm bảo tính toàn vẹn dữ liệu và dễ bảo trì
 
 -- 3.1. ENUMs cho hệ thống cơ bản
-CREATE TYPE user_role AS ENUM ('ADMIN', 'STUDENT', 'MANAGER');  -- Thêm MANAGER cho quản lý tài sản
+CREATE TYPE user_role AS ENUM ('ADMIN', 'STUDENT');  -- ADMIN làm tất cả, STUDENT chỉ xem
 CREATE TYPE gender_type AS ENUM ('Nam', 'Nữ');
 CREATE TYPE registration_status AS ENUM ('Chờ duyệt', 'Chấp nhận', 'Từ chối');
 CREATE TYPE ai_suggestion_type AS ENUM ('Nên duyệt', 'Cân nhắc', 'Không ưu tiên');
