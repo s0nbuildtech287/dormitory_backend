@@ -220,6 +220,9 @@ CREATE TABLE rooms (
     current_occupancy INTEGER NOT NULL DEFAULT 0,
     gender_type gender_type NOT NULL,
     rent_price DECIMAL(10,2) NOT NULL,
+    garbage_fee DECIMAL(10,2) DEFAULT 0,      -- Tiền rác hàng tháng
+    internet_fee DECIMAL(10,2) DEFAULT 0,     -- Tiền mạng hàng tháng
+    parking_fee DECIMAL(10,2) DEFAULT 0,      -- Tiền gửi xe hàng tháng
     status room_status DEFAULT 'Active',
     area DECIMAL(5,2),                        -- Tối ưu: Diện tích (m2)
     qr_code VARCHAR(255),                     -- Tối ưu: Mã QR cho check-in

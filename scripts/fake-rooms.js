@@ -31,6 +31,9 @@ async function generateFakeRooms() {
             current_occupancy: 0,
             gender_type: gender,
             rent_price: 500000.0, // 500,000 VNĐ
+            garbage_fee: 20000.0, // 20,000 VNĐ
+            internet_fee: 50000.0, // 50,000 VNĐ
+            parking_fee: 30000.0, // 30,000 VNĐ
             status: "Active",
             area: 25.0, // 25 m²
             qr_code: `QR_${roomNumber}`, // Fake QR code
@@ -51,11 +54,11 @@ async function generateFakeRooms() {
     // Insert vào database
     const values = rooms.map(
       (room) =>
-        `('${room.id}', '${room.room_number}', '${room.building}', ${room.floor}, ${room.capacity}, ${room.current_occupancy}, '${room.gender_type}', ${room.rent_price}, '${room.status}', ${room.area}, '${room.qr_code}', '${room.equipment}', ${room.electric_meter_reading}, ${room.water_meter_reading}, '${room.last_inspection_date}', '${room.created_at}', '${room.updated_at}')`,
+        `('${room.id}', '${room.room_number}', '${room.building}', ${room.floor}, ${room.capacity}, ${room.current_occupancy}, '${room.gender_type}', ${room.rent_price}, ${room.garbage_fee}, ${room.internet_fee}, ${room.parking_fee}, '${room.status}', ${room.area}, '${room.qr_code}', '${room.equipment}', ${room.electric_meter_reading}, ${room.water_meter_reading}, '${room.last_inspection_date}', '${room.created_at}', '${room.updated_at}')`,
     );
 
     const query = `
-            INSERT INTO rooms (id, room_number, building, floor, capacity, current_occupancy, gender_type, rent_price, status, area, qr_code, equipment, electric_meter_reading, water_meter_reading, last_inspection_date, created_at, updated_at)
+      INSERT INTO rooms (id, room_number, building, floor, capacity, current_occupancy, gender_type, rent_price, garbage_fee, internet_fee, parking_fee, status, area, qr_code, equipment, electric_meter_reading, water_meter_reading, last_inspection_date, created_at, updated_at)
             VALUES ${values.join(", ")}
             ON CONFLICT (room_number) DO NOTHING;
         `;
@@ -68,6 +71,7 @@ async function generateFakeRooms() {
     console.log(`   - Mỗi tòa: 5 tầng × 10 phòng = 50 phòng`);
     console.log(`   - Tổng: 200 phòng`);
     console.log(`   - Mỗi phòng: 5 chỗ, giá 500,000 VNĐ/tháng`);
+    console.log(`   - Phí dịch vụ: Rác 20,000 VNĐ, Mạng 50,000 VNĐ, Gửi xe 30,000 VNĐ/tháng`);
   } catch (error) {
     console.error("❌ Lỗi khi tạo fake data:", error);
   } finally {
