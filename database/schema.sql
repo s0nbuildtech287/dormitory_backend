@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS asset_movements CASCADE;       -- MỚI: Biến động tà
 DROP TABLE IF EXISTS asset_maintenance CASCADE;      -- MỚI: Bảo trì tài sản
 DROP TABLE IF EXISTS assets CASCADE;                 -- MỚI: Cơ sở vật chất
 DROP TABLE IF EXISTS asset_categories CASCADE;       -- MỚI: Danh mục tài sản
+DROP TABLE IF EXISTS settings CASCADE;               -- MỚI: Cài đặt hệ thống
 DROP TABLE IF EXISTS feedbacks CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS invoices CASCADE;
@@ -163,6 +164,29 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_active ON users(is_active) WHERE deleted_at IS NULL;
+
+-- ============================================================================
+-- BƯỚC 4.1: TẠO BẢNG SETTINGS (Cài đặt hệ thống)
+-- ============================================================================
+-- Mục đích: Lưu trữ các cài đặt linh hoạt theo category
+-- Tối ưu: JSONB cho dữ liệu linh hoạt, category để phân loại
+
+CREATE TABLE settings (
+    id VARCHAR(50) PRIMARY KEY,
+    category VARCHAR(50) NOT NULL,           -- system, room, user, etc.
+    name VARCHAR(100) NOT NULL,              -- Tên setting
+    value JSONB NOT NULL,                    -- Giá trị setting (JSON linh hoạt)
+    description TEXT,                        -- Mô tả setting
+    is_active BOOLEAN DEFAULT TRUE,          -- Có đang active không
+    updated_by VARCHAR(50),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Indexes để tối ưu truy vấn
+CREATE INDEX idx_settings_category ON settings(category);
+CREATE INDEX idx_settings_name ON settings(name);
+CREATE INDEX idx_settings_active ON settings(is_active) WHERE is_active = TRUE;
 
 -- ============================================================================
 -- BƯỚC 5: TẠO BẢNG REGISTER_FORMS (Đơn đăng ký)
@@ -686,10 +710,30 @@ CREATE TRIGGER update_asset_maintenance_updated_at BEFORE UPDATE ON asset_mainte
 CREATE TRIGGER update_disciplinary_records_updated_at BEFORE UPDATE ON disciplinary_records
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================================================
 -- BƯỚC 18: DỮ LIỆU MẪU (INITIAL DATA)
 -- ============================================================================
 -- Tạo tài khoản và dữ liệu mẫu để test
+
+-- Insert default settings
+INSERT INTO settings (id, category, name, value, description) VALUES 
+('scoring_weights', 'system', 'scoring_weights', '{
+    "year": {"weight": 20, "max_year": 5},
+    "distance": {"weight": 30, "max_distance": 100},
+    "gpa": {"weight": 25, "min_gpa": 2.0},
+    "circumstance": {"weight": 25, "max_points": 20}
+}', 'Trọng số tính điểm hồ sơ đăng ký'),
+('room_capacity', 'room', 'defaultCapacity', '4', 'Sức chứa mặc định cho phòng mới'),
+('room_rent_price', 'room', 'defaultRentPrice', '1200000', 'Giá thuê phòng mặc định (VNĐ)'),
+('room_garbage_fee', 'room', 'defaultGarbageFee', '20000', 'Phí rác hàng tháng mặc định'),
+('room_internet_fee', 'room', 'defaultInternetFee', '50000', 'Phí internet hàng tháng mặc định'),
+('room_parking_fee', 'room', 'defaultParkingFee', '100000', 'Phí gửi xe hàng tháng mặc định'),
+('room_area', 'room', 'defaultArea', '25.5', 'Diện tích phòng mặc định (m²)'),
+('system_config', 'system', 'maintenance_mode', 'false', 'Chế độ bảo trì hệ thống'),
+('user_prefs', 'user', 'default_view', '"list"', 'Chế độ xem mặc định');
 
 -- ============================================================================
 -- KẾT THÚC SCHEMA
