@@ -243,16 +243,18 @@ CREATE TABLE rooms (
     capacity INTEGER NOT NULL DEFAULT 4,
     current_occupancy INTEGER NOT NULL DEFAULT 0,
     gender_type gender_type NOT NULL,
+    -- Các cột giá nhóm lại với nhau
     rent_price DECIMAL(10,2) NOT NULL,
     garbage_fee DECIMAL(10,2) DEFAULT 0,      -- Tiền rác hàng tháng
     internet_fee DECIMAL(10,2) DEFAULT 0,     -- Tiền mạng hàng tháng
     parking_fee DECIMAL(10,2) DEFAULT 0,      -- Tiền gửi xe hàng tháng
+    electric_meter_reading DECIMAL(10,2) DEFAULT 0,
+    water_meter_reading DECIMAL(10,2) DEFAULT 0,
+    -- Các cột khác
     status room_status DEFAULT 'Active',
     area DECIMAL(5,2),                        -- Tối ưu: Diện tích (m2)
     qr_code VARCHAR(255),                     -- Tối ưu: Mã QR cho check-in
     equipment JSONB,                          -- Giữ lại cho thông tin cơ bản
-    electric_meter_reading DECIMAL(10,2) DEFAULT 0,
-    water_meter_reading DECIMAL(10,2) DEFAULT 0,
     last_inspection_date DATE,                -- Tối ưu: Ngày kiểm tra cuối
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
