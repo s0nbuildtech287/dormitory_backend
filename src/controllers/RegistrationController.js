@@ -140,9 +140,12 @@ class RegistrationController {
                 });
             }
 
+            // Use 'system' as userId if no authentication (for testing)
+            const userId = req.user?.userId || 'system';
+
             const result = await RegistrationService.importFromExcel(
                 req.file.path,
-                req.user.userId,
+                userId,
                 req
             );
             res.json({

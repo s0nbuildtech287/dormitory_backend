@@ -137,15 +137,24 @@ class RegistrationService {
     async importFromExcel(filePath, adminId, req = null) {
         try {
             console.log('📂 BƯỚC 1: Đọc file Excel/CSV...');
-            // Đọc file Excel
-            const workbook = xlsx.readFile(filePath);
+
+            // Đọc file với UTF-8 encoding
+            // Codepage 65001 = UTF-8
+            const workbook = xlsx.readFile(filePath, {
+                codepage: 65001,  // Force UTF-8
+                type: 'binary'
+            });
+
             const sheetName = workbook.SheetNames[0]; // Lấy sheet đầu tiên
             const sheet = workbook.Sheets[sheetName];
-            
+
             // Chuyển sheet thành JSON array
             // Header row sẽ trở thành key của object
-            const rawData = xlsx.utils.sheet_to_json(sheet);
-            
+            const rawData = xlsx.utils.sheet_to_json(sheet, {
+                raw: false,  // Convert tất cả thành string
+                defval: ''   // Default value cho empty cells
+            });
+
             console.log(`✅ Đã đọc ${rawData.length} dòng dữ liệu từ file`);
             console.log('📋 Preview dòng đầu tiên:', rawData[0]);
 
@@ -165,15 +174,16 @@ class RegistrationService {
 
                     // ========== BƯỚC 2.1: VALIDATE DỮ LIỆU BỮT BUỘC ==========
                     const validationErrors = [];
-                    
-                    // Các trường bắt buộc
+
+                    // Các trường bắt buộc - hỗ trợ cả tiếng Việt và snake_case từ CSV
                     if (!row['Họ tên'] && !row['student_name']) {
                         validationErrors.push('Thiếu họ tên');
                     }
-                    if (!row['Email'] && !row['email']) {
+                    // CSV có cột 'email' nhưng trong DB là 'student_email', nên check cả hai
+                    if (!row['Email'] && !row['email'] && !row['student_email']) {
                         validationErrors.push('Thiếu email');
                     }
-                    if (!row['Số điện thoại'] && !row['phone']) {
+                    if (!row['Số điện thoại'] && !row['phone'] && !row['phone_number']) {
                         validationErrors.push('Thiếu số điện thoại');
                     }
                     if (!row['Giới tính'] && !row['gender']) {
@@ -186,22 +196,27 @@ class RegistrationService {
 
                     // ========== BƯỚC 2.2: CHUẨN HÓA DỮ LIỆU ==========
                     console.log('  📝 Chuẩn hóa dữ liệu...');
-                    
+
                     // Lấy và chuẩn hóa email (lowercase, trim)
-                    const email = (row['Email'] || row['email']).toString().trim().toLowerCase();
-                    
-                    // Chuẩn hóa giới tính (chấp nhận nhiều format)
-                    let gender = (row['Giới tính'] || row['gender']).toString().trim();
-                    if (['Nam', 'M', 'Male', 'nam', 'male'].includes(gender)) {
+                    // CSV có 2 cột: 'email' (email người đăng ký) và 'student_email' (email sinh viên)
+                    // Ta lưu student_email vào DB
+                    const studentEmail = (row['student_email'] || row['Email'] || row['email']).toString().trim().toLowerCase();
+
+                    // Chuẩn hóa giới tính (ENCODING-AGNOSTIC - chỉ check chữ cái đầu)
+                    let genderRaw = (row['Giới tính'] || row['gender']).toString().trim();
+                    const firstChar = genderRaw.charAt(0).toUpperCase();
+                    let gender; // Khai báo biến
+
+                    // Logic: N + "am" = Nam, còn N khác = Nữ (vì "Nữ" có thể bị encode sai)
+                    if (genderRaw.toLowerCase().includes('nam') || firstChar === 'M') {
                         gender = 'Nam';
-                    } else if (['Nữ', 'F', 'Female', 'nữ', 'female', 'Nu'].includes(gender)) {
-                        gender = 'Nữ';
                     } else {
-                        throw new Error(`Giới tính không hợp lệ: ${gender}`);
+                        // Mặc định là Nữ cho tất cả trường hợp còn lại (F, N, Nữ bị encode)
+                        gender = 'Nữ';
                     }
 
                     // Chuẩn hóa số điện thoại (loại bỏ khoảng trắng, dấu gạch ngang)
-                    const phone = (row['Số điện thoại'] || row['phone']).toString().replace(/[\s-]/g, '');
+                    const phone = (row['Số điện thoại'] || row['phone'] || row['phone_number']).toString().replace(/[\s-]/g, '');
 
                     // Chuẩn hóa ngày sinh (nếu có)
                     let dob = null;
@@ -236,9 +251,9 @@ class RegistrationService {
 
                     // ========== BƯỚC 2.3: CHECK TRÙNG LẶP ==========
                     console.log('  🔍 Kiểm tra trùng lặp...');
-                    const existingByEmail = await RegisterFormDAO.findOne({ email });
+                    const existingByEmail = await RegisterFormDAO.findOne({ student_email: studentEmail });
                     if (existingByEmail) {
-                        throw new Error(`Email đã tồn tại trong hệ thống: ${email}`);
+                        throw new Error(`Email đã tồn tại trong hệ thống: ${studentEmail}`);
                     }
 
                     const studentId = row['Mã SV'] || row['student_id'];
@@ -259,22 +274,27 @@ class RegistrationService {
                     if (gpa !== null && distance !== null) {
                         // Tính điểm dựa trên GPA (0-100)
                         const gpaScore = Math.min((gpa / 4.0) * 100, 100);
-                        
+
                         // Tính điểm dựa trên khoảng cách (càng xa càng cao điểm)
                         const distanceScore = Math.min((distance / 500) * 100, 100);
-                        
+
                         // Điểm năm học (năm 1 ưu tiên cao hơn)
-                        const year = row['Năm học'] || row['year'] || 1;
-                        const yearScore = year === 1 ? 100 : year === 2 ? 80 : year === 3 ? 60 : 40;
-                        
+                        let yearValue = row['Năm học'] || row['year'] || 1;
+                        // Parse "năm 4" → 4
+                        if (typeof yearValue === 'string') {
+                            const match = yearValue.match(/\d+/);
+                            yearValue = match ? parseInt(match[0]) : 1;
+                        }
+                        const yearScore = yearValue === 1 ? 100 : yearValue === 2 ? 80 : yearValue === 3 ? 60 : 40;
+
                         // Điểm ưu tiên (chính sách, hoàn cảnh khó khăn...)
                         const circumstanceScore = priorityPoints;
 
                         // Tính điểm tổng (weighted average)
                         aiScore = Math.round(
-                            (gpaScore * 0.3) + 
-                            (distanceScore * 0.3) + 
-                            (yearScore * 0.2) + 
+                            (gpaScore * 0.3) +
+                            (distanceScore * 0.3) +
+                            (yearScore * 0.2) +
                             (circumstanceScore * 0.2)
                         );
 
@@ -299,21 +319,44 @@ class RegistrationService {
 
                     // ========== BƯỚC 2.5: TẠO OBJECT HỒ SƠ ==========
                     const registrationId = `reg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                    // Parse year value from string "năm 4" → 4
+                    let finalYear = row['Năm học'] || row['year'] || 1;
+                    if (typeof finalYear === 'string') {
+                        const match = finalYear.match(/\d+/);
+                        finalYear = match ? parseInt(match[0]) : 1;
+                    }
+
+                    // Parse evidence_images nếu có (CSV có thể là string URL)
+                    let evidenceImages = null;
+                    if (row['evidence_images']) {
+                        try {
+                            evidenceImages = JSON.stringify([row['evidence_images']]);
+                        } catch (e) {
+                            evidenceImages = null;
+                        }
+                    }
+
                     const registration = {
                         id: registrationId,
                         student_name: (row['Họ tên'] || row['student_name']).toString().trim(),
                         student_id: studentId || null,
-                        email: email,
-                        phone: phone,
+                        student_email: studentEmail,
+                        phone_number: phone,
                         gender: gender,
                         dob: dob,
+                        cccd: (row['cccd'] || row['CCCD'] || '').toString().trim() || null,
                         address: (row['Địa chỉ'] || row['address'] || '').toString().trim(),
                         faculty: (row['Khoa'] || row['faculty'] || '').toString().trim(),
+                        major: (row['Chuyên ngành'] || row['major'] || '').toString().trim(),
                         class: (row['Lớp'] || row['class'] || '').toString().trim(),
-                        year: parseInt(row['Năm học'] || row['year'] || 1),
+                        year: finalYear,
                         gpa: gpa,
                         distance: distance,
+                        priority_reasons: (row['priority_reasons'] || row['Lý do ưu tiên'] || '').toString().trim(),
                         priority_points: priorityPoints,
+                        evidence_images: evidenceImages,
+                        note: (row['note'] || row['Ghi chú'] || '').toString().trim(),
                         ai_suggestion: aiSuggestion,
                         ai_score: aiScore,
                         ai_reasoning: aiReasoning,
@@ -328,43 +371,46 @@ class RegistrationService {
 
                 } catch (error) {
                     console.log(`  ❌ Lỗi: ${error.message}`);
-                    errors.push({ 
-                        row: rowNumber, 
+                    errors.push({
+                        row: rowNumber,
                         studentName: row['Họ tên'] || row['student_name'] || 'N/A',
-                        error: error.message 
+                        error: error.message
                     });
                 }
             }
 
             // ========== BƯỚC 3: GHI LOG ==========
             console.log('\n📊 BƯỚC 3: Tổng kết và ghi log...');
-            await LogSystemDAO.log(
-                adminId,
-                'IMPORT_REGISTRATIONS',
-                'register_forms',
-                null,
-                null,
-                { 
-                    total: rawData.length,
-                    imported: registrations.length, 
-                    failed: errors.length,
-                    warnings: warnings.length 
-                },
-                req
-            );
 
-            console.log(`\n✅ HOÀN THÀNH IMPORT:`);
-            console.log(`   - Tổng số dòng: ${rawData.length}`);
-            console.log(`   - Thành công: ${registrations.length}`);
-            console.log(`   - Lỗi: ${errors.length}`);
-            console.log(`   - Cảnh báo: ${warnings.length}\n`);
+            // Only log if we have a real user (not 'system')
+            if (adminId && adminId !== 'system') {
+                await LogSystemDAO.log(
+                    adminId,
+                    'IMPORT_REGISTRATIONS',
+                    'register_forms',
+                    null,
+                    null,
+                    {
+                        success: registrations.length,
+                        failed: errors.length,
+                        warnings: warnings.length
+                    },
+                    req
+                );
+            }
 
-            return { 
-                success: registrations.length, 
+            console.log(`\n✅ HOÀN TẤT: Import ${registrations.length} hồ sơ thành công!`);
+            if (errors.length > 0) {
+                console.log(`❌ Có ${errors.length} lỗi:`, errors);
+            }
+            if (warnings.length > 0) {
+                console.log(`⚠️  Có ${warnings.length} cảnh báo:`, warnings);
+            } return {
+                success: registrations.length,
                 failed: errors.length,
                 total: rawData.length,
                 errors,
-                warnings 
+                warnings
             };
         } catch (error) {
             console.error('❌ LỖI NGHIÊM TRỌNG:', error.message);

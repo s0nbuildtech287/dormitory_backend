@@ -8,6 +8,22 @@
 -- ============================================================================
 
 -- ============================================================================
+-- BƯỚC 0: TẠO DATABASE VỚI UTF-8 ENCODING (NẾU CHƯA TỒN TẠI)
+-- ============================================================================
+-- Đảm bảo database support tiếng Việt đầy đủ
+-- Chú ý: Phải disconnect khỏi database trước khi chạy lệnh này
+
+-- DROP DATABASE dormitory_system WITH (FORCE);
+-- CREATE DATABASE dormitory_system
+--   WITH 
+--   ENCODING = 'UTF8'
+--   LC_COLLATE = 'en_US.UTF-8'
+--   LC_CTYPE = 'en_US.UTF-8'
+--   TEMPLATE = template0;
+
+-- Sau khi tạo database, connect vào dormitory_system rồi chạy các lệnh bên dưới
+
+-- ============================================================================
 -- BƯỚC 1: XÓA CÁC BẢNG CŨ (NẾU TỒN TẠI)
 -- ============================================================================
 -- Lưu ý: Thực hiện theo thứ tự từ bảng con đến bảng cha để tránh lỗi constraint

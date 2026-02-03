@@ -4,7 +4,10 @@ const RegistrationController = require('../controllers/RegistrationController');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
-// All routes require authentication
+// Import from Excel (NO AUTH FOR TESTING - MUST BE BEFORE router.use(authenticate))
+router.post('/import/excel', upload.single('file'), RegistrationController.importExcel);
+
+// All OTHER routes require authentication
 router.use(authenticate);
 
 // Get all registrations
@@ -27,8 +30,5 @@ router.post('/:id/approve', requireAdmin, RegistrationController.approve);
 
 // Reject registration
 router.post('/:id/reject', requireAdmin, RegistrationController.reject);
-
-// Import from Excel
-router.post('/import/excel', requireAdmin, upload.single('file'), RegistrationController.importExcel);
 
 module.exports = router;
