@@ -16,7 +16,8 @@ router.get('/statistics/revenue', requireAdmin, InvoiceController.getRevenueStat
 router.post('/update-overdue', requireAdmin, InvoiceController.updateOverdue);
 
 // Get invoices by user
-router.get('/user/:userId?', InvoiceController.getByUser);
+router.get('/user', InvoiceController.getByUser);
+router.get('/user/:userId', InvoiceController.getByUser);
 
 // Get invoice by ID
 router.get('/:id', InvoiceController.getById);

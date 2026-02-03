@@ -16,7 +16,8 @@ router.get('/statistics', requireAdmin, FeedbackController.getStatistics);
 router.get('/pending-count', requireAdmin, FeedbackController.getPendingCount);
 
 // Get feedbacks by user
-router.get('/user/:userId?', FeedbackController.getByUser);
+router.get('/user', FeedbackController.getByUser);
+router.get('/user/:userId', FeedbackController.getByUser);
 
 // Get feedback by ID
 router.get('/:id', FeedbackController.getById);

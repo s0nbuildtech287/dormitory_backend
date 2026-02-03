@@ -16,7 +16,8 @@ router.get('/', LogController.getActivityLogs);
 router.get('/statistics', LogController.getActionStatistics);
 
 // Get logs by user
-router.get('/user/:userId?', LogController.getByUser);
+router.get('/user', LogController.getByUser);
+router.get('/user/:userId', LogController.getByUser);
 
 // Get logs by entity
 router.get('/entity/:entityType/:entityId', LogController.getByEntity);

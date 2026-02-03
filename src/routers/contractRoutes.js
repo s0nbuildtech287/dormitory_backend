@@ -13,7 +13,8 @@ router.get('/', ContractController.getAll);
 router.get('/expiring', requireAdmin, ContractController.getExpiring);
 
 // Get contracts by user
-router.get('/user/:userId?', ContractController.getByUser);
+router.get('/user', ContractController.getByUser);
+router.get('/user/:userId', ContractController.getByUser);
 
 // Get contract by ID
 router.get('/:id', ContractController.getById);
