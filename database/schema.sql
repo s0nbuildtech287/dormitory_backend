@@ -198,16 +198,19 @@ CREATE TABLE register_forms (
     id VARCHAR(50) PRIMARY KEY,
     student_name VARCHAR(100) NOT NULL,
     student_id VARCHAR(50),
-    email VARCHAR(100) NOT NULL,
-    phone VARCHAR(20) NOT NULL,
+    student_email VARCHAR(100) NOT NULL,      -- Email sinh viên
+    phone_number VARCHAR(20) NOT NULL,        -- Số điện thoại
     gender gender_type NOT NULL,
     dob DATE,
+    cccd VARCHAR(20),                         -- Số CCCD
     address TEXT,
     faculty VARCHAR(100),
+    major VARCHAR(100),                       -- Chuyên ngành
     class VARCHAR(50),
     year INTEGER,
     gpa DECIMAL(3,2),
     distance INTEGER,                         -- Khoảng cách nhà-trường (km)
+    priority_reasons TEXT,                    -- Lý do ưu tiên
     priority_points INTEGER DEFAULT 0,        -- Điểm ưu tiên
     status registration_status DEFAULT 'Chờ duyệt',
     ai_suggestion ai_suggestion_type,
