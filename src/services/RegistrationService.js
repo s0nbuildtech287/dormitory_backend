@@ -244,10 +244,9 @@ class RegistrationService {
                         }
                     }
 
-                    // Parse số (GPA, khoảng cách, điểm ưu tiên)
+                    // Parse số (GPA, khoảng cách)
                     const gpa = row['GPA'] || row['gpa'] ? parseFloat(row['GPA'] || row['gpa']) : null;
                     const distance = row['Khoảng cách'] || row['distance'] ? parseInt(row['Khoảng cách'] || row['distance']) : null;
-                    const priorityPoints = row['Điểm ưu tiên'] || row['priority_points'] ? parseInt(row['Điểm ưu tiên'] || row['priority_points']) : 0;
 
                     // ========== BƯỚC 2.3: CHECK TRÙNG LẶP ==========
                     console.log('  🔍 Kiểm tra trùng lặp...');
@@ -287,8 +286,8 @@ class RegistrationService {
                         }
                         const yearScore = yearValue === 1 ? 100 : yearValue === 2 ? 80 : yearValue === 3 ? 60 : 40;
 
-                        // Điểm ưu tiên (chính sách, hoàn cảnh khó khăn...)
-                        const circumstanceScore = priorityPoints;
+                        // Điểm ưu tiên (chính sách, hoàn cảnh khó khăn...) - mặc định 0
+                        const circumstanceScore = 0;
 
                         // Tính điểm tổng (weighted average)
                         aiScore = Math.round(
@@ -354,7 +353,6 @@ class RegistrationService {
                         gpa: gpa,
                         distance: distance,
                         priority_reasons: (row['priority_reasons'] || row['Lý do ưu tiên'] || '').toString().trim(),
-                        priority_points: priorityPoints,
                         evidence_images: evidenceImages,
                         note: (row['note'] || row['Ghi chú'] || '').toString().trim(),
                         ai_suggestion: aiSuggestion,

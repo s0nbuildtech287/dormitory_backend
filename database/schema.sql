@@ -227,7 +227,6 @@ CREATE TABLE register_forms (
     gpa DECIMAL(3,2),
     distance INTEGER,                         -- Khoảng cách nhà-trường (km)
     priority_reasons TEXT,                    -- Lý do ưu tiên
-    priority_points INTEGER DEFAULT 0,        -- Điểm ưu tiên
     status registration_status DEFAULT 'Chờ duyệt',
     ai_suggestion ai_suggestion_type,
     ai_score INTEGER,
