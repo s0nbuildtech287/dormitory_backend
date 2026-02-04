@@ -756,6 +756,10 @@ INSERT INTO settings (id, category, name, value, description) VALUES
 ('system_config', 'system', 'maintenance_mode', 'false', 'Chế độ bảo trì hệ thống'),
 ('user_prefs', 'user', 'default_view', '"list"', 'Chế độ xem mặc định');
 
+-- Insert default admin user
+INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_at, updated_at) VALUES 
+('admin-1', 'admin', '$2b$10$r4PtV7h0KGlEULC0E0gOwudU1jY5rrTam9PBpwDb90rZqZxxgymyO', 'Quản Trị Viên', 'ADMIN', '0123456789', 'https://ui-avatars.com/api/?name=Admin&background=1e40af&color=fff', NOW(), NOW());
+
 -- ============================================================================
 -- KẾT THÚC SCHEMA
 -- ============================================================================

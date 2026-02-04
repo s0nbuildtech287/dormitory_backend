@@ -43,8 +43,8 @@ async function setupDatabase() {
     console.log('  - Indexes và Triggers');
     console.log('  - Dữ liệu mẫu (admin account, rooms, asset categories)');
     console.log('\n🔐 Tài khoản admin mặc định:');
-    console.log('  Email: admin@ktx.edu.vn');
-    console.log('  Password: admin123');
+    console.log('  Email: admin');
+    console.log('  Password: 123');
     
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
