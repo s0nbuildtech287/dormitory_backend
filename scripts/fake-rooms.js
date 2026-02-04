@@ -20,7 +20,7 @@ async function generateFakeRooms() {
       for (const floor of floors) {
         for (let roomNum = 1; roomNum <= roomsPerFloor; roomNum++) {
           const roomNumber = `${building}${floor}${roomNum.toString().padStart(2, "0")}`; // A101, A102, etc.
-          const id = `room_${roomCounter.toString().padStart(3, "0")}`;
+          const id = `room-${roomCounter.toString().padStart(3, "0")}`;
 
           const room = {
             id,
