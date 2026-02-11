@@ -172,6 +172,26 @@ class RegistrationController {
             next(error);
         }
     }
+
+    /**
+     * Recalculate AI scores for all registrations
+     * Used when admin updates scoring weights/settings
+     */
+    async recalculateScores(req, res, next) {
+        try {
+            const result = await RegistrationService.recalculateAllScores(
+                req.user.userId,
+                req
+            );
+            res.json({
+                success: true,
+                message: `Recalculated ${result.updated} registrations`,
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new RegistrationController();

@@ -16,6 +16,9 @@ router.get('/', RegistrationController.getAll);
 // Get statistics
 router.get('/statistics', requireAdmin, RegistrationController.getStatistics);
 
+// Recalculate AI scores for all registrations (when settings change)
+router.post('/recalculate-scores', requireAdmin, RegistrationController.recalculateScores);
+
 // Get registration by ID
 router.get('/:id', RegistrationController.getById);
 

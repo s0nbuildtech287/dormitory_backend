@@ -9,10 +9,45 @@ Hệ thống tính điểm AI mới sử dụng **3 thành phần chính** với
 ## Công Thức Chính
 
 ```
-aiScore = (PriorityScore × W₁) + (YearScore × W₂) + (GPAScore × W₃)
+aiScore = (PriorityScore × W₁) + (YearScore × W₂) + (GPAScore × W₃) + BasketBonus
 
 Điều kiện: W₁ + W₂ + W₃ = 1.0
 ```
+
+### Basket Bonus System (Đảm bảo thứ tự ưu tiên)
+
+| Rổ | Tên | Điều kiện | Basket Bonus | Kết quả |
+|----|-----|-----------|--------------|---------|
+| **Rổ 1** | Chính sách | Có priority_reasons | **+200 điểm** | Luôn top 1 |
+| **Rổ 2** | Tân sinh viên | Year = 1, không có chính sách | **+100 điểm** | Ưu tiên thứ 2 |
+| **Rổ 3** | Khóa cũ | Year > 1, không có chính sách | **+0 điểm** | Cạnh tranh GPA |
+
+**Ví dụ thực tế:**
+
+**SV A - Tân SV (Rổ 2):**
+- Priority=0, Year=100, GPA=50
+- Base Score = (0×0.25) + (100×0.35) + (50×0.40) = 55
+- **Final Score = 55 + 100 (Bonus Rổ 2) = 155** ✅
+
+**SV B - Khóa cũ giỏi (Rổ 3):**  
+- Priority=0, Year=40, GPA=100
+- Base Score = (0×0.25) + (40×0.35) + (100×0.40) = 54
+- **Final Score = 54 + 0 (Rổ 3) = 54** ❌
+
+**SV C - Chính sách (Rổ 1):**
+- Priority=100, Year=40, GPA=30
+- Base Score = (100×0.25) + (40×0.35) + (30×0.40) = 51
+- **Final Score = 51 + 200 (Bonus Rổ 1) = 251** 🏆
+
+→ **Thứ tự cuối cùng: C (251) > A (155) > B (54)** - Đúng logic 3 rổ!
+
+### Logic Sắp xếp Danh sách
+
+**Thứ tự ưu tiên:**
+1. **Rổ 1** (Chính sách) - Bonus +200
+2. **Rổ 2** (Tân sinh viên) - Bonus +100  
+3. **Rổ 3** (Khóa cũ) - Bonus +0
+4. Trong mỗi rổ: sắp xếp theo **AI Score** (cao → thấp)
 
 ---
 
@@ -69,20 +104,26 @@ calculateYearScore(year) {
 
 **Lọc:** Nếu GPA < 2.0 → **Loại trực tiếp** (Rejected)
 
+**Trường hợp đặc biệt:** Sinh viên năm 1 với GPA = 0 (chưa học môn nào) → GPAScore = 50 (điểm trung bình)
+
 ### Ví Dụ
 
 - GPA = 4.0 → GPAScore = 100
 - GPA = 3.5 → GPAScore = 87.5 → làm tròn = 88
 - GPA = 2.0 → GPAScore = 50
-- GPA = 1.5 → **FILTERED** (Bị loại)
+- GPA = 1.5 (Năm 2, 3, 4) → **FILTERED** (Bị loại)
+- GPA = 0 (Năm 1) → GPAScore = 50 (Chưa có điểm, tính điểm trung bình)
 
 ### Cách Tính
 
 ```javascript
-calculateGPAScore(gpa) {
+calculateGPAScore(gpa, year) {
+  // Trường hợp đặc biệt: SV năm 1 với GPA = 0 → score = 50
+  if (year === 1 && gpa === 0) return { score: 50, isFiltered: false }
+  
   // Nếu gpa < 2.0 → trả về { score: 0, isFiltered: true, reason: "GPA < 2.0" }
   // Còn lại → trả về { score: Math.round(gpa * 25), isFiltered: false }
-  // Code xem ở dòng 135-158 trong RegistrationService.js
+  // Code xem ở dòng 135-178 trong RegistrationService.js
 }
 ```
 
@@ -108,55 +149,115 @@ W₃ (GPA/Học tập):       0.40 (40%)
 
 ## 5. Ví Dụ Tính Toán Chi Tiết
 
-### Sinh Viên A: Năm 1, GPA 3.5, Không ưu tiên
+### Sinh Viên A: Năm 1, GPA 0, Không ưu tiên (Tân sinh viên - Rổ 2)
 
 ```
-PriorityScore  = 0      (không ưu tiên)
-YearScore      = 100    (năm 1)
-GPAScore       = 87.5   (3.5 × 25)
+Rổ            = 2       (Tân sinh viên)
+PriorityScore = 0       (không ưu tiên)
+YearScore     = 100     (năm 1)
+GPAScore      = 50      (năm 1, chưa có điểm → điểm trung bình)
 
-aiScore = (0 × 0.25) + (100 × 0.35) + (87.5 × 0.40)
-        = 0 + 35 + 35
-        = 70
+Base Score = (0 × 0.25) + (100 × 0.35) + (50 × 0.40)
+           = 0 + 35 + 20 = 55
 
-→ Đề xuất: "Cân nhắc" (vì 60 ≤ 70 < 80)
+Final Score (AI Score) = 55 + 100 (Bonus Rổ 2) = 155
+
+→ Đề xuất: "Không ưu tiên" (vì Base Score 55 < 60)
+→ Thứ tự: Ưu tiên sau Rổ 1, trước Rổ 3 (vì Final Score = 155)
 ```
 
-### Sinh Viên B: Năm 2, GPA 1.8, Hộ nghèo
+### Sinh Viên B: Năm 3, GPA 4.0, Không ưu tiên (Khóa cũ giỏi - Rổ 3)
 
 ```
-PriorityScore  = 100    (hộ nghèo)
-YearScore      = 60     (năm 2)
-GPAScore       = ❌     (1.8 < 2.0)
+Rổ            = 3       (Khóa cũ)
+PriorityScore = 0       (không ưu tiên)
+YearScore     = 40      (năm 3)
+GPAScore      = 100     (4.0 × 25)
+
+Base Score = (0 × 0.25) + (40 × 0.35) + (100 × 0.40)
+           = 0 + 14 + 40 = 54
+
+Final Score (AI Score) = 54 + 0 (Rổ 3) = 54
+
+→ Đề xuất: "Không ưu tiên" (vì Base Score 54 < 60)
+→ Thứ tự: Sau tất cả SV Rổ 1 và Rổ 2
+→ Cạnh tranh với nhau trong Rổ 3 bằng GPA
+```
+
+### Sinh Viên C: Năm 2, GPA 1.8, Hộ nghèo (Chính sách - Rổ 1)
+
+```
+Rổ            = 1       (Chính sách)
+PriorityScore = 100     (hộ nghèo)
+YearScore     = 60      (năm 2)
+GPAScore      = ❌      (1.8 < 2.0)
 
 → Kết quả: LOẠI (GPA < 2.0)
 → Đề xuất: "Loại (GPA < 2.0)"
+→ Bị loại dù thuộc Rổ 1 vì không đạt điều kiện GPA tối thiểu
 ```
 
-### Sinh Viên C: Năm 1, GPA 3.8, Vùng sâu
+### Sinh Viên D: Năm 4, GPA 3.2, Vùng sâu, vùng xa (Chính sách - Rổ 1)
 
 ```
-PriorityScore  = 70     (vùng sâu)
-YearScore      = 100    (năm 1)
-GPAScore       = 95     (3.8 × 25)
+Rổ            = 1       (Chính sách - vùng sâu vùng xa)
+PriorityScore = 70      (vùng sâu vùng xa)
+YearScore     = 20      (năm 4)
+GPAScore      = 80      (3.2 × 25)
 
-aiScore = (70 × 0.25) + (100 × 0.35) + (95 × 0.40)
-        = 17.5 + 35 + 38
-        = 90.5 → làm tròn = 91
+Base Score = (70 × 0.25) + (20 × 0.35) + (80 × 0.40)
+           = 17.5 + 7 + 32 = 56.5 → làm tròn = 57
 
-→ Đề xuất: "Nên duyệt" (vì 91 ≥ 80)
+Final Score (AI Score) = 57 + 200 (Bonus Rổ 1) = 257
+
+→ Đề xuất: "Không ưu tiên" (vì Base Score 57 < 60)
+→ Thứ tự: Ưu tiên tuyệt đối (Rổ 1, Final Score = 257)
+→ Mặc dù Base Score thấp và năm 4, nhưng vì thuộc Rổ 1 nên vẫn được xếp trước tất cả
 ```
+
+### Tóm Tắt Thứ Tự Duyệt
+
+| Thứ Tự | SV  | Rổ  | Base Score | Final Score | Đề Xuất         | Lý Do                          |
+| ------- | --- | --- | ---------- | ----------- | --------------- | ------------------------------ |
+| 1       | D   | 1   | 57         | **257**     | Không ưu tiên   | Rổ 1 (Chính sách) + Bonus 200  |
+| 2       | A   | 2   | 55         | **155**     | Không ưu tiên   | Rổ 2 (Tân SV) + Bonus 100      |
+| 3       | B   | 3   | 54         | **54**      | Không ưu tiên   | Rổ 3 (Khóa cũ) + Bonus 0       |
+| -       | C   | 1   | -          | **LOẠI**    | Loại (GPA<2.0)  | Không đạt GPA tối thiểu        |
+
+**Nhận xét:**
+- SV D được duyệt đầu tiên mặc dù Base Score thấp nhất (57), vì thuộc Rổ 1 (Chính sách)
+- SV A được ưu tiên hơn SV B mặc dù Base Score tương đương (55 vs 54), vì thuộc Rổ 2 (Tân sinh viên)
+- SV B có GPA cao nhất (4.0) nhưng xếp cuối vì thuộc Rổ 3 (Khóa cũ)
+- SV C bị loại ngay dù thuộc Rổ 1 vì GPA < 2.0
+
+→ **Kết luận:** Basket Bonus đảm bảo hierarchy Chính sách > Tân SV > Khóa cũ, trong khi Base Score đánh giá chất lượng hồ sơ
 
 ---
 
 ## 6. Phân Loại Đề Xuất
 
-| Điểm      | Đề Xuất                        | Ý Nghĩa                       |
-| --------- | ------------------------------ | ----------------------------- |
-| ≥ 80      | "Nên duyệt" (RECOMMENDED)      | Hồ sơ tốt, ưu tiên duyệt      |
-| 60-79     | "Cân nhắc" (CONSIDER)          | Hồ sơ trung bình, cần xem xét |
-| < 60      | "Không ưu tiên" (LOW_PRIORITY) | Hồ sơ yếu, xem xét sau        |
-| GPA < 2.0 | "Loại (GPA < 2.0)"             | Bị loại trực tiếp             |
+**Lưu ý:** Đề xuất dựa trên **Base Score** (điểm trước khi cộng Basket Bonus) để đánh giá chất lượng hồ sơ. Thứ tự duyệt dựa trên **Final Score** (AI Score = Base Score + Basket Bonus).
+
+### Đánh Giá Chất Lượng Hồ Sơ (Base Score)
+
+| Base Score | Đề Xuất                        | Ý Nghĩa                       |
+| ---------- | ------------------------------ | ----------------------------- |
+| ≥ 80       | "Nên duyệt" (RECOMMENDED)      | Hồ sơ tốt, ưu tiên duyệt      |
+| 60-79      | "Cân nhắc" (CONSIDER)          | Hồ sơ trung bình, cần xem xét |
+| < 60       | "Không ưu tiên" (LOW_PRIORITY) | Hồ sơ yếu, xem xét sau        |
+| GPA < 2.0  | "Loại (GPA < 2.0)"             | Bị loại trực tiếp             |
+
+### Thứ Tự Duyệt (Final Score = Base Score + Basket Bonus)
+
+Thứ tự sắp xếp theo:
+1. **Basket** (Rổ 1 → Rổ 2 → Rổ 3)
+2. **Final Score** (AI Score) trong cùng một Basket
+
+**Ví dụ thực tế:**
+- SV A (Rổ 2): Base Score = 55 → Final Score = 155 → Đề xuất "Không ưu tiên" nhưng vẫn được duyệt trước SV B
+- SV B (Rổ 3): Base Score = 54 → Final Score = 54 → Đề xuất "Không ưu tiên"
+
+→ Thứ tự: A > B (vì Rổ 2 > Rổ 3), mặc dù cả hai đều có đề xuất "Không ưu tiên"
 
 ---
 

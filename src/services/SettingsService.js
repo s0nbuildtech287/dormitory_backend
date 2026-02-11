@@ -118,20 +118,56 @@ class SettingsService {
     }
 
     /**
-     * Validate scoring weights structure
+     * Validate scoring weights structure (new 3-component system)
      */
-    validateScoringWeights(weights) {
-        const requiredKeys = ['year', 'distance', 'gpa', 'circumstance'];
-        const totalWeight = Object.values(weights).reduce((sum, item) => sum + (item.weight || 0), 0);
+    validateScoringWeights(config) {
+        // Validate weights (W1, W2, W3 should sum to 1.0)
+        if (config.weights) {
+            const { w1_priority, w2_year, w3_gpa } = config.weights;
+            
+            if (typeof w1_priority !== 'number' || w1_priority < 0 || w1_priority > 1) {
+                throw new Error('Invalid w1_priority: must be a number between 0 and 1');
+            }
+            if (typeof w2_year !== 'number' || w2_year < 0 || w2_year > 1) {
+                throw new Error('Invalid w2_year: must be a number between 0 and 1');
+            }
+            if (typeof w3_gpa !== 'number' || w3_gpa < 0 || w3_gpa > 1) {
+                throw new Error('Invalid w3_gpa: must be a number between 0 and 1');
+            }
 
-        for (const key of requiredKeys) {
-            if (!weights[key] || typeof weights[key].weight !== 'number') {
-                throw new Error(`Invalid weight for ${key}`);
+            const totalWeight = w1_priority + w2_year + w3_gpa;
+            if (Math.abs(totalWeight - 1.0) > 0.01) {
+                throw new Error(`Total weight must equal 1.0 (current: ${totalWeight.toFixed(2)})`);
             }
         }
 
-        if (totalWeight !== 100) {
-            throw new Error('Total weight must equal 100%');
+        // Validate quotas (should sum to 100%)
+        if (config.quotas) {
+            const { policy_priority, freshmen, seniors } = config.quotas;
+            
+            if (typeof policy_priority !== 'number' || policy_priority < 0 || policy_priority > 100) {
+                throw new Error('Invalid policy_priority quota');
+            }
+            if (typeof freshmen !== 'number' || freshmen < 0 || freshmen > 100) {
+                throw new Error('Invalid freshmen quota');
+            }
+            if (typeof seniors !== 'number' || seniors < 0 || seniors > 100) {
+                throw new Error('Invalid seniors quota');
+            }
+
+            const totalQuota = policy_priority + freshmen + seniors;
+            if (Math.abs(totalQuota - 100) > 1) {
+                throw new Error(`Total quota must equal 100% (current: ${totalQuota.toFixed(1)}%)`);
+            }
+        }
+
+        // Validate score mappings (optional, just check structure exists)
+        if (config.scoreMappings) {
+            const { priority, year, gpa } = config.scoreMappings;
+            
+            if (!priority || !year || !gpa) {
+                throw new Error('Score mappings must include priority, year, and gpa sections');
+            }
         }
     }
 }
