@@ -68,18 +68,62 @@ class RegistrationService {
   }
 
   /**
+   * Fetch score mappings from settings
+   */
+  async getScoreMappings() {
+    try {
+      const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
+      
+      if (setting && setting.value && setting.value.scoreMappings) {
+        return setting.value.scoreMappings;
+      }
+    } catch (error) {
+      console.warn("⚠️ Could not fetch score mappings, using defaults:", error.message);
+    }
+    
+    // Fallback to defaults
+    return {
+      priority: {
+        absolute_policy: 100,
+        priority_area: 70,
+        other_objects: 30,
+        non_priority: 0
+      },
+      year: {
+        year1: 100,
+        year2: 60,
+        year3: 40,
+        year4: 20
+      },
+      gpa: {
+        conversion_factor: 25,
+        min_gpa_filter: 2.0
+      }
+    };
+  }
+
+  /**
    * Calculate Priority Score based on priority_reasons
    * @param {string} priorityReasons - Priority reason string
+   * @param {object} scoreMappings - Score mappings from settings
    * @returns {number} Priority score (0-100)
    */
-  calculatePriorityScore(priorityReasons) {
+  calculatePriorityScore(priorityReasons, scoreMappings = null) {
+    // Use defaults if no mappings provided
+    const mappings = scoreMappings?.priority || {
+      absolute_policy: 100,
+      priority_area: 70,
+      other_objects: 30,
+      non_priority: 0
+    };
+    
     if (!priorityReasons) {
-      return 0; // Không thuộc diện ưu tiên
+      return mappings.non_priority; // Không thuộc diện ưu tiên
     }
 
     const lowerReason = priorityReasons.toLowerCase();
 
-    // Chính sách tuyệt đối (100 điểm)
+    // Chính sách tuyệt đối
     if (
       lowerReason.includes("hộ nghèo") ||
       lowerReason.includes("cận nghèo") ||
@@ -89,38 +133,47 @@ class RegistrationService {
       lowerReason.includes("lưu học sinh") ||
       lowerReason.includes("hoàn cảnh khó khăn đặc biệt")
     ) {
-      return 100;
+      return mappings.absolute_policy;
     }
 
-    // Khu vực ưu tiên (70 điểm)
+    // Khu vực ưu tiên
     if (lowerReason.includes("vùng sâu") || lowerReason.includes("vùng xa") || lowerReason.includes("hải đảo") || lowerReason.includes("vùng có điều kiện kinh tế đặc biệt khó khăn")) {
-      return 70;
+      return mappings.priority_area;
     }
 
-    // Đối tượng khác (30 điểm)
+    // Đối tượng khác
     if (lowerReason.includes("giấy xác nhận ưu tiên") || lowerReason.includes("ưu tiên khác")) {
-      return 30;
+      return mappings.other_objects;
     }
 
-    // Mặc định: không thuộc diện ưu tiên (0 điểm)
-    return 0;
+    // Mặc định: không thuộc diện ưu tiên
+    return mappings.non_priority;
   }
 
   /**
    * Calculate Year Score based on student year
    * @param {number} year - Student year (1-4)
+   * @param {object} scoreMappings - Score mappings from settings
    * @returns {number} Year score (0-100)
    */
-  calculateYearScore(year) {
+  calculateYearScore(year, scoreMappings = null) {
+    // Use defaults if no mappings provided
+    const mappings = scoreMappings?.year || {
+      year1: 100,
+      year2: 60,
+      year3: 40,
+      year4: 20
+    };
+    
     switch (year) {
       case 1:
-        return 100;
+        return mappings.year1;
       case 2:
-        return 60;
+        return mappings.year2;
       case 3:
-        return 40;
+        return mappings.year3;
       case 4:
-        return 20;
+        return mappings.year4;
       default:
         return 0; // Invalid year
     }
@@ -128,13 +181,20 @@ class RegistrationService {
 
   /**
    * Calculate GPA Score
-   * Formula: GPA × 25 (for 4.0 system)
+   * Formula: GPA × conversion_factor (default 25 for 4.0 system)
    * Special case: Year 1 students with GPA = 0 get score = 50 (haven't taken courses yet)
    * @param {number} gpa - Student GPA
    * @param {number} year - Student year (1-4)
+   * @param {object} scoreMappings - Score mappings from settings
    * @returns {object} { score: number, isFiltered: boolean }
    */
-  calculateGPAScore(gpa, year = null) {
+  calculateGPAScore(gpa, year = null, scoreMappings = null) {
+    // Use defaults if no mappings provided
+    const mappings = scoreMappings?.gpa || {
+      conversion_factor: 25,
+      min_gpa_filter: 2.0
+    };
+    
     // Special case: Year 1 students with GPA = 0
     // They haven't studied any courses yet, so GPA = 0 is reasonable
     // Give them a neutral score of 50 (equivalent to GPA 2.0)
@@ -146,12 +206,12 @@ class RegistrationService {
       };
     }
 
-    // GPA filtering: reject if < 2.0 (but not for year 1 students)
-    if (gpa !== null && gpa < 2.0) {
+    // GPA filtering: reject if < min_gpa_filter (but not for year 1 students)
+    if (gpa !== null && gpa < mappings.min_gpa_filter) {
       return {
         score: 0,
         isFiltered: true,
-        reason: "GPA < 2.0",
+        reason: `GPA < ${mappings.min_gpa_filter}`,
       };
     }
 
@@ -162,8 +222,8 @@ class RegistrationService {
       };
     }
 
-    // Formula: GPA × 25
-    const score = Math.min(gpa * 25, 100); // Cap at 100
+    // Formula: GPA × conversion_factor
+    const score = Math.min(gpa * mappings.conversion_factor, 100); // Cap at 100
     return {
       score: Math.round(score),
       isFiltered: false,
@@ -649,17 +709,20 @@ class RegistrationService {
             // Get basket-specific weights from database
             const weights = await this.getBasketWeights(basket);
             console.log(`    ⚖️  Weights (Rổ ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
+            
+            // Get score mappings from database
+            const scoreMappings = await this.getScoreMappings();
 
             // 1. Tính Priority Score (Điểm Ưu tiên)
-            const priorityScore = this.calculatePriorityScore(row["Lý do ưu tiên"] || row["priority_reasons"]);
+            const priorityScore = this.calculatePriorityScore(row["Lý do ưu tiên"] || row["priority_reasons"], scoreMappings);
             console.log(`    ➜ PriorityScore: ${priorityScore}`);
 
             // 2. Tính Year Score (Điểm Năm học)
-            const yearScore = this.calculateYearScore(year);
+            const yearScore = this.calculateYearScore(year, scoreMappings);
             console.log(`    ➜ YearScore (Năm ${year}): ${yearScore}`);
 
             // 3. Tính GPA Score (Điểm GPA) - Truyền year để xử lý đặc biệt cho năm 1
-            const gpaScoreResult = this.calculateGPAScore(gpa, year);
+            const gpaScoreResult = this.calculateGPAScore(gpa, year, scoreMappings);
             if (gpaScoreResult.isFiltered) {
               console.log(`    ➜ GPAScore: ${gpaScoreResult.score} ⛔ FILTERED (${gpaScoreResult.reason})`);
               isGPAFiltered = true;
@@ -848,15 +911,18 @@ class RegistrationService {
 
           // Get basket-specific weights from database
           const weights = await this.getBasketWeights(basket);
+          
+          // Get score mappings from database
+          const scoreMappings = await this.getScoreMappings();
 
           // 1. Calculate Priority Score
-          const priorityScore = this.calculatePriorityScore(reg.priority_reasons);
+          const priorityScore = this.calculatePriorityScore(reg.priority_reasons, scoreMappings);
 
           // 2. Calculate Year Score
-          const yearScore = this.calculateYearScore(reg.year);
+          const yearScore = this.calculateYearScore(reg.year, scoreMappings);
 
           // 3. Calculate GPA Score (with year parameter for special case)
-          const gpaScoreResult = this.calculateGPAScore(reg.gpa, reg.year);
+          const gpaScoreResult = this.calculateGPAScore(reg.gpa, reg.year, scoreMappings);
 
           // 4. Calculate Final AI Score
           let aiScore = null;
