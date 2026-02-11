@@ -118,32 +118,63 @@ class SettingsService {
     }
 
     /**
-     * Validate scoring weights structure (new 3-component system)
+     * Validate scoring weights structure (supports both flat and 3-basket structure)
      */
     validateScoringWeights(config) {
-        // Validate weights (W1, W2, W3 should sum to 1.0)
+        // Validate weights - supports both flat structure and 3-basket structure
         if (config.weights) {
-            const { w1_priority, w2_year, w3_gpa } = config.weights;
-            
-            if (typeof w1_priority !== 'number' || w1_priority < 0 || w1_priority > 1) {
-                throw new Error('Invalid w1_priority: must be a number between 0 and 1');
-            }
-            if (typeof w2_year !== 'number' || w2_year < 0 || w2_year > 1) {
-                throw new Error('Invalid w2_year: must be a number between 0 and 1');
-            }
-            if (typeof w3_gpa !== 'number' || w3_gpa < 0 || w3_gpa > 1) {
-                throw new Error('Invalid w3_gpa: must be a number between 0 and 1');
-            }
+            // Check if it's a 3-basket structure (has basket1, basket2, basket3)
+            if (config.weights.basket1 || config.weights.basket2 || config.weights.basket3) {
+                // Validate each basket
+                ['basket1', 'basket2', 'basket3'].forEach(basketKey => {
+                    if (config.weights[basketKey]) {
+                        const { w1_priority, w2_year, w3_gpa } = config.weights[basketKey];
+                        
+                        if (typeof w1_priority !== 'number' || w1_priority < 0 || w1_priority > 1) {
+                            throw new Error(`Invalid ${basketKey}.w1_priority: must be a number between 0 and 1`);
+                        }
+                        if (typeof w2_year !== 'number' || w2_year < 0 || w2_year > 1) {
+                            throw new Error(`Invalid ${basketKey}.w2_year: must be a number between 0 and 1`);
+                        }
+                        if (typeof w3_gpa !== 'number' || w3_gpa < 0 || w3_gpa > 1) {
+                            throw new Error(`Invalid ${basketKey}.w3_gpa: must be a number between 0 and 1`);
+                        }
 
-            const totalWeight = w1_priority + w2_year + w3_gpa;
-            if (Math.abs(totalWeight - 1.0) > 0.01) {
-                throw new Error(`Total weight must equal 1.0 (current: ${totalWeight.toFixed(2)})`);
+                        const totalWeight = w1_priority + w2_year + w3_gpa;
+                        if (Math.abs(totalWeight - 1.0) > 0.01) {
+                            throw new Error(`${basketKey} total weight must equal 1.0 (current: ${totalWeight.toFixed(2)})`);
+                        }
+                    }
+                });
+            } else {
+                // Flat structure (legacy support)
+                const { w1_priority, w2_year, w3_gpa } = config.weights;
+                
+                if (typeof w1_priority !== 'number' || w1_priority < 0 || w1_priority > 1) {
+                    throw new Error('Invalid w1_priority: must be a number between 0 and 1');
+                }
+                if (typeof w2_year !== 'number' || w2_year < 0 || w2_year > 1) {
+                    throw new Error('Invalid w2_year: must be a number between 0 and 1');
+                }
+                if (typeof w3_gpa !== 'number' || w3_gpa < 0 || w3_gpa > 1) {
+                    throw new Error('Invalid w3_gpa: must be a number between 0 and 1');
+                }
+
+                const totalWeight = w1_priority + w2_year + w3_gpa;
+                if (Math.abs(totalWeight - 1.0) > 0.01) {
+                    throw new Error(`Total weight must equal 1.0 (current: ${totalWeight.toFixed(2)})`);
+                }
             }
         }
 
         // Validate quotas (should sum to 100%)
         if (config.quotas) {
-            const { policy_priority, freshmen, seniors } = config.quotas;
+            const { totalSlots, policy_priority, freshmen, seniors } = config.quotas;
+            
+            // Validate total slots if provided
+            if (totalSlots !== undefined && (typeof totalSlots !== 'number' || totalSlots < 0)) {
+                throw new Error('Invalid totalSlots: must be a positive number');
+            }
             
             if (typeof policy_priority !== 'number' || policy_priority < 0 || policy_priority > 100) {
                 throw new Error('Invalid policy_priority quota');

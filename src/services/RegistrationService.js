@@ -260,6 +260,7 @@ class RegistrationService {
   /**
    * Get all registrations with filters
    * Results are sorted by: Basket (1 → 2 → 3) then AI Score within each basket
+   * Also marks registrations as "full" if they exceed available slots
    */
   async getRegistrations(filters = {}) {
     try {
@@ -302,6 +303,78 @@ class RegistrationService {
         // 2. Within same basket: Sort by AI Score (higher is better)
         return (b.ai_score || 0) - (a.ai_score || 0);
       });
+      
+      // Check for full slots per basket and mark registrations accordingly
+      try {
+        const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
+        let totalSlots = 1000; // Default
+        let quotas = {
+          policy_priority: 10,
+          freshmen: 60,
+          seniors: 30
+        };
+        
+        if (setting && setting.value && setting.value.quotas) {
+          if (setting.value.quotas.totalSlots) {
+            totalSlots = setting.value.quotas.totalSlots;
+          }
+          if (setting.value.quotas.policy_priority !== undefined) {
+            quotas.policy_priority = setting.value.quotas.policy_priority;
+          }
+          if (setting.value.quotas.freshmen !== undefined) {
+            quotas.freshmen = setting.value.quotas.freshmen;
+          }
+          if (setting.value.quotas.seniors !== undefined) {
+            quotas.seniors = setting.value.quotas.seniors;
+          }
+        }
+        
+        // Calculate slots per basket
+        const slotsPerBasket = {
+          1: Math.round((quotas.policy_priority / 100) * totalSlots),  // Rổ 1: Chính sách
+          2: Math.round((quotas.freshmen / 100) * totalSlots),         // Rổ 2: Tân SV
+          3: Math.round((quotas.seniors / 100) * totalSlots)           // Rổ 3: Khóa cũ
+        };
+        
+        console.log(`📊 Slot allocation: Rổ 1=${slotsPerBasket[1]}, Rổ 2=${slotsPerBasket[2]}, Rổ 3=${slotsPerBasket[3]} (Total: ${totalSlots})`);
+        
+        // Count pending registrations per basket
+        const basketCounts = { 1: 0, 2: 0, 3: 0 };
+        
+        registrations.forEach((reg) => {
+          // Only count pending registrations
+          if (reg.status === "Chờ duyệt") {
+            // Determine which basket this registration belongs to
+            let basket = 3; // Default
+            try {
+              if (reg.ai_reasoning) {
+                const reasoning = JSON.parse(reg.ai_reasoning);
+                basket = reasoning.basket || this.determineBasket(reg.priority_reasons, reg.year);
+              } else {
+                basket = this.determineBasket(reg.priority_reasons, reg.year);
+              }
+            } catch (e) {
+              basket = this.determineBasket(reg.priority_reasons, reg.year);
+            }
+            
+            // Increment count for this basket
+            basketCounts[basket]++;
+            
+            // Mark as full if this basket has exceeded its quota
+            reg.isFull = basketCounts[basket] > slotsPerBasket[basket];
+          } else {
+            reg.isFull = false;
+          }
+        });
+        
+        console.log(`📊 Registration counts: Rổ 1=${basketCounts[1]}, Rổ 2=${basketCounts[2]}, Rổ 3=${basketCounts[3]}`);
+      } catch (error) {
+        console.warn("⚠️ Could not check slot capacity:", error.message);
+        // If error, don't mark any as full
+        registrations.forEach((reg) => {
+          reg.isFull = false;
+        });
+      }
       
       return registrations;
     } catch (error) {
@@ -600,15 +673,16 @@ class RegistrationService {
 
               console.log(`  ✨ AI Score: ${aiScore} -> ${aiSuggestion} (Rổ ${basket})`);
             } else {
-              // GPA < 2.0 → Reject automatically
+              // GPA < 2.0 → Set to lowest priority with valid enum value
               aiScore = 0;
-              aiSuggestion = "Loại (GPA < 2.0)";
+              aiSuggestion = "Không ưu tiên";  // Valid enum value
               aiReasoning = JSON.stringify({
                 filtered: true,
-                reason: "GPA < 2.0",
+                reason: "GPA < 2.0 - Không đạt tiêu chuẩn tối thiểu",
                 min_gpa_required: 2.0,
+                actual_gpa: gpa,
               });
-              console.log(`  ❌ GPA không đạt tiêu chuẩn tối thiểu (2.0)`);
+              console.log(`  ❌ GPA không đạt tiêu chuẩn tối thiểu (2.0) - Đánh giá: Không ưu tiên`);
             }
           } else {
             console.log("  ⚠️  Thiếu thông tin GPA hoặc Năm học, không tính AI Score");
@@ -770,13 +844,14 @@ class RegistrationService {
           let aiReasoning = null;
 
           if (gpaScoreResult.isFiltered) {
-            // GPA < 2.0 → Auto reject
+            // GPA < 2.0 → Set to lowest priority with valid enum value
             aiScore = 0;
-            aiSuggestion = "Loại (GPA < 2.0)";
+            aiSuggestion = "Không ưu tiên";  // Valid enum value
             aiReasoning = JSON.stringify({
               filtered: true,
-              reason: gpaScoreResult.reason,
+              reason: gpaScoreResult.reason + " - Không đạt tiêu chuẩn tối thiểu",
               min_gpa_required: 2.0,
+              actual_gpa: reg.gpa,
             });
           } else {
             aiScore = this.calculateFinalAIScore({
