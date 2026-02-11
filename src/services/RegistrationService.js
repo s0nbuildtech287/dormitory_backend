@@ -200,11 +200,34 @@ class RegistrationService {
    * @param {number} basket - Basket number (1, 2, or 3)
    * @returns {object} Weights { w1_priority, w2_year, w3_gpa }
    */
-  getBasketWeights(basket) {
+  async getBasketWeights(basket) {
+    try {
+      const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
+      
+      if (setting && setting.value && setting.value.weights) {
+        const weights = setting.value.weights;
+        
+        // Check if it's 3-basket structure
+        if (weights.basket1 || weights.basket2 || weights.basket3) {
+          const basketKey = `basket${basket}`;
+          if (weights[basketKey]) {
+            return {
+              w1_priority: weights[basketKey].w1_priority,
+              w2_year: weights[basketKey].w2_year,
+              w3_gpa: weights[basketKey].w3_gpa,
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch basket ${basket} weights, using defaults:`, error.message);
+    }
+    
+    // Fallback to defaults if not found
     const basketWeights = {
-      1: { w1_priority: 0.60, w2_year: 0.25, w3_gpa: 0.15 }, // Chính sách: Ưu tiên hoàn cảnh
-      2: { w1_priority: 0.20, w2_year: 0.70, w3_gpa: 0.10 }, // Tân SV: Ưu tiên năm 1
-      3: { w1_priority: 0.15, w2_year: 0.25, w3_gpa: 0.60 }, // Khóa cũ: Ưu tiên điểm cao
+      1: { w1_priority: 0.40, w2_year: 0.30, w3_gpa: 0.30 }, // Chính sách
+      2: { w1_priority: 0.20, w2_year: 0.50, w3_gpa: 0.30 }, // Tân SV
+      3: { w1_priority: 0.10, w2_year: 0.20, w3_gpa: 0.70 }, // Khóa cũ
     };
     return basketWeights[basket] || basketWeights[3];
   }
@@ -212,14 +235,11 @@ class RegistrationService {
   /**
    * Calculate final AI Score (0-100 scale)
    * Formula uses basket-specific weights
-   * @param {object} params - { priorityScore, yearScore, gpaScore, basket }
+   * @param {object} params - { priorityScore, yearScore, gpaScore, basket, weights }
    * @returns {number} Final AI score (0-100)
    */
   calculateFinalAIScore(params) {
-    const { priorityScore, yearScore, gpaScore, basket } = params;
-
-    // Get basket-specific weights
-    const weights = this.getBasketWeights(basket);
+    const { priorityScore, yearScore, gpaScore, weights } = params;
 
     // Calculate score with basket-specific formula
     const score = 
@@ -626,8 +646,8 @@ class RegistrationService {
             const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
             console.log(`    ➜ Basket: Rổ ${basket} (${basketName})`);
 
-            // Get basket-specific weights
-            const weights = this.getBasketWeights(basket);
+            // Get basket-specific weights from database
+            const weights = await this.getBasketWeights(basket);
             console.log(`    ⚖️  Weights (Rổ ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
 
             // 1. Tính Priority Score (Điểm Ưu tiên)
@@ -654,7 +674,7 @@ class RegistrationService {
                 priorityScore: priorityScore,
                 yearScore: yearScore,
                 gpaScore: gpaScoreResult.score,
-                basket: basket,
+                weights: weights,
               });
 
               aiSuggestion = this.determineAISuggestion(aiScore, basket);
@@ -826,8 +846,8 @@ class RegistrationService {
           const basket = this.determineBasket(reg.priority_reasons, reg.year);
           const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
 
-          // Get basket-specific weights
-          const weights = this.getBasketWeights(basket);
+          // Get basket-specific weights from database
+          const weights = await this.getBasketWeights(basket);
 
           // 1. Calculate Priority Score
           const priorityScore = this.calculatePriorityScore(reg.priority_reasons);
@@ -858,7 +878,7 @@ class RegistrationService {
               priorityScore: priorityScore,
               yearScore: yearScore,
               gpaScore: gpaScoreResult.score,
-              basket: basket,
+              weights: weights,
             });
 
             aiSuggestion = this.determineAISuggestion(aiScore, basket);
