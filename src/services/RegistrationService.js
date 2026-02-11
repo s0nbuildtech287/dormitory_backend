@@ -192,43 +192,66 @@ class RegistrationService {
   }
 
   /**
-   * Calculate final AI Score with basket bonus
-   * Formula: aiScore = (PriorityScore × W₁) + (YearScore × W₂) + (GPAScore × W₃) + BasketBonus
-   * BasketBonus ensures proper ordering: Rổ 1 > Rổ 2 > Rổ 3
-   * @param {object} params - { priorityScore, yearScore, gpaScore, w1, w2, w3, basket }
-   * @returns {number} Final AI score
+   * Get basket-specific scoring weights
+   * Each basket has different priorities:
+   * - Rổ 1 (Chính sách): Priority > Year > GPA
+   * - Rổ 2 (Tân SV): Year > Priority, GPA ít quan trọng
+   * - Rổ 3 (Khóa cũ): GPA > Year > Priority
+   * @param {number} basket - Basket number (1, 2, or 3)
+   * @returns {object} Weights { w1_priority, w2_year, w3_gpa }
+   */
+  getBasketWeights(basket) {
+    const basketWeights = {
+      1: { w1_priority: 0.60, w2_year: 0.25, w3_gpa: 0.15 }, // Chính sách: Ưu tiên hoàn cảnh
+      2: { w1_priority: 0.20, w2_year: 0.70, w3_gpa: 0.10 }, // Tân SV: Ưu tiên năm 1
+      3: { w1_priority: 0.15, w2_year: 0.25, w3_gpa: 0.60 }, // Khóa cũ: Ưu tiên điểm cao
+    };
+    return basketWeights[basket] || basketWeights[3];
+  }
+
+  /**
+   * Calculate final AI Score (0-100 scale)
+   * Formula uses basket-specific weights
+   * @param {object} params - { priorityScore, yearScore, gpaScore, basket }
+   * @returns {number} Final AI score (0-100)
    */
   calculateFinalAIScore(params) {
-    const { priorityScore, yearScore, gpaScore, w1, w2, w3, basket } = params;
+    const { priorityScore, yearScore, gpaScore, basket } = params;
 
-    // Base score
-    let score = priorityScore * w1 + yearScore * w2 + gpaScore * w3;
-    
-    // Basket bonus to ensure proper ordering (Rổ 1 > Rổ 2 > Rổ 3)
-    // Rổ 1: +200 (always top)
-    // Rổ 2: +100 (middle priority)
-    // Rổ 3: +0 (lowest priority, compete by GPA)
-    const basketBonus = {
-      1: 200,  // Chính sách
-      2: 100,  // Tân sinh viên
-      3: 0     // Khóa cũ
-    };
-    
-    score += basketBonus[basket] || 0;
+    // Get basket-specific weights
+    const weights = this.getBasketWeights(basket);
+
+    // Calculate score with basket-specific formula
+    const score = 
+      priorityScore * weights.w1_priority + 
+      yearScore * weights.w2_year + 
+      gpaScore * weights.w3_gpa;
     
     return Math.round(score);
   }
 
   /**
-   * Determine AI Suggestion based on base score (before basket bonus)
-   * This evaluates the quality of the application, not the priority order
-   * @param {number} baseScore - Base AI score (before basket bonus)
+   * Determine AI Suggestion based on score and basket
+   * Different baskets have different thresholds
+   * @param {number} score - AI score (0-100)
+   * @param {number} basket - Basket number (1, 2, or 3)
    * @returns {string} AI suggestion
    */
-  determineAISuggestion(baseScore) {
-    if (baseScore >= 80) {
+  determineAISuggestion(score, basket) {
+    // Rổ 1 (Chính sách): Nới lỏng tiêu chuẩn vì ưu tiên hoàn cảnh
+    // Rổ 2 (Tân SV): Nới lỏng vì chưa có điểm GPA
+    // Rổ 3 (Khóa cũ): Chặt chẽ hơn vì có GPA
+    const thresholds = {
+      1: { high: 70, medium: 50 }, // Chính sách: Dễ duyệt hơn
+      2: { high: 75, medium: 55 }, // Tân SV: Dễ duyệt
+      3: { high: 80, medium: 65 }, // Khóa cũ: Yêu cầu cao hơn
+    };
+
+    const threshold = thresholds[basket] || thresholds[3];
+
+    if (score >= threshold.high) {
       return "Nên duyệt";
-    } else if (baseScore >= 60) {
+    } else if (score >= threshold.medium) {
       return "Cân nhắc";
     } else {
       return "Không ưu tiên";
@@ -523,15 +546,16 @@ class RegistrationService {
           let aiReasoning = null;
           let isGPAFiltered = false;
 
-          // Fetch weights từ settings
-          const weights = await this.getScoringWeights();
-          console.log(`  ⚖️  Weights: W₁=${weights.w1_priority}, W₂=${weights.w2_year}, W₃=${weights.w3_gpa}`);
-
           // Chỉ tính nếu có đủ thông tin chính
           if (gpa !== null && year !== undefined) {
             // 0. Xác định Rổ (Basket)
             const basket = this.determineBasket(row["Lý do ưu tiên"] || row["priority_reasons"], year);
-            console.log(`    ➜ Basket: Rổ ${basket}`);
+            const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
+            console.log(`    ➜ Basket: Rổ ${basket} (${basketName})`);
+
+            // Get basket-specific weights
+            const weights = this.getBasketWeights(basket);
+            console.log(`    ⚖️  Weights (Rổ ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
 
             // 1. Tính Priority Score (Điểm Ưu tiên)
             const priorityScore = this.calculatePriorityScore(row["Lý do ưu tiên"] || row["priority_reasons"]);
@@ -551,41 +575,27 @@ class RegistrationService {
               console.log(`    ➜ GPAScore (${scoreExplanation}): ${gpaScoreResult.score}`);
             }
 
-            // 4. Tính Base Score (trước khi cộng bonus)
-            const baseScore = Math.round(
-              priorityScore * weights.w1_priority +
-              yearScore * weights.w2_year +
-              gpaScoreResult.score * weights.w3_gpa
-            );
-
-            // 5. Tính Final AI Score (với basket bonus)
+            // 4. Tính Final AI Score (0-100)
             if (!isGPAFiltered) {
               aiScore = this.calculateFinalAIScore({
                 priorityScore: priorityScore,
                 yearScore: yearScore,
                 gpaScore: gpaScoreResult.score,
-                w1: weights.w1_priority,
-                w2: weights.w2_year,
-                w3: weights.w3_gpa,
                 basket: basket,
               });
 
-              aiSuggestion = this.determineAISuggestion(baseScore);
+              aiSuggestion = this.determineAISuggestion(aiScore, basket);
 
               aiReasoning = JSON.stringify({
-                description: "Hệ thống tính điểm 3 Rổ + 3 thành phần",
+                description: "Hệ thống tính điểm theo Rổ (mỗi rổ có trọng số riêng)",
                 basket: basket,
-                basket_name: basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ",
+                basket_name: basketName,
                 priority_score: priorityScore,
                 year_score: yearScore,
                 gpa_score: gpaScoreResult.score,
-                weight_priority: weights.w1_priority,
-                weight_year: weights.w2_year,
-                weight_gpa: weights.w3_gpa,
-                base_score: baseScore,
-                basket_bonus: basket === 1 ? 200 : basket === 2 ? 100 : 0,
+                basket_weights: weights,
                 final_score: aiScore,
-                formula: `Base: (${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${baseScore} | Final: ${baseScore} + Bonus(Rổ ${basket}) = ${aiScore}`,
+                formula: `(${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${aiScore}`,
               });
 
               console.log(`  ✨ AI Score: ${aiScore} -> ${aiSuggestion} (Rổ ${basket})`);
@@ -740,6 +750,10 @@ class RegistrationService {
 
           // 0. Determine Basket
           const basket = this.determineBasket(reg.priority_reasons, reg.year);
+          const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
+
+          // Get basket-specific weights
+          const weights = this.getBasketWeights(basket);
 
           // 1. Calculate Priority Score
           const priorityScore = this.calculatePriorityScore(reg.priority_reasons);
@@ -750,14 +764,7 @@ class RegistrationService {
           // 3. Calculate GPA Score (with year parameter for special case)
           const gpaScoreResult = this.calculateGPAScore(reg.gpa, reg.year);
 
-          // 4. Calculate Base Score (before basket bonus)
-          const baseScore = Math.round(
-            priorityScore * weights.w1_priority +
-            yearScore * weights.w2_year +
-            gpaScoreResult.score * weights.w3_gpa
-          );
-
-          // 5. Calculate Final AI Score
+          // 4. Calculate Final AI Score
           let aiScore = null;
           let aiSuggestion = null;
           let aiReasoning = null;
@@ -776,32 +783,25 @@ class RegistrationService {
               priorityScore: priorityScore,
               yearScore: yearScore,
               gpaScore: gpaScoreResult.score,
-              w1: weights.w1_priority,
-              w2: weights.w2_year,
-              w3: weights.w3_gpa,
               basket: basket,
             });
 
-            aiSuggestion = this.determineAISuggestion(baseScore);
+            aiSuggestion = this.determineAISuggestion(aiScore, basket);
 
             aiReasoning = JSON.stringify({
-              description: "Hệ thống tính điểm 3 Rổ + 3 thành phần",
+              description: "Hệ thống tính điểm theo Rổ (mỗi rổ có trọng số riêng)",
               basket: basket,
-              basket_name: basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ",
+              basket_name: basketName,
               priority_score: priorityScore,
               year_score: yearScore,
               gpa_score: gpaScoreResult.score,
-              weight_priority: weights.w1_priority,
-              weight_year: weights.w2_year,
-              weight_gpa: weights.w3_gpa,
-              base_score: baseScore,
-              basket_bonus: basket === 1 ? 200 : basket === 2 ? 100 : 0,
+              basket_weights: weights,
               final_score: aiScore,
-              formula: `Base: (${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${baseScore} | Final: ${baseScore} + Bonus(Rổ ${basket}) = ${aiScore}`,
+              formula: `(${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${aiScore}`,
             });
           }
 
-          // 6. Update registration in database
+          // 5. Update registration in database
           await RegisterFormDAO.update(reg.id, {
             ai_score: aiScore,
             ai_suggestion: aiSuggestion,

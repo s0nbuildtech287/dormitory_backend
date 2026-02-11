@@ -129,21 +129,45 @@ calculateGPAScore(gpa, year) {
 
 ---
 
-## 4. Trọng Số (Weighting Factors)
+## 4. Trọng Số Theo Rổ (Basket-Specific Weights)
 
-### Mặc Định
+Mỗi rổ có công thức tính điểm riêng với trọng số khác nhau:
+
+### Rổ 1: Chính Sách (Policy Priority)
+
+**Ưu tiên:** Hoàn cảnh > Năm học > Điểm GPA
 
 ```javascript
-W₁ (Priority/Ưu tiên):  0.25 (25%)
-W₂ (Year/Năm học):      0.35 (35%)
-W₃ (GPA/Học tập):       0.40 (40%)
+W₁ (Priority/Ưu tiên):  0.60 (60%)
+W₂ (Year/Năm học):      0.25 (25%)
+W₃ (GPA/Học tập):       0.15 (15%)
 ```
 
-### Cách Fetch
+### Rổ 2: Tân Sinh Viên (Freshmen)
 
-- Trọng số được lưu trong bảng `settings` với `name = 'scoring_weights'`
-- Nếu không tìm thấy → sử dụng giá trị mặc định
-- Admin có thể thay đổi qua UI trang **RegistrationSettings.jsx**
+**Ưu tiên:** Năm học > Hoàn cảnh, GPA ít quan trọng
+
+```javascript
+W₁ (Priority/Ưu tiên):  0.20 (20%)
+W₂ (Year/Năm học):      0.70 (70%)
+W₃ (GPA/Học tập):       0.10 (10%)
+```
+
+### Rổ 3: Khóa Cũ (Upper-class Students)
+
+**Ưu tiên:** GPA > Năm học > Hoàn cảnh
+
+```javascript
+W₁ (Priority/Ưu tiên):  0.15 (15%)
+W₂ (Year/Năm học):      0.25 (25%)
+W₃ (GPA/Học tập):       0.60 (60%)
+```
+
+### Lưu Ý Quan Trọng
+
+- **Điểm cuối cùng luôn trong thang 0-100**
+- **Xác định rổ trước:** Có lý do ưu tiên → Rổ 1, ngay cả khi là tân sinh viên
+- **Sắp xếp:** Rổ 1 → Rổ 2 → Rổ 3, trong mỗi rổ sắp theo điểm từ cao xuống thấp
 
 ---
 
@@ -153,33 +177,33 @@ W₃ (GPA/Học tập):       0.40 (40%)
 
 ```
 Rổ            = 2       (Tân sinh viên)
+Weights       = Priority 0.20, Year 0.70, GPA 0.10
+
 PriorityScore = 0       (không ưu tiên)
 YearScore     = 100     (năm 1)
 GPAScore      = 50      (năm 1, chưa có điểm → điểm trung bình)
 
-Base Score = (0 × 0.25) + (100 × 0.35) + (50 × 0.40)
-           = 0 + 35 + 20 = 55
+AI Score = (0 × 0.20) + (100 × 0.70) + (50 × 0.10)
+         = 0 + 70 + 5 = 75
 
-Final Score (AI Score) = 55 + 100 (Bonus Rổ 2) = 155
-
-→ Đề xuất: "Không ưu tiên" (vì Base Score 55 < 60)
-→ Thứ tự: Ưu tiên sau Rổ 1, trước Rổ 3 (vì Final Score = 155)
+→ Đề xuất: "Nên duyệt" (vì 75 ≥ 75 cho Rổ 2)
+→ Thứ tự: Ưu tiên sau Rổ 1, trước Rổ 3
 ```
 
 ### Sinh Viên B: Năm 3, GPA 4.0, Không ưu tiên (Khóa cũ giỏi - Rổ 3)
 
 ```
 Rổ            = 3       (Khóa cũ)
+Weights       = Priority 0.15, Year 0.25, GPA 0.60
+
 PriorityScore = 0       (không ưu tiên)
 YearScore     = 40      (năm 3)
 GPAScore      = 100     (4.0 × 25)
 
-Base Score = (0 × 0.25) + (40 × 0.35) + (100 × 0.40)
-           = 0 + 14 + 40 = 54
+AI Score = (0 × 0.15) + (40 × 0.25) + (100 × 0.60)
+         = 0 + 10 + 60 = 70
 
-Final Score (AI Score) = 54 + 0 (Rổ 3) = 54
-
-→ Đề xuất: "Không ưu tiên" (vì Base Score 54 < 60)
+→ Đề xuất: "Cân nhắc" (vì 65 ≤ 70 < 80 cho Rổ 3)
 → Thứ tự: Sau tất cả SV Rổ 1 và Rổ 2
 → Cạnh tranh với nhau trong Rổ 3 bằng GPA
 ```
@@ -201,63 +225,91 @@ GPAScore      = ❌      (1.8 < 2.0)
 
 ```
 Rổ            = 1       (Chính sách - vùng sâu vùng xa)
+Weights       = Priority 0.60, Year 0.25, GPA 0.15
+
 PriorityScore = 70      (vùng sâu vùng xa)
 YearScore     = 20      (năm 4)
 GPAScore      = 80      (3.2 × 25)
 
-Base Score = (70 × 0.25) + (20 × 0.35) + (80 × 0.40)
-           = 17.5 + 7 + 32 = 56.5 → làm tròn = 57
+AI Score = (70 × 0.60) + (20 × 0.25) + (80 × 0.15)
+         = 42 + 5 + 12 = 59
 
-Final Score (AI Score) = 57 + 200 (Bonus Rổ 1) = 257
+→ Đề xuất: "Cân nhắc" (vì 50 ≤ 59 < 70 cho Rổ 1)
+→ Thứ tự: Ưu tiên tuyệt đối (Rổ 1)
+→ Mặc dù điểm không cao, nhưng vì thuộc Rổ 1 nên vẫn được xếp trước tất cả
+```
 
-→ Đề xuất: "Không ưu tiên" (vì Base Score 57 < 60)
-→ Thứ tự: Ưu tiên tuyệt đối (Rổ 1, Final Score = 257)
-→ Mặc dù Base Score thấp và năm 4, nhưng vì thuộc Rổ 1 nên vẫn được xếp trước tất cả
+### Sinh Viên E: Năm 1, GPA 0, Hộ nghèo (Chính sách + Tân SV - Rổ 1)
+
+```
+Rổ            = 1       (Có lý do ưu tiên → luôn Rổ 1, dù là năm 1)
+Weights       = Priority 0.60, Year 0.25, GPA 0.15
+
+PriorityScore = 100     (hộ nghèo)
+YearScore     = 100     (năm 1)
+GPAScore      = 50      (năm 1, chưa có điểm)
+
+AI Score = (100 × 0.60) + (100 × 0.25) + (50 × 0.15)
+         = 60 + 25 + 7.5 = 92.5 → làm tròn = 93
+
+→ Đề xuất: "Nên duyệt" (vì 93 ≥ 70 cho Rổ 1)
+→ Thứ tự: Top priority (Rổ 1 + điểm cao)
+→ Trường hợp lý tưởng: Vừa có chính sách, vừa là tân sinh viên
 ```
 
 ### Tóm Tắt Thứ Tự Duyệt
 
-| Thứ Tự | SV  | Rổ  | Base Score | Final Score | Đề Xuất         | Lý Do                          |
-| ------- | --- | --- | ---------- | ----------- | --------------- | ------------------------------ |
-| 1       | D   | 1   | 57         | **257**     | Không ưu tiên   | Rổ 1 (Chính sách) + Bonus 200  |
-| 2       | A   | 2   | 55         | **155**     | Không ưu tiên   | Rổ 2 (Tân SV) + Bonus 100      |
-| 3       | B   | 3   | 54         | **54**      | Không ưu tiên   | Rổ 3 (Khóa cũ) + Bonus 0       |
-| -       | C   | 1   | -          | **LOẠI**    | Loại (GPA<2.0)  | Không đạt GPA tối thiểu        |
+| Thứ Tự | SV  | Rổ  | AI Score | Đề Xuất         | Lý Do                                      |
+| ------- | --- | --- | -------- | --------------- | ------------------------------------------ |
+| 1       | E   | 1   | **93**   | Nên duyệt       | Chính sách + Năm 1, điểm cao               |
+| 2       | D   | 1   | **59**   | Cân nhắc        | Chính sách, dù điểm thấp vẫn ưu tiên       |
+| 3       | A   | 2   | **75**   | Nên duyệt       | Tân SV, trọng số Year cao                  |
+| 4       | B   | 3   | **70**   | Cân nhắc        | Khóa cũ GPA 4.0, nhưng thuộc Rổ 3          |
+| -       | C   | 1   | **LOẠI** | Loại (GPA<2.0)  | Không đạt GPA tối thiểu                    |
 
 **Nhận xét:**
-- SV D được duyệt đầu tiên mặc dù Base Score thấp nhất (57), vì thuộc Rổ 1 (Chính sách)
-- SV A được ưu tiên hơn SV B mặc dù Base Score tương đương (55 vs 54), vì thuộc Rổ 2 (Tân sinh viên)
-- SV B có GPA cao nhất (4.0) nhưng xếp cuối vì thuộc Rổ 3 (Khóa cũ)
+- SV E (Rổ 1, điểm 93) được duyệt đầu tiên - chính sách + tân SV là combo tốt nhất
+- SV D (Rổ 1, điểm 59) vẫn ưu tiên hơn SV A và B dù điểm thấp hơn  
+- SV A (Rổ 2, điểm 75) được ưu tiên hơn SV B (Rổ 3, điểm 70)
+- SV B có GPA cao nhất (4.0) nhưng xếp cuối vì thuộc Rổ 3
 - SV C bị loại ngay dù thuộc Rổ 1 vì GPA < 2.0
 
-→ **Kết luận:** Basket Bonus đảm bảo hierarchy Chính sách > Tân SV > Khóa cũ, trong khi Base Score đánh giá chất lượng hồ sơ
+→ **Kết luận:** Sắp xếp theo Rổ trước (1→2→3), sau đó theo điểm trong rổ. Mỗi rổ có công thức riêng phù hợp với đặc điểm đối tượng.
 
 ---
 
-## 6. Phân Loại Đề Xuất
+## 6. Phân Loại Đề Xuất Theo Rổ
 
-**Lưu ý:** Đề xuất dựa trên **Base Score** (điểm trước khi cộng Basket Bonus) để đánh giá chất lượng hồ sơ. Thứ tự duyệt dựa trên **Final Score** (AI Score = Base Score + Basket Bonus).
+Mỗi rổ có ngưỡng đánh giá khác nhau phù hợp với đặc điểm đối tượng:
 
-### Đánh Giá Chất Lượng Hồ Sơ (Base Score)
+### Rổ 1 (Chính Sách) - Nới lỏng vì ưu tiên hoàn cảnh
 
-| Base Score | Đề Xuất                        | Ý Nghĩa                       |
-| ---------- | ------------------------------ | ----------------------------- |
-| ≥ 80       | "Nên duyệt" (RECOMMENDED)      | Hồ sơ tốt, ưu tiên duyệt      |
-| 60-79      | "Cân nhắc" (CONSIDER)          | Hồ sơ trung bình, cần xem xét |
-| < 60       | "Không ưu tiên" (LOW_PRIORITY) | Hồ sơ yếu, xem xét sau        |
-| GPA < 2.0  | "Loại (GPA < 2.0)"             | Bị loại trực tiếp             |
+| Điểm AI | Đề Xuất                        | Ý Nghĩa                              |
+| ------- | ------------------------------ | ------------------------------------ |
+| ≥ 70    | "Nên duyệt" (RECOMMENDED)      | Hồ sơ tốt, ưu tiên hoàn cảnh rõ ràng |
+| 50-69   | "Cân nhắc" (CONSIDER)          | Hồ sơ trung bình, cần xem xét        |
+| < 50    | "Không ưu tiên" (LOW_PRIORITY) | Hồ sơ yếu về hoàn cảnh               |
 
-### Thứ Tự Duyệt (Final Score = Base Score + Basket Bonus)
+### Rổ 2 (Tân Sinh Viên) - Nới lỏng vì chưa có GPA
 
-Thứ tự sắp xếp theo:
-1. **Basket** (Rổ 1 → Rổ 2 → Rổ 3)
-2. **Final Score** (AI Score) trong cùng một Basket
+| Điểm AI | Đề Xuất                        | Ý Nghĩa                          |
+| ------- | ------------------------------ | -------------------------------- |
+| ≥ 75    | "Nên duyệt" (RECOMMENDED)      | Tân SV năm 1, nên ưu tiên        |
+| 55-74   | "Cân nhắc" (CONSIDER)          | Tân SV nhưng có yếu tố khác      |
+| < 55    | "Không ưu tiên" (LOW_PRIORITY) | Hồ sơ yếu, cần xem xét kỹ        |
 
-**Ví dụ thực tế:**
-- SV A (Rổ 2): Base Score = 55 → Final Score = 155 → Đề xuất "Không ưu tiên" nhưng vẫn được duyệt trước SV B
-- SV B (Rổ 3): Base Score = 54 → Final Score = 54 → Đề xuất "Không ưu tiên"
+### Rổ 3 (Khóa Cũ) - Chặt chẽ hơn vì có GPA
 
-→ Thứ tự: A > B (vì Rổ 2 > Rổ 3), mặc dù cả hai đều có đề xuất "Không ưu tiên"
+| Điểm AI | Đề Xuất                        | Ý Nghĩa                        |
+| ------- | ------------------------------ | ------------------------------ |
+| ≥ 80    | "Nên duyệt" (RECOMMENDED)      | GPA cao, học tập tốt           |
+| 65-79   | "Cân nhắc" (CONSIDER)          | GPA trung bình                 |
+| < 65    | "Không ưu tiên" (LOW_PRIORITY) | GPA thấp, ưu tiên cho SV khác  |
+
+### Lưu Ý
+
+- **GPA < 2.0:** Tự động loại cho tất cả các rổ (trừ năm 1 chưa có điểm)
+- **Thứ tự duyệt:** Luôn ưu tiên theo Rổ (1→2→3) trước, sau đó mới xét điểm trong rổ
 
 ---
 
