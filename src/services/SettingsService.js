@@ -29,10 +29,68 @@ class SettingsService {
      */
     async getScoringWeights() {
         try {
-            const setting = await SettingsDAO.getSettingByName('system', 'scoring_weights');
+            let setting = await SettingsDAO.getSettingByName('system', 'scoring_weights');
+            
+            // If not found, create default settings
             if (!setting) {
-                throw new Error('Scoring weights not found');
+                console.log('⚠️ scoring_weights not found, creating default...');
+                
+                const defaultSettings = {
+                    id: 'scoring_weights',
+                    category: 'system',
+                    name: 'scoring_weights',
+                    value: {
+                        quotas: {
+                            totalSlots: 1000,
+                            policy_priority: 10,
+                            freshmen: 60,
+                            seniors: 30,
+                            waterfall_enabled: true
+                        },
+                        weights: {
+                            basket1: {
+                                w1_priority: 0.4,
+                                w2_year: 0.3,
+                                w3_gpa: 0.3
+                            },
+                            basket2: {
+                                w1_priority: 0.2,
+                                w2_year: 0.5,
+                                w3_gpa: 0.3
+                            },
+                            basket3: {
+                                w1_priority: 0.1,
+                                w2_year: 0.2,
+                                w3_gpa: 0.7
+                            }
+                        },
+                        scoreMappings: {
+                            priority: {
+                                absolute_policy: 100,
+                                priority_area: 70,
+                                other_objects: 30,
+                                non_priority: 0
+                            },
+                            year: {
+                                year1: 100,
+                                year2: 60,
+                                year3: 40,
+                                year4: 20
+                            },
+                            gpa: {
+                                conversion_factor: 25,
+                                min_gpa_filter: 2.0
+                            }
+                        }
+                    },
+                    description: 'Cấu hình hệ thống chấm điểm và phân bổ chỗ ở cho đăng ký KTX',
+                    is_active: true
+                };
+                
+                setting = await SettingsDAO.createSetting(defaultSettings);
+                console.log('✅ Default scoring_weights created successfully');
             }
+            
             return setting;
         } catch (error) {
             throw new Error(`Get scoring weights failed: ${error.message}`);

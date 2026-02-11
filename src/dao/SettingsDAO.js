@@ -36,7 +36,7 @@ class SettingsDAO extends BaseDAO {
             updated_at: new Date()
         };
 
-        return await this.update({ id }, updateData);
+        return await this.update(id, updateData);
     }
 
     /**
