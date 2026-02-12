@@ -732,6 +732,43 @@ class RegistrationService {
   }
 
   /**
+   * Delete registration
+   * @param {string} id - Registration ID
+   * @param {string} adminId - Admin ID performing the action
+   * @param {object} req - Request object for logging
+   * @returns {object} Deleted registration data
+   */
+  async deleteRegistration(id, adminId, req = null) {
+    try {
+      // Find the registration first
+      const oldData = await RegisterFormDAO.findById(id);
+      if (!oldData) {
+        throw new Error("Registration not found");
+      }
+
+      // Delete from database
+      await RegisterFormDAO.delete(id);
+
+      // Log action
+      if (req && req.user) {
+        await LogSystemDAO.log(
+          adminId,
+          'DELETE_REGISTRATION',
+          'register_forms',
+          id,
+          oldData,
+          null,
+          req
+        );
+      }
+
+      return oldData;
+    } catch (error) {
+      throw new Error(`Delete registration failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Import registrations from Excel file với chi tiết xử lý từng bước
    *
    * LUỒNG IMPORT EXCEL:

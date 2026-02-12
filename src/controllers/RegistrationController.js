@@ -156,6 +156,48 @@ class RegistrationController {
     }
 
     /**
+     * Delete registration
+     */
+    async delete(req, res, next) {
+        try {
+            // Validate authentication
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Not authenticated'
+                });
+            }
+
+            // Validate authorization (only admin can delete)
+            if (req.user.role !== 'ADMIN') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Only admins can delete registrations'
+                });
+            }
+
+            const registration = await RegistrationService.deleteRegistration(
+                req.params.id,
+                req.user.userId,
+                req
+            );
+            res.json({
+                success: true,
+                message: 'Registration deleted successfully',
+                data: registration
+            });
+        } catch (error) {
+            if (error.message.includes('not found')) {
+                return res.status(404).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+            next(error);
+        }
+    }
+
+    /**
      * Import registrations from Excel
      */
     async importExcel(req, res, next) {

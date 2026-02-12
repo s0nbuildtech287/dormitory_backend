@@ -34,4 +34,7 @@ router.post('/:id/approve', requireAdmin, RegistrationController.approve);
 // Reject registration
 router.post('/:id/reject', requireAdmin, RegistrationController.reject);
 
+// Delete registration
+router.delete('/:id', requireAdmin, RegistrationController.delete);
+
 module.exports = router;
