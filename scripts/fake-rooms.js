@@ -19,7 +19,7 @@ async function generateFakeRooms() {
 
       for (const floor of floors) {
         for (let roomNum = 1; roomNum <= roomsPerFloor; roomNum++) {
-          const roomNumber = `${building}${floor}${roomNum.toString().padStart(2, "0")}`; // A101, A102, etc.
+          const roomNumber = `room-${roomCounter.toString().padStart(3, "0")}-${building}-${floor}`; // room-001-A-1, etc.
           const id = `room-${roomCounter.toString().padStart(3, "0")}`;
 
           const room = {
@@ -37,7 +37,13 @@ async function generateFakeRooms() {
             status: "Active",
             area: 25.0, // 25 m²
             qr_code: `QR_${roomNumber}`, // Fake QR code
-            equipment: JSON.stringify(["Giường đơn", "Tủ quần áo", "Bàn học", "Ghế", "Quạt máy"]),
+            equipment: JSON.stringify({
+              "Giường đơn": 1,
+              "Tủ quần áo": 1,
+              "Bàn học": 1,
+              "Ghế": 1,
+              "Quạt máy": 1
+            }),
             electric_meter_reading: 0.0,
             water_meter_reading: 0.0,
             last_inspection_date: new Date(2024, 0, 1).toISOString().split("T")[0], // 2024-01-01
