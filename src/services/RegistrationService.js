@@ -474,24 +474,217 @@ class RegistrationService {
   }
 
   /**
-   * Create new registration
+   * Create new registration with complete validation and AI scoring
+   * 
+   * Flow:
+   * 1. Validate input data
+   * 2. Check for duplicate student_id
+   * 3. Calculate AI scores
+   * 4. Determine basket and AI suggestion
+   * 5. Create AI reasoning object
+   * 6. Save to database
+   * 7. Log action
+   * 
+   * @param {object} data - Registration data from admin form
+   * @param {object} req - Express request object
+   * @returns {object} Created registration with AI scores and suggestion
    */
   async createRegistration(data, req = null) {
     try {
-      const registrationId = `reg-${Date.now()}`;
-      const registration = await RegisterFormDAO.create({
-        id: registrationId,
-        ...data,
-        status: "Chờ duyệt",
+      // ============================================
+      // STEP 1: INPUT VALIDATION
+      // ============================================
+      const requiredFields = [
+        'student_name', 'student_id', 'student_email',
+        'phone_number', 'dob', 'gender', 'cccd', 'faculty',
+        'major', 'class', 'year', 'address'
+      ];
+
+      const missingFields = [];
+      for (const field of requiredFields) {
+        if (!data[field] || (typeof data[field] === 'string' && data[field].trim() === '')) {
+          missingFields.push(field);
+        }
+      }
+
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
+
+      // Validate field formats
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(data.student_email)) {
+        throw new Error('Invalid student email format');
+      }
+
+      // Phone number validation (Vietnamese format: 0xxxxxxxxx)
+      const phoneRegex = /^0\d{9,10}$/;
+      if (!phoneRegex.test(data.phone_number.replace(/[\s-]/g, ''))) {
+        throw new Error('Invalid phone number format');
+      }
+
+      // Year validation
+      const year = parseInt(data.year);
+      if (![1, 2, 3, 4].includes(year)) {
+        throw new Error('Invalid year. Must be 1-4');
+      }
+
+      // Gender validation
+      const validGenders = ['Nam', 'Nữ', 'Khác'];
+      if (!validGenders.includes(data.gender)) {
+        throw new Error('Invalid gender. Must be Nam, Nữ, or Khác');
+      }
+
+      // GPA validation
+      let gpa = 0;
+      if (data.gpa !== undefined && data.gpa !== null && data.gpa !== '') {
+        gpa = parseFloat(data.gpa);
+        if (isNaN(gpa) || gpa < 0 || gpa > 4.0) {
+          throw new Error('Invalid GPA. Must be between 0 and 4.0');
+        }
+      }
+
+      // ============================================
+      // STEP 2: CHECK FOR DUPLICATE STUDENT_ID
+      // ============================================
+      const existingReg = await RegisterFormDAO.findByStudentId(data.student_id);
+      if (existingReg && existingReg.length > 0) {
+        throw new Error(`Registration with student_id "${data.student_id}" already exists`);
+      }
+
+      // ============================================
+      // STEP 3: CALCULATE AI SCORES
+      // ============================================
+      console.log(`\n📊 Calculating AI scores for ${data.student_name}...`);
+
+      // Get scoring mappings
+      const scoreMappings = await this.getScoreMappings();
+
+      // 3.1: Calculate component scores
+      const priorityScore = this.calculatePriorityScore(data.priority_reasons, scoreMappings);
+      const yearScore = this.calculateYearScore(year, scoreMappings);
+      const gpaScoreObj = this.calculateGPAScore(gpa, year, scoreMappings);
+      const gpaScore = gpaScoreObj.score;
+
+      console.log(`   Priority Score: ${priorityScore}`);
+      console.log(`   Year Score: ${yearScore}`);
+      console.log(`   GPA Score: ${gpaScore}`);
+
+      // 3.2: Determine basket
+      const basket = this.determineBasket(data.priority_reasons, year);
+      console.log(`   Basket: ${basket}`);
+
+      // 3.3: Get basket-specific weights
+      const weights = await this.getBasketWeights(basket);
+      console.log(`   Weights: W1=${weights.w1_priority}, W2=${weights.w2_year}, W3=${weights.w3_gpa}`);
+
+      // 3.4: Calculate final AI score
+      const finalAIScore = this.calculateFinalAIScore({
+        priorityScore,
+        yearScore,
+        gpaScore,
+        basket,
+        weights
       });
 
-      // Log action
+      console.log(`   Final AI Score: ${finalAIScore}`);
+
+      // ============================================
+      // STEP 4: DETERMINE AI SUGGESTION
+      // ============================================
+      const aiSuggestion = this.determineAISuggestion(finalAIScore, basket);
+      console.log(`   AI Suggestion: ${aiSuggestion}`);
+
+      // ============================================
+      // STEP 5: CREATE AI REASONING OBJECT
+      // ============================================
+      const basketNames = {
+        1: 'Chính sách (Policy)',
+        2: 'Tân sinh viên (Freshmen)',
+        3: 'Sinh viên khóa cũ (Seniors)'
+      };
+
+      const thresholds = {
+        1: { high: 70, medium: 50 },
+        2: { high: 75, medium: 55 },
+        3: { high: 80, medium: 65 }
+      };
+
+      const aiReasoning = {
+        basket,
+        basketName: basketNames[basket],
+        priorityScore,
+        priorityReason: data.priority_reasons || 'Không có lý do ưu tiên',
+        yearScore,
+        yearValue: year,
+        yearName: `Năm ${year}`,
+        gpaScore,
+        gpaValue: gpa,
+        gpaReason: gpaScoreObj.reason || `GPA × 25 = ${gpa} × 25 = ${gpaScore}`,
+        weights: {
+          w1_priority: weights.w1_priority,
+          w2_year: weights.w2_year,
+          w3_gpa: weights.w3_gpa
+        },
+        formula: `${weights.w1_priority}×${priorityScore} + ${weights.w2_year}×${yearScore} + ${weights.w3_gpa}×${gpaScore} = ${finalAIScore}`,
+        threshold: thresholds[basket],
+        calculatedAt: new Date().toISOString()
+      };
+
+      // ============================================
+      // STEP 6: SAVE TO DATABASE
+      // ============================================
+      const registrationId = `reg-${Date.now()}`;
+
+      const registrationData = {
+        id: registrationId,
+        student_name: data.student_name,
+        student_id: data.student_id,
+        student_email: data.student_email,
+        phone_number: data.phone_number.replace(/[\s-]/g, ''), // Normalize phone
+        gender: data.gender,
+        dob: data.dob,
+        cccd: data.cccd,
+        address: data.address,
+        faculty: data.faculty,
+        major: data.major,
+        class: data.class,
+        year: year,
+        gpa: gpa || null,
+        distance: data.distance || null,
+        priority_reasons: data.priority_reasons || null,
+        status: 'Chờ duyệt', // Pending
+        ai_score: finalAIScore,
+        ai_suggestion: aiSuggestion,
+        ai_reasoning: aiReasoning,
+        evidence_images: data.evidence_images ? [data.evidence_images] : null,
+        note: data.note || null,
+        reviewed_by: null,
+        reviewed_at: null
+      };
+
+      const registration = await RegisterFormDAO.create(registrationData);
+      console.log(`✅ Registration created: ${registrationId}`);
+
+      // ============================================
+      // STEP 7: LOG ACTION
+      // ============================================
       if (req && req.user) {
-        await LogSystemDAO.log(req.user.userId, "CREATE_REGISTRATION", "register_forms", registrationId, null, registration, req);
+        await LogSystemDAO.log(
+          req.user.userId,
+          'CREATE_REGISTRATION',
+          'register_forms',
+          registrationId,
+          null,
+          registrationData,
+          req
+        );
       }
 
       return registration;
     } catch (error) {
+      console.error(`❌ Create registration failed: ${error.message}`);
       throw new Error(`Create registration failed: ${error.message}`);
     }
   }

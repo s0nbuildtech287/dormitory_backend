@@ -41,10 +41,26 @@ class RegistrationController {
     }
 
     /**
-     * Create new registration
+     * Create new registration with validation and AI scoring
      */
     async create(req, res, next) {
         try {
+            // Validate authentication
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Not authenticated'
+                });
+            }
+
+            // Validate authorization (only admin can create)
+            if (req.user.role !== 'ADMIN') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Only admins can create registrations'
+                });
+            }
+
             const registration = await RegistrationService.createRegistration(req.body, req);
             res.status(201).json({
                 success: true,
@@ -52,6 +68,17 @@ class RegistrationController {
                 data: registration
             });
         } catch (error) {
+            // Check for validation errors
+            if (error.message.includes('Missing required fields') ||
+                error.message.includes('Invalid') ||
+                error.message.includes('already exists')) {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+            
+            // Pass other errors to error handler
             next(error);
         }
     }
