@@ -196,6 +196,29 @@ class ContractService {
   }
 
   /**
+   * Delete contract
+   */
+  async deleteContract(id, adminId, req = null) {
+    try {
+      const contract = await StudentContractDAO.findById(id);
+      if (!contract) throw new Error("Contract not found");
+
+      // If contract is Active with a room, terminate first to release room slot
+      if (contract.status === "Active" && contract.room_id) {
+        await StudentContractDAO.terminateContract(id);
+      }
+
+      await StudentContractDAO.delete(id);
+
+      await LogSystemDAO.log(adminId, "DELETE_CONTRACT", "student_contracts", id, contract, null, req);
+
+      return { deleted: true };
+    } catch (error) {
+      throw new Error(`Delete contract failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Get contract statistics
    */
   async getStats() {

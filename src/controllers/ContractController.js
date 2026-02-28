@@ -146,6 +146,18 @@ class ContractController {
   }
 
   /**
+   * Delete contract
+   */
+  async deleteContract(req, res, next) {
+    try {
+      await ContractService.deleteContract(req.params.id, req.user.userId, req);
+      res.json({ success: true, message: "Contract deleted successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Create contract from approved registration
    */
   async createFromRegistration(req, res, next) {

@@ -34,5 +34,6 @@ router.post("/from-registration", requireAdmin, ContractController.createFromReg
 router.put("/:id", requireAdmin, ContractController.update);
 router.post("/:id/assign-room", requireAdmin, ContractController.assignRoom);
 router.post("/:id/terminate", requireAdmin, ContractController.terminate);
+router.delete("/:id", requireAdmin, ContractController.deleteContract);
 
 module.exports = router;
