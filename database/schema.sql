@@ -79,7 +79,8 @@ CREATE TYPE ai_suggestion_type AS ENUM ('Nên duyệt', 'Cân nhắc', 'Không �
 
 -- 3.2. ENUMs cho quản lý phòng và hợp đồng
 CREATE TYPE room_status AS ENUM ('Active', 'Inactive', 'Maintenance');
-CREATE TYPE contract_status AS ENUM ('Active', 'Expired', 'Terminated');
+CREATE TYPE contract_status AS ENUM ('Pending', 'Active', 'Expired', 'Terminated');
+-- Pending: Đã duyệt hồ sơ nhưng chưa gán phòng
 
 -- 3.3. ENUMs cho hóa đơn và thông báo
 CREATE TYPE bill_status AS ENUM ('Chưa thanh toán', 'Đã thanh toán', 'Quá hạn');
@@ -293,18 +294,26 @@ CREATE INDEX idx_rooms_building_floor ON rooms(building, floor);  -- Tối ưu: 
 CREATE TABLE student_contracts (
     id VARCHAR(50) PRIMARY KEY,
     user_id VARCHAR(50) NOT NULL,
-    room_id VARCHAR(50) NOT NULL,
+    room_id VARCHAR(50),                      -- NULL khi Pending (chưa gán phòng)
     register_form_id VARCHAR(50),
     contract_number VARCHAR(50) UNIQUE,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    rent_price DECIMAL(10,2) NOT NULL,
-    deposit_amount DECIMAL(10,2) NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    rent_price DECIMAL(10,2) DEFAULT 0,
+    deposit_amount DECIMAL(10,2) DEFAULT 0,
     deposit_paid BOOLEAN DEFAULT FALSE,
-    status contract_status DEFAULT 'Active',
+    status contract_status DEFAULT 'Pending', -- Mặc định Pending sau khi duyệt hồ sơ
+    -- Snapshot thông tin sinh viên tại thời điểm tạo hợp đồng
+    snapshot_student_id VARCHAR(50),          -- Mã SV snapshot
+    snapshot_cccd VARCHAR(20),               -- CCCD snapshot
+    snapshot_gender gender_type,             -- Giới tính snapshot (dùng để gợi ý phòng)
+    snapshot_year INTEGER,                   -- Năm học snapshot (dùng để gán phòng cùng khoá)
+    snapshot_faculty VARCHAR(100),           -- Khoa snapshot
+    snapshot_phone VARCHAR(20),              -- SĐT snapshot
+    -- Kết thúc hợp đồng
     terms_conditions TEXT,
-    signed_at TIMESTAMP,
-    termination_reason TEXT,                  -- Tối ưu: Lý do chấm dứt
+    signed_at TIMESTAMP,                     -- Null khi Pending, điền khi Active
+    termination_reason TEXT,
     created_by VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -817,6 +826,25 @@ INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_
 -- ✓ Soft delete thay vì xóa thật
 -- ✓ Tracking user actions qua log_system
 -- ✓ Role-based access control (ADMIN và STUDENT)
+
+-- ============================================================================
+-- MIGRATION: Cập nhật student_contracts cho luồng gán phòng mới
+-- (Chạy script này nếu database đã tồn tại, không cần nếu tạo mới từ schema)
+-- ============================================================================
+-- ALTER TYPE contract_status ADD VALUE IF NOT EXISTS 'Pending' BEFORE 'Active';
+-- ALTER TABLE student_contracts ALTER COLUMN room_id DROP NOT NULL;
+-- ALTER TABLE student_contracts ALTER COLUMN start_date DROP NOT NULL;
+-- ALTER TABLE student_contracts ALTER COLUMN end_date DROP NOT NULL;
+-- ALTER TABLE student_contracts ALTER COLUMN rent_price SET DEFAULT 0;
+-- ALTER TABLE student_contracts ALTER COLUMN deposit_amount SET DEFAULT 0;
+-- ALTER TABLE student_contracts ALTER COLUMN status SET DEFAULT 'Pending';
+-- ALTER TABLE student_contracts ADD COLUMN IF NOT EXISTS snapshot_student_id VARCHAR(50);
+-- ALTER TABLE student_contracts ADD COLUMN IF NOT EXISTS snapshot_cccd VARCHAR(20);
+-- ALTER TABLE student_contracts ADD COLUMN IF NOT EXISTS snapshot_gender gender_type;
+-- ALTER TABLE student_contracts ADD COLUMN IF NOT EXISTS snapshot_year INTEGER;
+-- ALTER TABLE student_contracts ADD COLUMN IF NOT EXISTS snapshot_faculty VARCHAR(100);
+-- ALTER TABLE student_contracts ADD COLUMN IF NOT EXISTS snapshot_phone VARCHAR(20);
+
 
 -- KHUYẾN NGHỊ TIẾP THEO:
 -- 1. Tạo các View cho báo cáo thường dùng

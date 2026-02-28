@@ -1,6 +1,34 @@
 const express = require("express");
 const cors = require("cors");
 
+// ──────────────────────────────────────────────────────────
+// Global error guards (must be first – before any require)
+// Node ≥ 15 exits on unhandledRejection by default; catch it
+// ──────────────────────────────────────────────────────────
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException] Server will NOT exit:", err.message);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection] Server will NOT exit:", reason instanceof Error ? reason.message : reason);
+});
+
+// Log WHY the process is exiting (diagnostic)
+process.on("exit", (code) => {
+  console.error(`[exit] Process exiting with code ${code}`);
+});
+
+// Graceful shutdown on SIGTERM / SIGINT (Ctrl+C) – keeps the event loop alive
+process.on("SIGTERM", () => {
+  console.log("[SIGTERM] Received, shutting down gracefully...");
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  console.log("[SIGINT] Received (Ctrl+C), shutting down...");
+  process.exit(0);
+});
+
 // Temporarily disable console.log to hide dotenv messages
 const originalConsoleLog = console.log;
 console.log = () => {}; // Disable logging temporarily
@@ -15,7 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from uploads directory
-app.use('/uploads', express.static('uploads'));
+app.use("/uploads", express.static("uploads"));
 
 // Routes
 app.get("/", (req, res) => {
@@ -23,31 +51,32 @@ app.get("/", (req, res) => {
 });
 
 // API Routes
-const authRoutes = require('./routers/authRoutes');
-const registrationRoutes = require('./routers/registrationRoutes');
-const roomRoutes = require('./routers/roomRoutes');
-const contractRoutes = require('./routers/contractRoutes');
-const invoiceRoutes = require('./routers/invoiceRoutes');
-const feedbackRoutes = require('./routers/feedbackRoutes');
-const notificationRoutes = require('./routers/notificationRoutes');
-const logRoutes = require('./routers/logRoutes');
-const settingsRoutes = require('./routers/settingsRoutes');
+const authRoutes = require("./routers/authRoutes");
+const registrationRoutes = require("./routers/registrationRoutes");
+const roomRoutes = require("./routers/roomRoutes");
+const contractRoutes = require("./routers/contractRoutes");
+const invoiceRoutes = require("./routers/invoiceRoutes");
+const feedbackRoutes = require("./routers/feedbackRoutes");
+const notificationRoutes = require("./routers/notificationRoutes");
+const logRoutes = require("./routers/logRoutes");
+const settingsRoutes = require("./routers/settingsRoutes");
 
-app.use('/api/auth', authRoutes);
-app.use('/api/registrations', registrationRoutes);
-app.use('/api/rooms', roomRoutes);
-app.use('/api/contracts', contractRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/feedbacks', feedbackRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/logs', logRoutes);
-app.use('/api/settings', settingsRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/registrations", registrationRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/contracts", contractRoutes);
+app.use("/api/invoices", invoiceRoutes);
+app.use("/api/feedbacks", feedbackRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/logs", logRoutes);
+app.use("/api/settings", settingsRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong!" });
-});
+// 404 handler (must come after all routes)
+const { errorHandler, notFound } = require("./middlewares/errorHandler");
+app.use(notFound);
+
+// Central error handler (must be last middleware, 4 params)
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 1234;
 

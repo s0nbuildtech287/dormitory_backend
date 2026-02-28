@@ -1,6 +1,9 @@
 const RegisterFormDAO = require("../dao/RegisterFormDAO");
 const LogSystemDAO = require("../dao/LogSystemDAO");
 const SettingsDAO = require("../dao/SettingsDAO");
+const StudentContractDAO = require("../dao/StudentContractDAO");
+const UserDAO = require("../dao/UserDAO");
+const bcrypt = require("bcryptjs");
 const xlsx = require("xlsx");
 
 class RegistrationService {
@@ -73,32 +76,32 @@ class RegistrationService {
   async getScoreMappings() {
     try {
       const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
-      
+
       if (setting && setting.value && setting.value.scoreMappings) {
         return setting.value.scoreMappings;
       }
     } catch (error) {
       console.warn("⚠️ Could not fetch score mappings, using defaults:", error.message);
     }
-    
+
     // Fallback to defaults
     return {
       priority: {
         absolute_policy: 100,
         priority_area: 70,
         other_objects: 30,
-        non_priority: 0
+        non_priority: 0,
       },
       year: {
         year1: 100,
         year2: 60,
         year3: 40,
-        year4: 20
+        year4: 20,
       },
       gpa: {
         conversion_factor: 25,
-        min_gpa_filter: 2.0
-      }
+        min_gpa_filter: 2.0,
+      },
     };
   }
 
@@ -114,9 +117,9 @@ class RegistrationService {
       absolute_policy: 100,
       priority_area: 70,
       other_objects: 30,
-      non_priority: 0
+      non_priority: 0,
     };
-    
+
     if (!priorityReasons) {
       return mappings.non_priority; // Không thuộc diện ưu tiên
     }
@@ -162,9 +165,9 @@ class RegistrationService {
       year1: 100,
       year2: 60,
       year3: 40,
-      year4: 20
+      year4: 20,
     };
-    
+
     switch (year) {
       case 1:
         return mappings.year1;
@@ -192,9 +195,9 @@ class RegistrationService {
     // Use defaults if no mappings provided
     const mappings = scoreMappings?.gpa || {
       conversion_factor: 25,
-      min_gpa_filter: 2.0
+      min_gpa_filter: 2.0,
     };
-    
+
     // Special case: Year 1 students with GPA = 0
     // They haven't studied any courses yet, so GPA = 0 is reasonable
     // Give them a neutral score of 50 (equivalent to GPA 2.0)
@@ -241,12 +244,12 @@ class RegistrationService {
     if (priorityReasons && priorityReasons.trim() !== "") {
       return 1;
     }
-    
+
     // Rổ 2: Tân sinh viên (năm 1, không có chính sách)
     if (year === 1) {
       return 2;
     }
-    
+
     // Rổ 3: Khóa cũ (năm 2, 3, 4, không có chính sách)
     return 3;
   }
@@ -263,10 +266,10 @@ class RegistrationService {
   async getBasketWeights(basket) {
     try {
       const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
-      
+
       if (setting && setting.value && setting.value.weights) {
         const weights = setting.value.weights;
-        
+
         // Check if it's 3-basket structure
         if (weights.basket1 || weights.basket2 || weights.basket3) {
           const basketKey = `basket${basket}`;
@@ -282,12 +285,12 @@ class RegistrationService {
     } catch (error) {
       console.warn(`⚠️ Could not fetch basket ${basket} weights, using defaults:`, error.message);
     }
-    
+
     // Fallback to defaults if not found
     const basketWeights = {
-      1: { w1_priority: 0.40, w2_year: 0.30, w3_gpa: 0.30 }, // Chính sách
-      2: { w1_priority: 0.20, w2_year: 0.50, w3_gpa: 0.30 }, // Tân SV
-      3: { w1_priority: 0.10, w2_year: 0.20, w3_gpa: 0.70 }, // Khóa cũ
+      1: { w1_priority: 0.4, w2_year: 0.3, w3_gpa: 0.3 }, // Chính sách
+      2: { w1_priority: 0.2, w2_year: 0.5, w3_gpa: 0.3 }, // Tân SV
+      3: { w1_priority: 0.1, w2_year: 0.2, w3_gpa: 0.7 }, // Khóa cũ
     };
     return basketWeights[basket] || basketWeights[3];
   }
@@ -302,11 +305,8 @@ class RegistrationService {
     const { priorityScore, yearScore, gpaScore, weights } = params;
 
     // Calculate score with basket-specific formula
-    const score = 
-      priorityScore * weights.w1_priority + 
-      yearScore * weights.w2_year + 
-      gpaScore * weights.w3_gpa;
-    
+    const score = priorityScore * weights.w1_priority + yearScore * weights.w2_year + gpaScore * weights.w3_gpa;
+
     return Math.round(score);
   }
 
@@ -345,14 +345,14 @@ class RegistrationService {
   async getRegistrations(filters = {}) {
     try {
       const registrations = await RegisterFormDAO.searchAndFilter(filters);
-      
+
       // Sort by Basket first, then by AI Score (which already includes basket bonus)
       // This ensures: Rổ 1 (Chính sách) > Rổ 2 (Tân SV) > Rổ 3 (Khóa cũ)
       registrations.sort((a, b) => {
         // Extract basket from ai_reasoning JSON
-        let aBasket = 3;  // Default to Rổ 3 if can't determine
+        let aBasket = 3; // Default to Rổ 3 if can't determine
         let bBasket = 3;
-        
+
         try {
           if (a.ai_reasoning) {
             const aReasoning = JSON.parse(a.ai_reasoning);
@@ -363,7 +363,7 @@ class RegistrationService {
         } catch (e) {
           aBasket = this.determineBasket(a.priority_reasons, a.year);
         }
-        
+
         try {
           if (b.ai_reasoning) {
             const bReasoning = JSON.parse(b.ai_reasoning);
@@ -374,16 +374,16 @@ class RegistrationService {
         } catch (e) {
           bBasket = this.determineBasket(b.priority_reasons, b.year);
         }
-        
+
         // 1. First: Sort by Basket (lower basket number = higher priority)
         if (aBasket !== bBasket) {
-          return aBasket - bBasket;  // Rổ 1 < Rổ 2 < Rổ 3
+          return aBasket - bBasket; // Rổ 1 < Rổ 2 < Rổ 3
         }
-        
+
         // 2. Within same basket: Sort by AI Score (higher is better)
         return (b.ai_score || 0) - (a.ai_score || 0);
       });
-      
+
       // Check for full slots per basket and mark registrations accordingly
       try {
         const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
@@ -391,9 +391,9 @@ class RegistrationService {
         let quotas = {
           policy_priority: 10,
           freshmen: 60,
-          seniors: 30
+          seniors: 30,
         };
-        
+
         if (setting && setting.value && setting.value.quotas) {
           if (setting.value.quotas.totalSlots) {
             totalSlots = setting.value.quotas.totalSlots;
@@ -408,19 +408,19 @@ class RegistrationService {
             quotas.seniors = setting.value.quotas.seniors;
           }
         }
-        
+
         // Calculate slots per basket
         const slotsPerBasket = {
-          1: Math.round((quotas.policy_priority / 100) * totalSlots),  // Rổ 1: Chính sách
-          2: Math.round((quotas.freshmen / 100) * totalSlots),         // Rổ 2: Tân SV
-          3: Math.round((quotas.seniors / 100) * totalSlots)           // Rổ 3: Khóa cũ
+          1: Math.round((quotas.policy_priority / 100) * totalSlots), // Rổ 1: Chính sách
+          2: Math.round((quotas.freshmen / 100) * totalSlots), // Rổ 2: Tân SV
+          3: Math.round((quotas.seniors / 100) * totalSlots), // Rổ 3: Khóa cũ
         };
-        
+
         console.log(`📊 Slot allocation: Rổ 1=${slotsPerBasket[1]}, Rổ 2=${slotsPerBasket[2]}, Rổ 3=${slotsPerBasket[3]} (Total: ${totalSlots})`);
-        
+
         // Count pending registrations per basket
         const basketCounts = { 1: 0, 2: 0, 3: 0 };
-        
+
         registrations.forEach((reg) => {
           // Only count pending registrations
           if (reg.status === "Chờ duyệt") {
@@ -436,17 +436,17 @@ class RegistrationService {
             } catch (e) {
               basket = this.determineBasket(reg.priority_reasons, reg.year);
             }
-            
+
             // Increment count for this basket
             basketCounts[basket]++;
-            
+
             // Mark as full if this basket has exceeded its quota
             reg.isFull = basketCounts[basket] > slotsPerBasket[basket];
           } else {
             reg.isFull = false;
           }
         });
-        
+
         console.log(`📊 Registration counts: Rổ 1=${basketCounts[1]}, Rổ 2=${basketCounts[2]}, Rổ 3=${basketCounts[3]}`);
       } catch (error) {
         console.warn("⚠️ Could not check slot capacity:", error.message);
@@ -455,7 +455,7 @@ class RegistrationService {
           reg.isFull = false;
         });
       }
-      
+
       return registrations;
     } catch (error) {
       throw new Error(`Get registrations failed: ${error.message}`);
@@ -475,7 +475,7 @@ class RegistrationService {
 
   /**
    * Create new registration with complete validation and AI scoring
-   * 
+   *
    * Flow:
    * 1. Validate input data
    * 2. Check for duplicate student_id
@@ -484,7 +484,7 @@ class RegistrationService {
    * 5. Create AI reasoning object
    * 6. Save to database
    * 7. Log action
-   * 
+   *
    * @param {object} data - Registration data from admin form
    * @param {object} req - Express request object
    * @returns {object} Created registration with AI scores and suggestion
@@ -494,54 +494,50 @@ class RegistrationService {
       // ============================================
       // STEP 1: INPUT VALIDATION
       // ============================================
-      const requiredFields = [
-        'student_name', 'student_id', 'student_email',
-        'phone_number', 'dob', 'gender', 'cccd', 'faculty',
-        'major', 'class', 'year', 'address'
-      ];
+      const requiredFields = ["student_name", "student_id", "student_email", "phone_number", "dob", "gender", "cccd", "faculty", "major", "class", "year", "address"];
 
       const missingFields = [];
       for (const field of requiredFields) {
-        if (!data[field] || (typeof data[field] === 'string' && data[field].trim() === '')) {
+        if (!data[field] || (typeof data[field] === "string" && data[field].trim() === "")) {
           missingFields.push(field);
         }
       }
 
       if (missingFields.length > 0) {
-        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+        throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
       }
 
       // Validate field formats
       // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(data.student_email)) {
-        throw new Error('Invalid student email format');
+        throw new Error("Invalid student email format");
       }
 
       // Phone number validation (Vietnamese format: 0xxxxxxxxx)
       const phoneRegex = /^0\d{9,10}$/;
-      if (!phoneRegex.test(data.phone_number.replace(/[\s-]/g, ''))) {
-        throw new Error('Invalid phone number format');
+      if (!phoneRegex.test(data.phone_number.replace(/[\s-]/g, ""))) {
+        throw new Error("Invalid phone number format");
       }
 
       // Year validation
       const year = parseInt(data.year);
       if (![1, 2, 3, 4].includes(year)) {
-        throw new Error('Invalid year. Must be 1-4');
+        throw new Error("Invalid year. Must be 1-4");
       }
 
       // Gender validation
-      const validGenders = ['Nam', 'Nữ', 'Khác'];
+      const validGenders = ["Nam", "Nữ", "Khác"];
       if (!validGenders.includes(data.gender)) {
-        throw new Error('Invalid gender. Must be Nam, Nữ, or Khác');
+        throw new Error("Invalid gender. Must be Nam, Nữ, or Khác");
       }
 
       // GPA validation
       let gpa = 0;
-      if (data.gpa !== undefined && data.gpa !== null && data.gpa !== '') {
+      if (data.gpa !== undefined && data.gpa !== null && data.gpa !== "") {
         gpa = parseFloat(data.gpa);
         if (isNaN(gpa) || gpa < 0 || gpa > 4.0) {
-          throw new Error('Invalid GPA. Must be between 0 and 4.0');
+          throw new Error("Invalid GPA. Must be between 0 and 4.0");
         }
       }
 
@@ -585,7 +581,7 @@ class RegistrationService {
         yearScore,
         gpaScore,
         basket,
-        weights
+        weights,
       });
 
       console.log(`   Final AI Score: ${finalAIScore}`);
@@ -600,22 +596,22 @@ class RegistrationService {
       // STEP 5: CREATE AI REASONING OBJECT
       // ============================================
       const basketNames = {
-        1: 'Chính sách (Policy)',
-        2: 'Tân sinh viên (Freshmen)',
-        3: 'Sinh viên khóa cũ (Seniors)'
+        1: "Chính sách (Policy)",
+        2: "Tân sinh viên (Freshmen)",
+        3: "Sinh viên khóa cũ (Seniors)",
       };
 
       const thresholds = {
         1: { high: 70, medium: 50 },
         2: { high: 75, medium: 55 },
-        3: { high: 80, medium: 65 }
+        3: { high: 80, medium: 65 },
       };
 
       const aiReasoning = {
         basket,
         basketName: basketNames[basket],
         priorityScore,
-        priorityReason: data.priority_reasons || 'Không có lý do ưu tiên',
+        priorityReason: data.priority_reasons || "Không có lý do ưu tiên",
         yearScore,
         yearValue: year,
         yearName: `Năm ${year}`,
@@ -625,11 +621,11 @@ class RegistrationService {
         weights: {
           w1_priority: weights.w1_priority,
           w2_year: weights.w2_year,
-          w3_gpa: weights.w3_gpa
+          w3_gpa: weights.w3_gpa,
         },
         formula: `${weights.w1_priority}×${priorityScore} + ${weights.w2_year}×${yearScore} + ${weights.w3_gpa}×${gpaScore} = ${finalAIScore}`,
         threshold: thresholds[basket],
-        calculatedAt: new Date().toISOString()
+        calculatedAt: new Date().toISOString(),
       };
 
       // ============================================
@@ -642,7 +638,7 @@ class RegistrationService {
         student_name: data.student_name,
         student_id: data.student_id,
         student_email: data.student_email,
-        phone_number: data.phone_number.replace(/[\s-]/g, ''), // Normalize phone
+        phone_number: data.phone_number.replace(/[\s-]/g, ""), // Normalize phone
         gender: data.gender,
         dob: data.dob,
         cccd: data.cccd,
@@ -654,14 +650,14 @@ class RegistrationService {
         gpa: gpa || null,
         distance: data.distance || null,
         priority_reasons: data.priority_reasons || null,
-        status: 'Chờ duyệt', // Pending
+        status: "Chờ duyệt", // Pending
         ai_score: finalAIScore,
         ai_suggestion: aiSuggestion,
         ai_reasoning: aiReasoning,
         evidence_images: data.evidence_images ? [data.evidence_images] : null,
         note: data.note || null,
         reviewed_by: null,
-        reviewed_at: null
+        reviewed_at: null,
       };
 
       const registration = await RegisterFormDAO.create(registrationData);
@@ -671,15 +667,7 @@ class RegistrationService {
       // STEP 7: LOG ACTION
       // ============================================
       if (req && req.user) {
-        await LogSystemDAO.log(
-          req.user.userId,
-          'CREATE_REGISTRATION',
-          'register_forms',
-          registrationId,
-          null,
-          registrationData,
-          req
-        );
+        await LogSystemDAO.log(req.user.userId, "CREATE_REGISTRATION", "register_forms", registrationId, null, registrationData, req);
       }
 
       return registration;
@@ -699,7 +687,67 @@ class RegistrationService {
         throw new Error("Registration not found");
       }
 
+      if (oldData.status !== "Chờ duyệt") {
+        throw new Error("Chỉ duyệt được hồ sơ ở trạng thái Chờ duyệt");
+      }
+
       await RegisterFormDAO.updateStatus(id, "Chấp nhận", adminId, note);
+
+      // ================================================================
+      // Tạo tài khoản sinh viên nếu chưa có, sau đó tạo Hợp đồng Pending
+      // ================================================================
+      let userId;
+      try {
+        // Tìm user theo email sinh viên
+        const email = oldData.student_email || oldData.email;
+        let existingUser = email ? await UserDAO.findByEmail(email) : null;
+
+        if (!existingUser) {
+          // Tạo tài khoản sinh viên với mật khẩu mặc định là mã SV hoặc '123456'
+          const defaultPwd = oldData.student_id || "123456";
+          const hashed = await bcrypt.hash(defaultPwd, 10);
+          const newUserId = `user-${Date.now()}`;
+          existingUser = await UserDAO.create({
+            id: newUserId,
+            email: email || `${newUserId}@ktx.edu.vn`,
+            password: hashed,
+            full_name: oldData.student_name,
+            role: "STUDENT",
+            phone: oldData.phone_number || null,
+          });
+        }
+        userId = existingUser.id;
+
+        // Kiểm tra đã có contract Pending/Active chưa
+        const existingContract = await StudentContractDAO.findOne({ register_form_id: id });
+        if (!existingContract) {
+          const contractId = `contract-${Date.now()}`;
+          const contractNumber = `HD-PENDING-${Date.now()}`;
+
+          await StudentContractDAO.createPendingContract({
+            id: contractId,
+            contract_number: contractNumber,
+            user_id: userId,
+            room_id: null,
+            register_form_id: id,
+            status: "Pending",
+            // Snapshot
+            snapshot_student_id: oldData.student_id || null,
+            snapshot_cccd: oldData.cccd || null,
+            snapshot_gender: oldData.gender || null,
+            snapshot_year: oldData.year || null,
+            snapshot_faculty: oldData.faculty || null,
+            snapshot_phone: oldData.phone_number || null,
+            // Giá thuê mặc định 0, sẽ cập nhật khi gán phòng
+            rent_price: 0,
+            deposit_amount: 0,
+            created_by: adminId,
+          });
+        }
+      } catch (contractErr) {
+        // Không nên làm fail toàn bộ approve vì lỗi tạo contract
+        console.error("⚠️ Tạo pending contract thất bại:", contractErr.message);
+      }
 
       // Log action
       await LogSystemDAO.log(adminId, "APPROVE_REGISTRATION", "register_forms", id, { status: oldData.status }, { status: "Chấp nhận", note }, req);
@@ -751,15 +799,7 @@ class RegistrationService {
 
       // Log action
       if (req && req.user) {
-        await LogSystemDAO.log(
-          adminId,
-          'DELETE_REGISTRATION',
-          'register_forms',
-          id,
-          oldData,
-          null,
-          req
-        );
+        await LogSystemDAO.log(adminId, "DELETE_REGISTRATION", "register_forms", id, oldData, null, req);
       }
 
       return oldData;
@@ -939,7 +979,7 @@ class RegistrationService {
             // Get basket-specific weights from database
             const weights = await this.getBasketWeights(basket);
             console.log(`    ⚖️  Weights (Rổ ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
-            
+
             // Get score mappings from database
             const scoreMappings = await this.getScoreMappings();
 
@@ -988,7 +1028,7 @@ class RegistrationService {
             } else {
               // GPA < 2.0 → Set to lowest priority with valid enum value
               aiScore = 0;
-              aiSuggestion = "Không ưu tiên";  // Valid enum value
+              aiSuggestion = "Không ưu tiên"; // Valid enum value
               aiReasoning = JSON.stringify({
                 filtered: true,
                 reason: "GPA < 2.0 - Không đạt tiêu chuẩn tối thiểu",
@@ -1113,7 +1153,7 @@ class RegistrationService {
   async recalculateAllScores(adminId, req = null) {
     try {
       console.log("🔄 BƯỚC 1: Lấy tất cả hồ sơ đăng ký...");
-      
+
       // Get all registrations (not just pending ones, to update statistics)
       const allRegistrations = await RegisterFormDAO.findAll();
       console.log(`✅ Tìm thấy ${allRegistrations.length} hồ sơ`);
@@ -1141,7 +1181,7 @@ class RegistrationService {
 
           // Get basket-specific weights from database
           const weights = await this.getBasketWeights(basket);
-          
+
           // Get score mappings from database
           const scoreMappings = await this.getScoreMappings();
 
@@ -1162,7 +1202,7 @@ class RegistrationService {
           if (gpaScoreResult.isFiltered) {
             // GPA < 2.0 → Set to lowest priority with valid enum value
             aiScore = 0;
-            aiSuggestion = "Không ưu tiên";  // Valid enum value
+            aiSuggestion = "Không ưu tiên"; // Valid enum value
             aiReasoning = JSON.stringify({
               filtered: true,
               reason: gpaScoreResult.reason + " - Không đạt tiêu chuẩn tối thiểu",

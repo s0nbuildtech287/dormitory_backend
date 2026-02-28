@@ -9,9 +9,17 @@ const pool = new Pool({
   user: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "dormitory_system",
-  max: 10, // Maximum number of clients in pool
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: 10,
+  idleTimeoutMillis: 0, // 0 = never close idle connections (prevents Node exit)
+  connectionTimeoutMillis: 10000,
+  allowExitOnIdle: false, // NEVER let pg cause Node.js to exit
+  keepAlive: true, // send TCP keepalive probes
+  keepAliveInitialDelayMillis: 10000,
+});
+
+// Prevent idle client errors from crashing the process
+pool.on("error", (err) => {
+  console.error("[pg pool] Unexpected client error (ignored):", err.message);
 });
 
 // Test connection
