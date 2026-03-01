@@ -724,6 +724,14 @@ class RegistrationService {
           const contractId = `contract-${Date.now()}`;
           const contractNumber = `HD-PENDING-${Date.now()}`;
 
+          // Ngày bắt đầu = 7 ngày sau ngày nộp hồ sơ
+          // Ngày kết thúc = ngày bắt đầu + 6 tháng
+          const submittedAt = new Date(oldData.created_at || Date.now());
+          const startDate = new Date(submittedAt);
+          startDate.setDate(startDate.getDate() + 7);
+          const endDate = new Date(startDate);
+          endDate.setMonth(endDate.getMonth() + 6);
+
           await StudentContractDAO.createPendingContract({
             id: contractId,
             contract_number: contractNumber,
@@ -731,6 +739,8 @@ class RegistrationService {
             room_id: null,
             register_form_id: id,
             status: "Pending",
+            start_date: startDate.toISOString().split("T")[0],
+            end_date: endDate.toISOString().split("T")[0],
             // Snapshot
             snapshot_student_id: oldData.student_id || null,
             snapshot_cccd: oldData.cccd || null,
