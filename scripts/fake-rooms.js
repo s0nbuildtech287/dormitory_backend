@@ -5,9 +5,9 @@ async function generateFakeRooms() {
     console.log("🚀 Bắt đầu tạo fake data cho bảng rooms...");
 
     const buildings = ["A", "B", "C", "D"];
-    const floors = [1, 2, 3, 4, 5];
+    const floors = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const roomsPerFloor = 10; // 10 phòng/tầng
-    const totalRooms = buildings.length * floors.length * roomsPerFloor; // 200 phòng
+    const totalRooms = buildings.length * floors.length * roomsPerFloor; // 400 phòng
 
     const rooms = [];
 
@@ -41,8 +41,8 @@ async function generateFakeRooms() {
               "Giường đơn": 1,
               "Tủ quần áo": 1,
               "Bàn học": 1,
-              "Ghế": 1,
-              "Quạt máy": 1
+              Ghế: 1,
+              "Quạt máy": 1,
             }),
             electric_meter_reading: 0.0,
             water_meter_reading: 0.0,
@@ -74,8 +74,8 @@ async function generateFakeRooms() {
     console.log(`✅ Đã tạo thành công ${rooms.length} phòng fake data!`);
     console.log(`📊 Tổng quan:`);
     console.log(`   - 4 tòa nhà: A, B, C, D`);
-    console.log(`   - Mỗi tòa: 5 tầng × 10 phòng = 50 phòng`);
-    console.log(`   - Tổng: 200 phòng`);
+    console.log(`   - Mỗi tòa: 10 tầng × 10 phòng = 100 phòng`);
+    console.log(`   - Tổng: 400 phòng`);
     console.log(`   - Mỗi phòng: 5 chỗ, giá 500,000 VNĐ/tháng`);
     console.log(`   - Phí dịch vụ: Rác 20,000 VNĐ, Mạng 50,000 VNĐ, Gửi xe 30,000 VNĐ/tháng`);
   } catch (error) {
