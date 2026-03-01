@@ -302,6 +302,8 @@ CREATE TABLE student_contracts (
     rent_price DECIMAL(10,2) DEFAULT 0,
     deposit_amount DECIMAL(10,2) DEFAULT 0,
     deposit_paid BOOLEAN DEFAULT FALSE,
+    hard_copy_received BOOLEAN DEFAULT FALSE, -- Đã nhận bản cứng hợp đồng giấy
+    email_sent_at TIMESTAMP,                 -- Thời điểm gửi email thông báo
     status contract_status DEFAULT 'Pending', -- Mặc định Pending sau khi duyệt hồ sơ
     -- Snapshot thông tin sinh viên tại thời điểm tạo hợp đồng
     snapshot_student_id VARCHAR(50),          -- Mã SV snapshot
