@@ -32,39 +32,57 @@ class RoomDAO extends BaseDAO {
      * Search and filter rooms
      */
     async searchAndFilter(filters = {}) {
-        let query = `SELECT * FROM ${this.tableName} WHERE 1=1`;
+        let paramIndex = 1;
         const values = [];
 
+        let query = `
+            SELECT r.*,
+                r.current_occupancy AS "currentOccupancy",
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'student_name', u.full_name,
+                            'student_id', sc.snapshot_student_id,
+                            'contract_number', sc.contract_number
+                        )
+                    ) FILTER (WHERE sc.id IS NOT NULL), '[]'::json
+                ) AS students
+            FROM ${this.tableName} r
+            LEFT JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
+            LEFT JOIN users u ON sc.user_id = u.id
+            WHERE 1=1
+        `;
+
         if (filters.building) {
-            query += ` AND building = ?`;
+            query += ` AND r.building = $${paramIndex++}`;
             values.push(filters.building);
         }
 
         if (filters.genderType) {
-            query += ` AND gender_type = ?`;
+            query += ` AND r.gender_type = $${paramIndex++}`;
             values.push(filters.genderType);
         }
 
         if (filters.status) {
-            query += ` AND status = ?`;
+            query += ` AND r.status = $${paramIndex++}`;
             values.push(filters.status);
         }
 
         if (filters.searchTerm) {
-            query += ` AND room_number LIKE ?`;
+            query += ` AND r.room_number ILIKE $${paramIndex++}`;
             values.push(`%${filters.searchTerm}%`);
         }
 
         // Occupancy filters
         if (filters.occupancyStatus === 'Full') {
-            query += ` AND current_occupancy >= capacity`;
+            query += ` AND r.current_occupancy >= r.capacity`;
         } else if (filters.occupancyStatus === 'Available') {
-            query += ` AND current_occupancy > 0 AND current_occupancy < capacity`;
+            query += ` AND r.current_occupancy > 0 AND r.current_occupancy < r.capacity`;
         } else if (filters.occupancyStatus === 'Empty') {
-            query += ` AND current_occupancy = 0`;
+            query += ` AND r.current_occupancy = 0`;
         }
 
-        query += ` ORDER BY building, floor, room_number`;
+        query += ` GROUP BY r.id ORDER BY r.building, r.floor, r.room_number`;
         return this.executeQuery(query, values);
     }
 
