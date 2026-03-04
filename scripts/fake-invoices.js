@@ -24,6 +24,15 @@ async function generateFakeInvoices() {
     
     console.log(`📦 Đã tìm thấy ${rooms.length} phòng có sinh viên để tạo hóa đơn`);
 
+    // Format date to local YYYY-MM-DD (avoids UTC timezone offset bug with toISOString)
+    const formatLocalDate = (date) => {
+      const y = date.getFullYear();
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const d = date.getDate().toString().padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const now = new Date();
     const invoices = [];
     const timestamp = Date.now();
     
@@ -31,12 +40,11 @@ async function generateFakeInvoices() {
     for (let i = 0; i < rooms.length; i++) {
       const room = rooms[i];
       
-      // Tạo hóa đơn cho tháng 2 (vì hiện tại là tháng 3, phải đóng tiền tháng trước)
-      const now = new Date();
+      // Tạo hóa đơn cho tháng trước (vì hiện tại là tháng 3, phải đóng tiền tháng 2)
       const billingMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1); // Tháng trước
       
-      // Ngày đến hạn: ngày 5 của tháng hiện tại
-      const dueDate = new Date(now.getFullYear(), now.getMonth(), 5);
+      // Ngày đến hạn: ngày 10 của tháng hiện tại (10 ngày kể từ đầu tháng mới)
+      const dueDate = new Date(now.getFullYear(), now.getMonth(), 10);
       
       // Xác định trạng thái hóa đơn
       let status = "Chưa thanh toán";
@@ -112,7 +120,7 @@ async function generateFakeInvoices() {
         id: invoiceId,
         room_id: room.room_id,  // Lưu room_id thay vì contract_id
         invoice_number: invoiceNumber,
-        billing_month: billingMonth.toISOString().split("T")[0],
+        billing_month: formatLocalDate(billingMonth),
         
         // Tiền phòng
         rent_per_person: rentPerPerson,
@@ -146,7 +154,7 @@ async function generateFakeInvoices() {
         // Tổng
         total_amount: totalAmount,
         status,
-        due_date: dueDate.toISOString().split("T")[0],
+        due_date: formatLocalDate(dueDate),
         paid_at: paidAt ? paidAt.toISOString() : null,
         payment_method: paymentMethod,
         payment_reference: paymentMethod ? `REF-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}` : null,
@@ -218,8 +226,8 @@ async function generateFakeInvoices() {
     console.log(`   - Mạng: 300,000 VNĐ/phòng/tháng`);
     console.log(`   - Gửi xe: 50,000 VNĐ/xe/tháng (1-${invoices[0]?.occupancy || 5} xe/phòng)`);
     console.log(`\n📅 Thời gian:`);
-    console.log(`   - Tháng thanh toán: Tháng 2/2026`);
-    console.log(`   - Hạn thanh toán: Ngày 5/3/2026`);
+    console.log(`   - Tháng thanh toán: Tháng ${now.getMonth()}/${now.getFullYear()}`); // getMonth() is 0-based, but we used getMonth()-1 for billing
+    console.log(`   - Hạn thanh toán: Ngày 10/${now.getMonth() + 1}/${now.getFullYear()}`);
     console.log(`\n📦 Phòng:`);
     console.log(`   - ${rooms.length} phòng có người ở`);
     console.log(`   - Mỗi phòng 1 hóa đơn`);
