@@ -91,16 +91,15 @@ async function generateFakeStudentContracts() {
     // Mật khẩu mặc định cho tất cả sinh viên: "123456"
     const defaultPassword = await bcrypt.hash("123456", 10);
     
-    // Phân bổ theo 3 rổ: Rổ 1 (12%) = 120, Rổ 2 (55%) = 550, Rổ 3 (33%) = 330
-    const basket1Count = 120; // Chính sách
-    const basket2Count = 550; // Tân sinh viên (năm 1)
-    const basket3Count = 330; // Khóa cũ (năm 2,3,4)
+    // Phân bổ theo 3 rổ: Rổ 1 (10%) = 100, Rổ 2 (60%) = 600, Rổ 3 (30%) = 300
+    const basket1Count = 100; // Chính sách
+    const basket2Count = 600; // Tân sinh viên (năm 1)
+    const basket3Count = 300; // Khóa cũ (năm 2,3,4)
     
     // Phân bổ theo thời gian tạo hồ sơ
-    const timeGroup1Count = 200; // 6 tháng trước (sắp hết hạn)
-    const timeGroup1ExpiredCount = 50; // Trong đó 50 hồ sơ đã hết hạn
-    const timeGroup2Count = 300; // 3 tháng trước
-    const timeGroup3Count = 500; // 1 tháng trước (mới)
+    const timeGroup1Count = 50;  // Đã hết hạn (7 tháng trước)
+    const timeGroup2Count = 800; // 3 tháng trước (còn 3 tháng)
+    const timeGroup3Count = 150; // 1 tháng trước (còn 5 tháng - mới)
     
     let userIndex = 0;
     let roomIndex = 0;
@@ -169,18 +168,13 @@ async function generateFakeStudentContracts() {
       let isExpired = false;
       
       if (currentTimeGroup === 1) {
-        // Nhóm 1: 50 hồ sơ đầu đã hết hạn, 150 hồ sơ còn lại sắp hết hạn
-        if (countInCurrentTimeGroup <= timeGroup1ExpiredCount) {
-          monthsAgo = 7; // 7 tháng trước - đã hết hạn (6 tháng + 1 tháng)
-          isExpired = true;
-        } else {
-          monthsAgo = 6; // 6 tháng trước - sắp hết hạn
-          isExpired = false;
-        }
+        // Nhóm 1: 50 hồ sơ đã hết hạn
+        monthsAgo = 7; // 7 tháng trước - đã hết hạn (6 tháng + 1 tháng)
+        isExpired = true;
       } else if (currentTimeGroup === 2) {
-        monthsAgo = 3; // 3 tháng trước
+        monthsAgo = 3; // 3 tháng trước - còn 3 tháng
       } else {
-        monthsAgo = 1; // 1 tháng trước - mới
+        monthsAgo = 5; // 5 tháng trước - còn 1 tháng (~30 ngày)
       }
       
       // Xác định giới tính dựa trên phòng
@@ -352,14 +346,14 @@ async function generateFakeStudentContracts() {
     
     // Tạo sinh viên theo từng rổ
     console.log(`\n📊 Phân bổ theo 3 rổ:`);
-    console.log(`   - Rổ 1 (Chính sách): ${basket1Count} sinh viên (12%)`);
-    console.log(`   - Rổ 2 (Tân sinh viên): ${basket2Count} sinh viên (55%)`);
-    console.log(`   - Rổ 3 (Khóa cũ): ${basket3Count} sinh viên (33%)`);
+    console.log(`   - Rổ 1 (Chính sách): ${basket1Count} sinh viên (10%)`);
+    console.log(`   - Rổ 2 (Tân sinh viên): ${basket2Count} sinh viên (60%)`);
+    console.log(`   - Rổ 3 (Khóa cũ): ${basket3Count} sinh viên (30%)`);
     
     console.log(`\n📅 Phân bổ theo thời gian:`);
-    console.log(`   - Nhóm 1: ${timeGroup1Count} hồ sơ (6 tháng trước - sắp hết hạn)`);
-    console.log(`   - Nhóm 2: ${timeGroup2Count} hồ sơ (3 tháng trước)`);
-    console.log(`   - Nhóm 3: ${timeGroup3Count} hồ sơ (1 tháng trước - mới)`);
+    console.log(`   - Nhóm 1: ${timeGroup1Count} hồ sơ (7 tháng trước - đã hết hạn)`);
+    console.log(`   - Nhóm 2: ${timeGroup2Count} hồ sơ (3 tháng trước - còn 3 tháng)`);
+    console.log(`   - Nhóm 3: ${timeGroup3Count} hồ sơ (5 tháng trước - còn 1 tháng, sắp hết hạn)`);
     
     // Rổ 1: Chính sách
     for (let i = 0; i < basket1Count; i++) {
@@ -487,15 +481,13 @@ async function generateFakeStudentContracts() {
     console.log(`   - ${contracts.length} hợp đồng (${activeCount} Active, ${expiredCount} Expired)`);
     console.log(`   - ${roomIndex + 1} phòng đã được gán sinh viên`);
     console.log(`\n📋 Phân bổ theo rổ:`);
-    console.log(`   - Rổ 1 (Chính sách): ${basket1Count} (12%)`);
-    console.log(`   - Rổ 2 (Tân sinh viên): ${basket2Count} (55%)`);
-    console.log(`   - Rổ 3 (Khóa cũ): ${basket3Count} (33%)`);
+    console.log(`   - Rổ 1 (Chính sách): ${basket1Count} (10%)`);
+    console.log(`   - Rổ 2 (Tân sinh viên): ${basket2Count} (60%)`);
+    console.log(`   - Rổ 3 (Khóa cũ): ${basket3Count} (30%)`);
     console.log(`\n📅 Phân bổ theo thời gian:`);
-    console.log(`   - ${timeGroup1Count} hợp đồng: 6-7 tháng trước`);
-    console.log(`     • ${timeGroup1ExpiredCount} đã hết hạn (Expired)`);
-    console.log(`     • ${timeGroup1Count - timeGroup1ExpiredCount} sắp hết hạn (Active)`);
-    console.log(`   - ${timeGroup2Count} hợp đồng: 3 tháng trước (còn 3 tháng)`);
-    console.log(`   - ${timeGroup3Count} hợp đồng: 1 tháng trước (còn 5 tháng)`);
+    console.log(`   - ${timeGroup1Count} hợp đồng: 7 tháng trước (đã hết hạn - Expired)`);
+    console.log(`   - ${timeGroup2Count} hợp đồng: 3 tháng trước (còn 3 tháng - Active)`);
+    console.log(`   - ${timeGroup3Count} hợp đồng: 5 tháng trước (còn 1 tháng - Active, sắp hết hạn)`);
     console.log(`\n⏱️  Timeline mỗi hồ sơ:`);
     console.log(`   - Tạo hồ sơ → +15 ngày → Duyệt hồ sơ → Tạo hợp đồng (6 tháng)`);
     
