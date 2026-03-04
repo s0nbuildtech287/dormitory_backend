@@ -338,34 +338,62 @@ CREATE INDEX idx_contracts_dates ON student_contracts(start_date, end_date);  --
 
 CREATE TABLE invoices (
     id VARCHAR(50) PRIMARY KEY,
-    contract_id VARCHAR(50) NOT NULL,
+    room_id VARCHAR(50) NOT NULL,                  -- Invoice theo phòng, không theo contract
     invoice_number VARCHAR(50) UNIQUE NOT NULL,
     billing_month DATE NOT NULL,              -- Ngày đầu tháng tính tiền
-    rent_amount DECIMAL(10,2) NOT NULL,
-    electric_start DECIMAL(10,2) DEFAULT 0,
-    electric_end DECIMAL(10,2) DEFAULT 0,
-    electric_rate DECIMAL(10,2) DEFAULT 3500,  -- VNĐ/kWh
-    water_start DECIMAL(10,2) DEFAULT 0,
-    water_end DECIMAL(10,2) DEFAULT 0,
-    water_rate DECIMAL(10,2) DEFAULT 15000,    -- VNĐ/m3
-    other_fees DECIMAL(10,2) DEFAULT 0,
-    discount_amount DECIMAL(10,2) DEFAULT 0,   -- Tối ưu: Giảm giá
-    penalty_amount DECIMAL(10,2) DEFAULT 0,    -- Tối ưu: Phí phạt trễ hạn
-    total_amount DECIMAL(10,2) NOT NULL,
+    
+    -- Tiền phòng (500k/người × số người)
+    rent_per_person DECIMAL(10,2) DEFAULT 500000,  -- 500k/người/tháng
+    occupancy INTEGER NOT NULL,                     -- Số người ở (3-5)
+    rent_amount DECIMAL(10,2) NOT NULL,            -- = rent_per_person × occupancy
+    
+    -- Điện
+    electric_start DECIMAL(10,2) DEFAULT 0,        -- Số điện đầu kỳ (kWh)
+    electric_end DECIMAL(10,2) DEFAULT 0,          -- Số điện cuối kỳ (kWh)
+    electric_rate DECIMAL(10,2) DEFAULT 3500,      -- 3,500 VNĐ/kWh
+    electric_amount DECIMAL(10,2) DEFAULT 0,       -- = (end - start) × rate
+    
+    -- Nước
+    water_start DECIMAL(10,2) DEFAULT 0,           -- Số nước đầu kỳ (m³)
+    water_end DECIMAL(10,2) DEFAULT 0,             -- Số nước cuối kỳ (m³)
+    water_rate DECIMAL(10,2) DEFAULT 15000,        -- 15,000 VNĐ/m³
+    water_amount DECIMAL(10,2) DEFAULT 0,          -- = (end - start) × rate
+    
+    -- Dịch vụ
+    garbage_fee DECIMAL(10,2) DEFAULT 70000,       -- 70k/phòng/tháng
+    internet_fee DECIMAL(10,2) DEFAULT 300000,     -- 300k/phòng/tháng
+    parking_fee_per_vehicle DECIMAL(10,2) DEFAULT 50000,  -- 50k/xe/tháng
+    parking_count INTEGER DEFAULT 0,                -- Số xe
+    parking_fee DECIMAL(10,2) DEFAULT 0,           -- = parking_fee_per_vehicle × parking_count
+    
+    -- Tổng phí dịch vụ
+    service_fees DECIMAL(10,2) DEFAULT 0,          -- = garbage + internet + parking
+    
+    -- Điều chỉnh
+    discount_amount DECIMAL(10,2) DEFAULT 0,       -- Giảm giá
+    penalty_amount DECIMAL(10,2) DEFAULT 0,        -- Phí phạt trễ hạn
+    
+    -- Tổng cộng
+    total_amount DECIMAL(10,2) NOT NULL,           -- = rent + electric + water + service - discount + penalty
+    
+    -- Trạng thái thanh toán
     status bill_status DEFAULT 'Chưa thanh toán',
     due_date DATE NOT NULL,
     paid_at TIMESTAMP,
     payment_method VARCHAR(50),
-    payment_reference VARCHAR(100),            -- Tối ưu: Mã tham chiếu thanh toán
+    payment_reference VARCHAR(100),                -- Mã tham chiếu thanh toán
     note TEXT,
+    
+    -- Audit
     created_by VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (contract_id) REFERENCES student_contracts(id) ON DELETE CASCADE,
+    
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_invoices_contract_id ON invoices(contract_id);
+CREATE INDEX idx_invoices_room_id ON invoices(room_id);
 CREATE INDEX idx_invoices_status ON invoices(status);
 CREATE INDEX idx_invoices_billing_month ON invoices(billing_month);
 CREATE INDEX idx_invoices_due_date ON invoices(due_date);
