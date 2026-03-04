@@ -20,7 +20,7 @@ class RoomDAO extends BaseDAO {
         const values = [];
 
         if (genderType) {
-            query += ` AND gender_type = ?`;
+            query += ` AND gender_type = $1`;
             values.push(genderType);
         }
 
@@ -48,7 +48,7 @@ class RoomDAO extends BaseDAO {
                     ) FILTER (WHERE sc.id IS NOT NULL), '[]'::json
                 ) AS students
             FROM ${this.tableName} r
-            LEFT JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
+            LEFT JOIN student_contracts sc ON sc.room_id = r.id AND sc.status IN ('Active', 'Expired')
             LEFT JOIN users u ON sc.user_id = u.id
             WHERE 1=1
         `;
@@ -99,11 +99,12 @@ class RoomDAO extends BaseDAO {
                 u.phone as student_phone,
                 sc.contract_number,
                 sc.start_date,
-                sc.end_date
+                sc.end_date,
+                sc.status as contract_status
             FROM rooms r
-            LEFT JOIN student_contracts sc ON r.id = sc.room_id AND sc.status = 'Active'
+            LEFT JOIN student_contracts sc ON r.id = sc.room_id AND sc.status IN ('Active', 'Expired')
             LEFT JOIN users u ON sc.user_id = u.id
-            WHERE r.id = ?
+            WHERE r.id = $1
         `;
         return this.executeQuery(query, [roomId]);
     }
@@ -112,7 +113,7 @@ class RoomDAO extends BaseDAO {
      * Increment occupancy
      */
     async incrementOccupancy(roomId) {
-        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy + 1 WHERE id = ?`;
+        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy + 1 WHERE id = $1`;
         const [result] = await this.executeQuery(query, [roomId]);
         return result.affectedRows > 0;
     }
@@ -121,7 +122,7 @@ class RoomDAO extends BaseDAO {
      * Decrement occupancy
      */
     async decrementOccupancy(roomId) {
-        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy - 1 WHERE id = ? AND current_occupancy > 0`;
+        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy - 1 WHERE id = $1 AND current_occupancy > 0`;
         const [result] = await this.executeQuery(query, [roomId]);
         return result.affectedRows > 0;
     }
