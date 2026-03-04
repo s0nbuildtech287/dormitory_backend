@@ -212,6 +212,15 @@ class ContractService {
 
       await LogSystemDAO.log(adminId, "DELETE_CONTRACT", "student_contracts", id, contract, null, req);
 
+      // Also delete the associated user account
+      if (contract.user_id) {
+        const user = await UserDAO.findById(contract.user_id);
+        if (user) {
+          await UserDAO.delete(contract.user_id);
+          await LogSystemDAO.log(adminId, "DELETE_USER", "users", contract.user_id, user, null, req);
+        }
+      }
+
       return { deleted: true };
     } catch (error) {
       throw new Error(`Delete contract failed: ${error.message}`);
