@@ -6,10 +6,10 @@ class InvoiceDAO extends BaseDAO {
     }
 
     /**
-     * Find invoices by contract ID
+     * Find invoices by room ID
      */
-    async findByContractId(contractId) {
-        return this.findAll({ contract_id: contractId }, ['billing_month DESC']);
+    async findByRoomId(roomId) {
+        return this.findAll({ room_id: roomId }, ['billing_month DESC']);
     }
 
     /**
@@ -26,38 +26,49 @@ class InvoiceDAO extends BaseDAO {
         let query = `
             SELECT 
                 i.*,
-                u.full_name as student_name,
-                u.email as student_email,
                 r.room_number,
                 r.building,
-                sc.user_id
+                r.floor,
+                r.current_occupancy,
+                (
+                    SELECT STRING_AGG(DISTINCT u2.full_name, ', ')
+                    FROM student_contracts sc2
+                    LEFT JOIN users u2 ON sc2.user_id = u2.id
+                    WHERE sc2.room_id = r.id AND sc2.status = 'Active'
+                ) as student_names,
+                (
+                    SELECT STRING_AGG(DISTINCT u3.email, ', ')
+                    FROM student_contracts sc3
+                    LEFT JOIN users u3 ON sc3.user_id = u3.id
+                    WHERE sc3.room_id = r.id AND sc3.status = 'Active'
+                ) as student_emails
             FROM ${this.tableName} i
-            LEFT JOIN student_contracts sc ON i.contract_id = sc.id
-            LEFT JOIN users u ON sc.user_id = u.id
-            LEFT JOIN rooms r ON sc.room_id = r.id
+            LEFT JOIN rooms r ON i.room_id = r.id
             WHERE 1=1
         `;
         const values = [];
+        let paramIndex = 1;
 
         if (filters.status) {
-            query += ` AND i.status = ?`;
+            query += ` AND i.status = $${paramIndex++}`;
             values.push(filters.status);
         }
 
         if (filters.month) {
-            query += ` AND i.billing_month = ?`;
+            query += ` AND i.billing_month = $${paramIndex++}`;
             values.push(filters.month);
         }
 
         if (filters.searchTerm) {
-            query += ` AND (u.full_name LIKE ? OR i.invoice_number LIKE ?)`;
+            query += ` AND (r.room_number ILIKE $${paramIndex} OR i.invoice_number ILIKE $${paramIndex + 1})`;
             values.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
+            paramIndex += 2;
         }
 
         query += ` ORDER BY i.created_at DESC`;
 
         if (filters.limit) {
-            query += ` LIMIT ?`;
+            query += ` LIMIT $${paramIndex}`;
             values.push(filters.limit);
         }
 
@@ -68,16 +79,31 @@ class InvoiceDAO extends BaseDAO {
      * Calculate and create invoice
      */
     async createInvoice(invoiceData) {
-        // Calculate total
+        // Calculate costs
         const electricUsage = invoiceData.electric_end - invoiceData.electric_start;
         const waterUsage = invoiceData.water_end - invoiceData.water_start;
         
-        const electricCost = electricUsage * invoiceData.electric_rate;
-        const waterCost = waterUsage * invoiceData.water_rate;
-        const totalAmount = invoiceData.rent_amount + electricCost + waterCost + (invoiceData.other_fees || 0);
+        const electricAmount = electricUsage * invoiceData.electric_rate;
+        const waterAmount = waterUsage * invoiceData.water_rate;
+        
+        // Service fees
+        const serviceFees = (invoiceData.garbage_fee || 0) + 
+                           (invoiceData.internet_fee || 0) + 
+                           (invoiceData.parking_fee || 0);
+        
+        // Total
+        const totalAmount = invoiceData.rent_amount + 
+                           electricAmount + 
+                           waterAmount + 
+                           serviceFees - 
+                           (invoiceData.discount_amount || 0) + 
+                           (invoiceData.penalty_amount || 0);
 
         const invoice = {
             ...invoiceData,
+            electric_amount: electricAmount,
+            water_amount: waterAmount,
+            service_fees: serviceFees,
             total_amount: totalAmount
         };
 
@@ -103,10 +129,10 @@ class InvoiceDAO extends BaseDAO {
             UPDATE ${this.tableName} 
             SET status = 'Quá hạn' 
             WHERE status = 'Chưa thanh toán' 
-            AND due_date < CURDATE()
+            AND due_date < CURRENT_DATE
         `;
-        const [result] = await this.executeQuery(query);
-        return result.affectedRows;
+        const result = await this.executeQuery(query);
+        return result.rowCount || 0;
     }
 
     /**
@@ -115,14 +141,14 @@ class InvoiceDAO extends BaseDAO {
     async getRevenueStatistics(startDate, endDate) {
         const query = `
             SELECT 
-                DATE_FORMAT(billing_month, '%Y-%m') as month,
+                TO_CHAR(billing_month, 'YYYY-MM') as month,
                 COUNT(*) as total_invoices,
                 SUM(total_amount) as total_amount,
                 SUM(CASE WHEN status = 'Đã thanh toán' THEN total_amount ELSE 0 END) as paid_amount,
                 SUM(CASE WHEN status = 'Chưa thanh toán' THEN total_amount ELSE 0 END) as unpaid_amount,
                 SUM(CASE WHEN status = 'Quá hạn' THEN total_amount ELSE 0 END) as overdue_amount
             FROM ${this.tableName}
-            WHERE billing_month BETWEEN ? AND ?
+            WHERE billing_month BETWEEN $1 AND $2
             GROUP BY month
             ORDER BY month DESC
         `;
@@ -130,14 +156,17 @@ class InvoiceDAO extends BaseDAO {
     }
 
     /**
-     * Get unpaid invoices for a user
+     * Get unpaid invoices for a user (by room)
      */
     async getUnpaidByUser(userId) {
         const query = `
-            SELECT i.*
+            SELECT i.*, r.room_number, r.building
             FROM ${this.tableName} i
-            INNER JOIN student_contracts sc ON i.contract_id = sc.id
-            WHERE sc.user_id = ? AND i.status IN ('Chưa thanh toán', 'Quá hạn')
+            INNER JOIN rooms r ON i.room_id = r.id
+            INNER JOIN student_contracts sc ON r.id = sc.room_id
+            WHERE sc.user_id = $1
+            AND sc.status = 'Active'
+            AND i.status IN ('Chưa thanh toán', 'Quá hạn')
             ORDER BY i.due_date ASC
         `;
         return this.executeQuery(query, [userId]);
@@ -148,13 +177,11 @@ class InvoiceDAO extends BaseDAO {
      */
     async getByRoom(roomId, limit = null) {
         const query = `
-            SELECT i.*, sc.user_id, u.full_name as student_name
+            SELECT i.*
             FROM ${this.tableName} i
-            INNER JOIN student_contracts sc ON i.contract_id = sc.id
-            INNER JOIN users u ON sc.user_id = u.id
-            WHERE sc.room_id = ?
+            WHERE i.room_id = $1
             ORDER BY i.billing_month DESC
-            ${limit ? 'LIMIT ?' : ''}
+            ${limit ? 'LIMIT $2' : ''}
         `;
         return this.executeQuery(query, limit ? [roomId, limit] : [roomId]);
     }
