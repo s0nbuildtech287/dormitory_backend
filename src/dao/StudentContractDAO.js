@@ -230,10 +230,10 @@ class StudentContractDAO extends BaseDAO {
   }
 
   /**
-   * Get top suggested rooms for a pending contract based on gender + year matching
-   * Scoring: Ưu tiên phòng nhiều SV cùng năm học, rồi đến phòng gần đầy
+   * Get top suggested rooms for a pending contract based on gender + year + faculty matching
+   * Scoring: Ưu tiên phòng có nhiều SV cùng năm + cùng khoa, rồi đến phòng gần đầy
    */
-  async getSuggestedRooms(gender, year, limit = 5) {
+  async getSuggestedRooms(gender, year, faculty = null, limit = 5) {
     const query = `
             SELECT
                 r.id,
@@ -247,21 +247,27 @@ class StudentContractDAO extends BaseDAO {
                 COUNT(sc.id) FILTER (
                     WHERE sc.status = 'Active' AND sc.snapshot_year = $2
                 ) AS same_year_count,
+                COUNT(sc.id) FILTER (
+                    WHERE sc.status = 'Active' AND sc.snapshot_faculty = $4
+                ) AS same_faculty_count,
+                COUNT(sc.id) FILTER (
+                    WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $4
+                ) AS same_year_faculty_count,
                 ROUND(
-                    COUNT(sc.id) FILTER (
-                        WHERE sc.status = 'Active' AND sc.snapshot_year = $2
-                    ) * 100.0 / NULLIF(r.capacity, 0)
-                , 1) AS year_match_score
+                    (COUNT(sc.id) FILTER (
+                        WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $4
+                    ) * 100.0 / NULLIF(r.capacity, 0))
+                , 1) AS match_score
             FROM rooms r
             LEFT JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
             WHERE r.gender_type = $1
               AND r.status = 'Active'
               AND r.current_occupancy < r.capacity
             GROUP BY r.id
-            ORDER BY year_match_score DESC, r.current_occupancy DESC
+            ORDER BY match_score DESC, same_year_faculty_count DESC, r.current_occupancy DESC
             LIMIT $3
         `;
-    return this.executeQuery(query, [gender, year, limit]);
+    return this.executeQuery(query, [gender, year, limit, faculty]);
   }
 
   /**

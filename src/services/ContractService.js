@@ -44,7 +44,7 @@ class ContractService {
 
   /**
    * Get suggested rooms for a pending contract
-   * Based on gender + year-cohort matching
+   * Based on gender + year-cohort + faculty matching
    */
   async suggestRooms(contractId) {
     try {
@@ -54,10 +54,11 @@ class ContractService {
 
       const gender = contract.snapshot_gender;
       const year = contract.snapshot_year;
+      const faculty = contract.snapshot_faculty;
 
       if (!gender) throw new Error("Contract missing gender information");
 
-      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, 5);
+      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, faculty, 5);
       return suggested;
     } catch (error) {
       throw new Error(`Suggest rooms failed: ${error.message}`);
