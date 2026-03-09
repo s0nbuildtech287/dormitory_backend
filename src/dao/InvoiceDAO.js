@@ -185,6 +185,20 @@ class InvoiceDAO extends BaseDAO {
         `;
         return this.executeQuery(query, limit ? [roomId, limit] : [roomId]);
     }
+
+    /**
+     * Check if invoice exists for room and billing month
+     */
+    async existsForRoomAndMonth(roomId, billingMonth) {
+        const query = `
+            SELECT COUNT(*) as count
+            FROM ${this.tableName}
+            WHERE room_id = $1 AND billing_month = $2
+        `;
+        const result = await this.executeQuery(query, [roomId, billingMonth]);
+        const count = parseInt(result[0]?.count || 0);
+        return count > 0;
+    }
 }
 
 module.exports = new InvoiceDAO();

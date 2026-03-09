@@ -80,44 +80,83 @@ class InvoiceService {
         try {
             const room = await RoomDAO.findById(roomId);
             if (!room) {
-                throw new Error('Room not found');
+                throw new Error('Không tìm thấy phòng');
             }
 
-            // Get active contracts for this room
-            const contracts = await StudentContractDAO.findByRoomId(roomId);
-            if (contracts.length === 0) {
-                throw new Error('No active contracts found for this room');
+            // Check if room has occupants
+            if (!room.current_occupancy || room.current_occupancy === 0) {
+                throw new Error('Phòng chưa có sinh viên ở');
             }
 
-            const invoices = [];
-
-            // Create invoice for each contract
-            for (const contract of contracts) {
-                const invoiceData = {
-                    contract_id: contract.id,
-                    billing_month: billingMonth,
-                    rent_amount: contract.rent_price,
-                    electric_start: meterReadings.electric_start,
-                    electric_end: meterReadings.electric_end,
-                    electric_rate: meterReadings.electric_rate || 3500,
-                    water_start: meterReadings.water_start,
-                    water_end: meterReadings.water_end,
-                    water_rate: meterReadings.water_rate || 15000,
-                    other_fees: meterReadings.other_fees || 0,
-                    due_date: meterReadings.due_date,
-                    note: meterReadings.note
-                };
-
-                const invoice = await this.createInvoice(invoiceData, adminId, req);
-                invoices.push(invoice);
+            // Check if invoice already exists for this room and month
+            const exists = await InvoiceDAO.existsForRoomAndMonth(roomId, billingMonth);
+            if (exists) {
+                throw new Error('Hóa đơn cho phòng này trong tháng đã tồn tại');
             }
 
-            // Update room meter readings
-            await RoomDAO.updateMeterReadings(roomId, meterReadings.electric_end, meterReadings.water_end);
+            // Generate invoice number: HD-YYYYMM-XXXXX
+            const billingDate = new Date(billingMonth);
+            const yearMonth = `${billingDate.getFullYear()}${(billingDate.getMonth() + 1).toString().padStart(2, '0')}`;
+            
+            // Get count of invoices for this month to generate sequential number
+            const countResult = await InvoiceDAO.executeQuery(
+                `SELECT COUNT(*) as count FROM invoices WHERE billing_month = $1`,
+                [billingMonth]
+            );
+            const count = parseInt(countResult[0]?.count || 0);
+            const sequentialNumber = (10000 + count + 1).toString();
+            
+            const invoiceNumber = `HD-${yearMonth}-${sequentialNumber}`;
+            const invoiceId = `invoice-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 
-            return invoices;
+            // Calculate due date (10th of next month)
+            const dueDate = new Date(billingDate.getFullYear(), billingDate.getMonth() + 1, 10);
+
+            // Prepare invoice data
+            const invoiceData = {
+                id: invoiceId,
+                invoice_number: invoiceNumber,
+                room_id: roomId,
+                billing_month: billingMonth,
+                rent_per_person: 500000,
+                occupancy: room.current_occupancy, // Number of people in room
+                rent_amount: room.current_occupancy * 500000, // 500k per person
+                electric_start: 0,
+                electric_end: meterReadings.electric_end || 0,
+                electric_rate: 3500,
+                water_start: 0,
+                water_end: meterReadings.water_end || 0,
+                water_rate: 15000,
+                garbage_fee: 70000,
+                internet_fee: 300000,
+                parking_fee_per_vehicle: 50000,
+                parking_count: room.current_occupancy, // Assume 1 vehicle per person
+                parking_fee: room.current_occupancy * 50000,
+                discount_amount: 0,
+                penalty_amount: 0,
+                due_date: dueDate.toISOString().split('T')[0],
+                status: 'Chưa thanh toán',
+                created_by: adminId
+            };
+
+            // Create invoice
+            const invoice = await InvoiceDAO.createInvoice(invoiceData);
+
+            // Log action
+            await LogSystemDAO.log(
+                adminId,
+                'CREATE_INVOICE',
+                'invoices',
+                invoiceId,
+                null,
+                invoice,
+                req
+            );
+
+            return invoice;
         } catch (error) {
-            throw new Error(`Create invoice from room failed: ${error.message}`);
+            // Throw only the Vietnamese message without English prefix
+            throw error;
         }
     }
 

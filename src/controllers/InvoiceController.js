@@ -68,7 +68,7 @@ class InvoiceController {
                 });
             }
 
-            const invoices = await InvoiceService.createInvoiceFromRoom(
+            const invoice = await InvoiceService.createInvoiceFromRoom(
                 roomId,
                 billingMonth,
                 meterReadings,
@@ -77,8 +77,8 @@ class InvoiceController {
             );
             res.status(201).json({
                 success: true,
-                message: `Created ${invoices.length} invoice(s) successfully`,
-                data: invoices
+                message: 'Invoice created successfully',
+                data: invoice
             });
         } catch (error) {
             next(error);
