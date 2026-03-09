@@ -15,6 +15,10 @@ router.get('/statistics/revenue', requireAdmin, InvoiceController.getRevenueStat
 // Update overdue invoices
 router.post('/update-overdue', requireAdmin, InvoiceController.updateOverdue);
 
+// Pricing settings
+router.get('/pricing-settings', requireAdmin, InvoiceController.getPricingSettings);
+router.put('/pricing-settings', requireAdmin, InvoiceController.updatePricingSettings);
+
 // Get invoices by user
 router.get('/user', InvoiceController.getByUser);
 router.get('/user/:userId', InvoiceController.getByUser);

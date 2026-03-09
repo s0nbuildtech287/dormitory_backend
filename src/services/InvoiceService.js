@@ -2,6 +2,7 @@ const InvoiceDAO = require('../dao/InvoiceDAO');
 const StudentContractDAO = require('../dao/StudentContractDAO');
 const RoomDAO = require('../dao/RoomDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
+const SettingsDAO = require('../dao/SettingsDAO');
 
 class InvoiceService {
     /**
@@ -94,6 +95,10 @@ class InvoiceService {
                 throw new Error('Hóa đơn cho phòng này trong tháng đã tồn tại');
             }
 
+            // Get pricing settings
+            const pricingSettings = await this.getPricingSettings();
+            const pricing = pricingSettings.value;
+
             // Generate invoice number: HD-YYYYMM-XXXXX
             const billingDate = new Date(billingMonth);
             const yearMonth = `${billingDate.getFullYear()}${(billingDate.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -109,29 +114,29 @@ class InvoiceService {
             const invoiceNumber = `HD-${yearMonth}-${sequentialNumber}`;
             const invoiceId = `invoice-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 
-            // Calculate due date (10th of next month)
-            const dueDate = new Date(billingDate.getFullYear(), billingDate.getMonth() + 1, 10);
+            // Calculate due date using pricing settings
+            const dueDate = new Date(billingDate.getFullYear(), billingDate.getMonth() + 1, pricing.dueDateDay || 10);
 
-            // Prepare invoice data
+            // Prepare invoice data using pricing settings
             const invoiceData = {
                 id: invoiceId,
                 invoice_number: invoiceNumber,
                 room_id: roomId,
                 billing_month: billingMonth,
-                rent_per_person: 500000,
-                occupancy: room.current_occupancy, // Number of people in room
-                rent_amount: room.current_occupancy * 500000, // 500k per person
-                electric_start: 0,
+                rent_per_person: pricing.rentPerPerson,
+                occupancy: room.current_occupancy,
+                rent_amount: room.current_occupancy * pricing.rentPerPerson,
+                electric_start: pricing.electricStart || 0,
                 electric_end: meterReadings.electric_end || 0,
-                electric_rate: 3500,
-                water_start: 0,
+                electric_rate: pricing.electricRate,
+                water_start: pricing.waterStart || 0,
                 water_end: meterReadings.water_end || 0,
-                water_rate: 15000,
-                garbage_fee: 70000,
-                internet_fee: 300000,
-                parking_fee_per_vehicle: 50000,
+                water_rate: pricing.waterRate,
+                garbage_fee: pricing.garbageFee,
+                internet_fee: pricing.internetFee,
+                parking_fee_per_vehicle: pricing.parkingFeePerVehicle,
                 parking_count: room.current_occupancy, // Assume 1 vehicle per person
-                parking_fee: room.current_occupancy * 50000,
+                parking_fee: room.current_occupancy * pricing.parkingFeePerVehicle,
                 discount_amount: 0,
                 penalty_amount: 0,
                 due_date: dueDate.toISOString().split('T')[0],
@@ -256,6 +261,7 @@ class InvoiceService {
      */
     async updateOverdueInvoices(req = null) {
         try {
+            // Only update invoices where due_date is in the past (before today)
             const count = await InvoiceDAO.updateOverdueInvoices();
 
             // Log action
@@ -266,7 +272,7 @@ class InvoiceService {
                     'invoices',
                     null,
                     null,
-                    { updated_count: count },
+                    { updated_count: count, updated_at: new Date() },
                     req
                 );
             }
@@ -307,6 +313,105 @@ class InvoiceService {
             return true;
         } catch (error) {
             throw new Error(`Delete invoice failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get pricing settings
+     */
+    async getPricingSettings() {
+        try {
+            let setting = await SettingsDAO.getSettingByName('pricing', 'pricing_config');
+            
+            // If not found, create default settings
+            if (!setting) {
+                console.log('⚠️ pricing_config not found, creating default...');
+                
+                const defaultPricing = {
+                    id: 'pricing_config',
+                    category: 'pricing',
+                    name: 'pricing_config',
+                    value: {
+                        rentPerPerson: 500000,
+                        electricRate: 3500,
+                        electricStart: 0,
+                        waterRate: 15000,
+                        waterStart: 0,
+                        garbageFee: 70000,
+                        internetFee: 300000,
+                        parkingFeePerVehicle: 50000,
+                        dueDateDay: 10
+                    },
+                    description: 'Cấu hình bảng giá tiền phòng, điện, nước và dịch vụ',
+                    is_active: true
+                };
+                
+                setting = await SettingsDAO.createSetting(defaultPricing);
+                console.log('✅ Default pricing_config created successfully');
+            }
+            
+            return setting;
+        } catch (error) {
+            throw new Error(`Get pricing settings failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Update pricing settings
+     */
+    async updatePricingSettings(pricingData, req = null) {
+        try {
+            // Validate pricing data
+            this.validatePricingSettings(pricingData);
+
+            const result = await SettingsDAO.updateSetting('pricing_config', pricingData, req?.user?.userId);
+
+            // Log action
+            if (req && req.user) {
+                await LogSystemDAO.log(
+                    req.user.userId,
+                    'UPDATE_PRICING_SETTINGS',
+                    'settings',
+                    'pricing_config',
+                    null,
+                    pricingData,
+                    req
+                );
+            }
+
+            return result;
+        } catch (error) {
+            throw new Error(`Update pricing settings failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Validate pricing settings structure
+     */
+    validatePricingSettings(pricing) {
+        const requiredFields = [
+            'rentPerPerson',
+            'electricRate',
+            'waterRate',
+            'garbageFee',
+            'internetFee',
+            'parkingFeePerVehicle',
+            'dueDateDay'
+        ];
+
+        for (const field of requiredFields) {
+            if (pricing[field] === undefined || pricing[field] === null) {
+                throw new Error(`Missing required field: ${field}`);
+            }
+            
+            if (typeof pricing[field] !== 'number' || pricing[field] < 0) {
+                throw new Error(`Invalid ${field}: must be a positive number`);
+            }
+        }
+
+        // Validate dueDateDay range
+        if (pricing.dueDateDay < 1 || pricing.dueDateDay > 28) {
+            throw new Error('dueDateDay must be between 1 and 28');
         }
     }
 }

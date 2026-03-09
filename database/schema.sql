@@ -792,7 +792,18 @@ INSERT INTO settings (id, category, name, value, description) VALUES
 ('room_parking_fee', 'room', 'defaultParkingFee', '100000', 'Phí gửi xe hàng tháng mặc định'),
 ('room_area', 'room', 'defaultArea', '25.5', 'Diện tích phòng mặc định (m²)'),
 ('system_config', 'system', 'maintenance_mode', 'false', 'Chế độ bảo trì hệ thống'),
-('user_prefs', 'user', 'default_view', '"list"', 'Chế độ xem mặc định');
+('user_prefs', 'user', 'default_view', '"list"', 'Chế độ xem mặc định'),
+('pricing_config', 'pricing', 'pricing_config', '{
+    "rentPerPerson": 500000,
+    "electricRate": 3500,
+    "electricStart": 0,
+    "waterRate": 15000,
+    "waterStart": 0,
+    "garbageFee": 70000,
+    "internetFee": 300000,
+    "parkingFeePerVehicle": 50000,
+    "dueDateDay": 10
+}', 'Cấu hình bảng giá tiền phòng, điện, nước và dịch vụ cho hệ thống hóa đơn');
 
 -- Insert default admin user
 INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_at, updated_at) VALUES 

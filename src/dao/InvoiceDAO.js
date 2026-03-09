@@ -123,13 +123,16 @@ class InvoiceDAO extends BaseDAO {
 
     /**
      * Update overdue invoices
+     * Only updates invoices where due_date is strictly before today
      */
     async updateOverdueInvoices() {
         const query = `
             UPDATE ${this.tableName} 
-            SET status = 'Quá hạn' 
+            SET status = 'Quá hạn', 
+                updated_at = CURRENT_TIMESTAMP
             WHERE status = 'Chưa thanh toán' 
             AND due_date < CURRENT_DATE
+            AND due_date IS NOT NULL
         `;
         const result = await this.executeQuery(query);
         return result.rowCount || 0;

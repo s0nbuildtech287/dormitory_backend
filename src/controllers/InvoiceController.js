@@ -198,6 +198,46 @@ class InvoiceController {
             next(error);
         }
     }
+
+    /**
+     * Get pricing settings
+     */
+    async getPricingSettings(req, res, next) {
+        try {
+            const settings = await InvoiceService.getPricingSettings();
+            res.json({
+                success: true,
+                data: settings
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Update pricing settings
+     */
+    async updatePricingSettings(req, res, next) {
+        try {
+            const { value } = req.body;
+
+            if (!value) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Pricing value is required'
+                });
+            }
+
+            const result = await InvoiceService.updatePricingSettings(value, req);
+            res.json({
+                success: true,
+                message: 'Pricing settings updated successfully',
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new InvoiceController();
