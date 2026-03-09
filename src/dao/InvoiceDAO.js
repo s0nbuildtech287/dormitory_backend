@@ -139,7 +139,30 @@ class InvoiceDAO extends BaseDAO {
     }
 
     /**
-     * Get revenue statistics
+     * Get invoice statistics
+     */
+    async getStatistics() {
+        const query = `
+            SELECT 
+                COUNT(*) as total_invoices,
+                COUNT(CASE WHEN status = 'Đã thanh toán' THEN 1 END) as paid_count,
+                COUNT(CASE WHEN status = 'Chưa thanh toán' THEN 1 END) as unpaid_count,
+                COUNT(CASE WHEN status = 'Quá hạn' THEN 1 END) as overdue_count,
+                COALESCE(SUM(total_amount), 0) as total_amount,
+                COALESCE(SUM(CASE WHEN status = 'Đã thanh toán' THEN total_amount ELSE 0 END), 0) as paid_amount,
+                COALESCE(SUM(CASE WHEN status = 'Chưa thanh toán' THEN total_amount ELSE 0 END), 0) as unpaid_amount,
+                COALESCE(SUM(CASE WHEN status = 'Quá hạn' THEN total_amount ELSE 0 END), 0) as overdue_amount,
+                COALESCE(ROUND(AVG(total_amount), 0), 0) as average_amount,
+                TO_CHAR(MIN(billing_month), 'YYYY-MM') as earliest_month,
+                TO_CHAR(MAX(billing_month), 'YYYY-MM') as latest_month
+            FROM ${this.tableName}
+        `;
+        const result = await this.executeQuery(query);
+        return result[0] || {};
+    }
+
+    /**
+     * Get revenue statistics (deprecated - use getStatistics instead)
      */
     async getRevenueStatistics(startDate, endDate) {
         const query = `

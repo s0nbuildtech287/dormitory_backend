@@ -9,7 +9,10 @@ router.use(authenticate);
 // Get all invoices
 router.get('/', InvoiceController.getAll);
 
-// Get revenue statistics
+// Get invoice statistics
+router.get('/statistics', requireAdmin, InvoiceController.getStatistics);
+
+// Get revenue statistics (deprecated)
 router.get('/statistics/revenue', requireAdmin, InvoiceController.getRevenueStatistics);
 
 // Update overdue invoices

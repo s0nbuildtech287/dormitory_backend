@@ -144,7 +144,22 @@ class InvoiceController {
     }
 
     /**
-     * Get revenue statistics
+     * Get invoice statistics
+     */
+    async getStatistics(req, res, next) {
+        try {
+            const statistics = await InvoiceService.getStatistics();
+            res.json({
+                success: true,
+                data: statistics
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Get revenue statistics (deprecated - use getStatistics instead)
      */
     async getRevenueStatistics(req, res, next) {
         try {

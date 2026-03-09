@@ -235,7 +235,18 @@ class InvoiceService {
     }
 
     /**
-     * Get revenue statistics
+     * Get invoice statistics
+     */
+    async getStatistics() {
+        try {
+            return await InvoiceDAO.getStatistics();
+        } catch (error) {
+            throw new Error(`Get invoice statistics failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get revenue statistics (deprecated - use getStatistics instead)
      */
     async getRevenueStatistics(startDate, endDate) {
         try {
