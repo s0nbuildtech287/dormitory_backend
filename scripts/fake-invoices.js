@@ -79,15 +79,15 @@ async function generateFakeInvoices() {
       const rentPerPerson = 500000;
       const rentAmount = rentPerPerson * occupancy;
       
-      // 2. ĐIỆN: Số đầu kỳ = số cuối kỳ tháng trước (giả sử tháng trước kết thúc ở 100-150)
-      const electricStart = Math.floor(Math.random() * 50) + 100; // Số cuối kỳ tháng trước: 100-150 kWh
-      const electricEnd = electricStart + Math.floor(Math.random() * 50) + 50; // Tiêu thụ thêm 50-100 kWh trong tháng
+      // 2. ĐIỆN: Mỗi tháng bắt đầu từ 0, tiêu thụ 50-100 kWh
+      const electricStart = 0;
+      const electricEnd = Math.floor(Math.random() * 50) + 50; // Tiêu thụ 50-100 kWh trong tháng
       const electricRate = 3500;
       const electricAmount = (electricEnd - electricStart) * electricRate;
       
-      // 3. NƯỚC: Số đầu kỳ = số cuối kỳ tháng trước (giả sử tháng trước kết thúc ở 20-30)
-      const waterStart = Math.floor(Math.random() * 10) + 20; // Số cuối kỳ tháng trước: 20-30 m³
-      const waterEnd = waterStart + Math.floor(Math.random() * 5) + 3; // Tiêu thụ thêm 3-8 m³ trong tháng
+      // 3. NƯỚC: Mỗi tháng bắt đầu từ 0, tiêu thụ 3-8 m³
+      const waterStart = 0;
+      const waterEnd = Math.floor(Math.random() * 5) + 3; // Tiêu thụ 3-8 m³ trong tháng
       const waterRate = 15000;
       const waterAmount = (waterEnd - waterStart) * waterRate;
       
@@ -220,8 +220,8 @@ async function generateFakeInvoices() {
     console.log(`   - ${overdueCount} hóa đơn quá hạn (10%)`);
     console.log(`\n💰 Chi tiết giá:`);
     console.log(`   - Tiền phòng: 500,000 VNĐ/người × ${invoices[0]?.occupancy || 3}-5 người = 1,500,000-2,500,000 VNĐ`);
-    console.log(`   - Điện: 3,500 VNĐ/kWh (tiêu thụ 50-100 kWh/tháng, số đầu kỳ = số cuối kỳ tháng trước)`);
-    console.log(`   - Nước: 15,000 VNĐ/m³ (tiêu thụ 3-8 m³/tháng, số đầu kỳ = số cuối kỳ tháng trước)`);
+    console.log(`   - Điện: 3,500 VNĐ/kWh (tiêu thụ 50-100 kWh/tháng, bắt đầu từ 0)`);
+    console.log(`   - Nước: 15,000 VNĐ/m³ (tiêu thụ 3-8 m³/tháng, bắt đầu từ 0)`);
     console.log(`   - Rác: 70,000 VNĐ/phòng/tháng`);
     console.log(`   - Mạng: 300,000 VNĐ/phòng/tháng`);
     console.log(`   - Gửi xe: 50,000 VNĐ/xe/tháng (1-${invoices[0]?.occupancy || 5} xe/phòng)`);
