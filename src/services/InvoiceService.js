@@ -102,7 +102,7 @@ class InvoiceService {
             // Generate invoice number: HD-YYYYMM-XXXXX
             const billingDate = new Date(billingMonth);
             const yearMonth = `${billingDate.getFullYear()}${(billingDate.getMonth() + 1).toString().padStart(2, '0')}`;
-            
+
             // Get count of invoices for this month to generate sequential number
             const countResult = await InvoiceDAO.executeQuery(
                 `SELECT COUNT(*) as count FROM invoices WHERE billing_month = $1`,
@@ -110,7 +110,7 @@ class InvoiceService {
             );
             const count = parseInt(countResult[0]?.count || 0);
             const sequentialNumber = (10000 + count + 1).toString();
-            
+
             const invoiceNumber = `HD-${yearMonth}-${sequentialNumber}`;
             const invoiceId = `invoice-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 
@@ -208,10 +208,10 @@ class InvoiceService {
             if (data.electric_start || data.electric_end || data.water_start || data.water_end) {
                 const electricUsage = (data.electric_end || oldData.electric_end) - (data.electric_start || oldData.electric_start);
                 const waterUsage = (data.water_end || oldData.water_end) - (data.water_start || oldData.water_start);
-                
+
                 const electricCost = electricUsage * (data.electric_rate || oldData.electric_rate);
                 const waterCost = waterUsage * (data.water_rate || oldData.water_rate);
-                
+
                 data.total_amount = (data.rent_amount || oldData.rent_amount) + electricCost + waterCost + (data.other_fees || oldData.other_fees || 0);
             }
 
@@ -304,10 +304,6 @@ class InvoiceService {
                 throw new Error('Invoice not found');
             }
 
-            if (invoice.status === 'Đã thanh toán') {
-                throw new Error('Cannot delete paid invoice');
-            }
-
             await InvoiceDAO.delete(id);
 
             // Log action
@@ -333,11 +329,11 @@ class InvoiceService {
     async getPricingSettings() {
         try {
             let setting = await SettingsDAO.getSettingByName('pricing', 'pricing_config');
-            
+
             // If not found, create default settings
             if (!setting) {
                 console.log('⚠️ pricing_config not found, creating default...');
-                
+
                 const defaultPricing = {
                     id: 'pricing_config',
                     category: 'pricing',
@@ -356,11 +352,11 @@ class InvoiceService {
                     description: 'Cấu hình bảng giá tiền phòng, điện, nước và dịch vụ',
                     is_active: true
                 };
-                
+
                 setting = await SettingsDAO.createSetting(defaultPricing);
                 console.log('✅ Default pricing_config created successfully');
             }
-            
+
             return setting;
         } catch (error) {
             throw new Error(`Get pricing settings failed: ${error.message}`);
@@ -414,7 +410,7 @@ class InvoiceService {
             if (pricing[field] === undefined || pricing[field] === null) {
                 throw new Error(`Missing required field: ${field}`);
             }
-            
+
             if (typeof pricing[field] !== 'number' || pricing[field] < 0) {
                 throw new Error(`Invalid ${field}: must be a positive number`);
             }

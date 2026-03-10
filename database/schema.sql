@@ -389,6 +389,7 @@ CREATE TABLE invoices (
     created_by VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,                          -- Soft delete: NULL = active, NOT NULL = deleted
     
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
@@ -398,6 +399,7 @@ CREATE INDEX idx_invoices_room_id ON invoices(room_id);
 CREATE INDEX idx_invoices_status ON invoices(status);
 CREATE INDEX idx_invoices_billing_month ON invoices(billing_month);
 CREATE INDEX idx_invoices_due_date ON invoices(due_date);
+CREATE INDEX idx_invoices_deleted ON invoices(deleted_at) WHERE deleted_at IS NULL;
 
 -- ============================================================================
 -- BƯỚC 9: TẠO BẢNG NOTIFICATIONS (Thông báo)

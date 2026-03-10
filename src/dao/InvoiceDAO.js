@@ -44,7 +44,7 @@ class InvoiceDAO extends BaseDAO {
                 ) as student_emails
             FROM ${this.tableName} i
             LEFT JOIN rooms r ON i.room_id = r.id
-            WHERE 1=1
+            WHERE i.deleted_at IS NULL
         `;
         const values = [];
         let paramIndex = 1;
@@ -82,22 +82,22 @@ class InvoiceDAO extends BaseDAO {
         // Calculate costs
         const electricUsage = invoiceData.electric_end - invoiceData.electric_start;
         const waterUsage = invoiceData.water_end - invoiceData.water_start;
-        
+
         const electricAmount = electricUsage * invoiceData.electric_rate;
         const waterAmount = waterUsage * invoiceData.water_rate;
-        
+
         // Service fees
-        const serviceFees = (invoiceData.garbage_fee || 0) + 
-                           (invoiceData.internet_fee || 0) + 
-                           (invoiceData.parking_fee || 0);
-        
+        const serviceFees = (invoiceData.garbage_fee || 0) +
+            (invoiceData.internet_fee || 0) +
+            (invoiceData.parking_fee || 0);
+
         // Total
-        const totalAmount = invoiceData.rent_amount + 
-                           electricAmount + 
-                           waterAmount + 
-                           serviceFees - 
-                           (invoiceData.discount_amount || 0) + 
-                           (invoiceData.penalty_amount || 0);
+        const totalAmount = invoiceData.rent_amount +
+            electricAmount +
+            waterAmount +
+            serviceFees -
+            (invoiceData.discount_amount || 0) +
+            (invoiceData.penalty_amount || 0);
 
         const invoice = {
             ...invoiceData,
@@ -224,6 +224,20 @@ class InvoiceDAO extends BaseDAO {
         const result = await this.executeQuery(query, [roomId, billingMonth]);
         const count = parseInt(result[0]?.count || 0);
         return count > 0;
+    }
+
+    /**
+     * Delete invoice by ID (soft delete)
+     */
+    async delete(id) {
+        const query = `
+            UPDATE ${this.tableName} 
+            SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND deleted_at IS NULL
+            RETURNING *
+        `;
+        const result = await this.executeQuery(query, [id]);
+        return result[0];
     }
 }
 
