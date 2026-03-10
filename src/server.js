@@ -31,7 +31,7 @@ process.on("SIGINT", () => {
 
 // Temporarily disable console.log to hide dotenv messages
 const originalConsoleLog = console.log;
-console.log = () => {}; // Disable logging temporarily
+console.log = () => { }; // Disable logging temporarily
 require("dotenv").config();
 console.log = originalConsoleLog; // Restore logging
 
@@ -82,4 +82,8 @@ const PORT = process.env.PORT || 1234;
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+
+  // Khởi động các tác vụ định kỳ
+  const { startOverdueScheduler } = require('./utils/scheduler');
+  startOverdueScheduler();
 });
