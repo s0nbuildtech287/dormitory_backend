@@ -10,6 +10,7 @@ class InvoiceController {
                 status: req.query.status,
                 month: req.query.month,
                 searchTerm: req.query.search,
+                roomId: req.query.room_id || null,
                 limit: req.query.limit ? parseInt(req.query.limit) : null
             };
 
@@ -164,7 +165,7 @@ class InvoiceController {
     async getRevenueStatistics(req, res, next) {
         try {
             const { startDate, endDate } = req.query;
-            
+
             if (!startDate || !endDate) {
                 return res.status(400).json({
                     success: false,

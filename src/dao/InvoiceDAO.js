@@ -54,6 +54,11 @@ class InvoiceDAO extends BaseDAO {
             values.push(filters.status);
         }
 
+        if (filters.roomId) {
+            query += ` AND i.room_id = $${paramIndex++}`;
+            values.push(filters.roomId);
+        }
+
         if (filters.month) {
             query += ` AND i.billing_month = $${paramIndex++}`;
             values.push(filters.month);
@@ -65,7 +70,10 @@ class InvoiceDAO extends BaseDAO {
             paramIndex += 2;
         }
 
-        query += ` ORDER BY i.created_at DESC`;
+        // Sort: nếu lọc theo phòng thì sắp tăng dần theo tháng (cho chart), ngược lại mới nhất trước
+        query += filters.roomId
+            ? ` ORDER BY i.billing_month ASC`
+            : ` ORDER BY i.created_at DESC`;
 
         if (filters.limit) {
             query += ` LIMIT $${paramIndex}`;
