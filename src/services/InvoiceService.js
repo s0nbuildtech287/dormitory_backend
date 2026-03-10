@@ -304,6 +304,10 @@ class InvoiceService {
                 throw new Error('Invoice not found');
             }
 
+            if (invoice.status === 'Chưa thanh toán' || invoice.status === 'Quá hạn') {
+                throw new Error(`Không thể xóa hóa đơn đang ở trạng thái "${invoice.status}". Chỉ được xóa hóa đơn đã thanh toán.`);
+            }
+
             await InvoiceDAO.delete(id);
 
             // Log action
