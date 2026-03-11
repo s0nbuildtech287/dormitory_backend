@@ -10,6 +10,9 @@ class InvoiceService {
      */
     async getInvoices(filters = {}) {
         try {
+            // Auto-update overdue invoices before fetching
+            await InvoiceDAO.updateOverdueInvoices();
+            
             return await InvoiceDAO.searchAndFilter(filters);
         } catch (error) {
             throw new Error(`Get invoices failed: ${error.message}`);
@@ -239,6 +242,9 @@ class InvoiceService {
      */
     async getStatistics() {
         try {
+            // Auto-update overdue invoices before getting statistics
+            await InvoiceDAO.updateOverdueInvoices();
+            
             return await InvoiceDAO.getStatistics();
         } catch (error) {
             throw new Error(`Get invoice statistics failed: ${error.message}`);

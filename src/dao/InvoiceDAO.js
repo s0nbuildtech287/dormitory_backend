@@ -148,8 +148,14 @@ class InvoiceDAO extends BaseDAO {
 
     /**
      * Get invoice statistics
+     * Only count current billing month (unpaid/paid) + all overdue invoices from previous months
      */
     async getStatistics() {
+        // Get current billing month (last month)
+        const now = new Date();
+        const currentBillingMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const currentBillingMonthStr = currentBillingMonth.toISOString().split('T')[0].substring(0, 7) + '-01';
+
         const query = `
             SELECT 
                 COUNT(*) as total_invoices,
@@ -164,8 +170,13 @@ class InvoiceDAO extends BaseDAO {
                 TO_CHAR(MIN(billing_month), 'YYYY-MM') as earliest_month,
                 TO_CHAR(MAX(billing_month), 'YYYY-MM') as latest_month
             FROM ${this.tableName}
+            WHERE deleted_at IS NULL
+            AND (
+                billing_month = $1
+                OR status = 'Quá hạn'
+            )
         `;
-        const result = await this.executeQuery(query);
+        const result = await this.executeQuery(query, [currentBillingMonthStr]);
         return result[0] || {};
     }
 
