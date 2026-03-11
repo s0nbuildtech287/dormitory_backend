@@ -146,13 +146,24 @@ class InvoiceDAO extends BaseDAO {
         `;
         const result = await this.executeQuery(query);
         
-        // Log updated invoices for debugging
+        // Get total overdue count for logging
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM ${this.tableName}
+            WHERE status = 'Quá hạn' AND deleted_at IS NULL
+        `;
+        const countResult = await this.executeQuery(countQuery);
+        const totalOverdue = parseInt(countResult[0]?.total || 0);
+        
+        // Log updated invoices
         if (result.length > 0) {
-            console.log(`[InvoiceDAO] Updated ${result.length} overdue invoices:`);
+            console.log(`[InvoiceDAO] ✅ Đã chuyển ${result.length} hoá đơn sang trạng thái quá hạn`);
             result.forEach(inv => {
-                console.log(`  - ${inv.invoice_number} (${inv.billing_month}, due: ${inv.due_date})`);
+                console.log(`  - ${inv.invoice_number} (${inv.billing_month}, hạn: ${inv.due_date})`);
             });
         }
+        
+        console.log(`[InvoiceDAO] 📊 Tổng số hoá đơn quá hạn hiện tại: ${totalOverdue}`);
         
         return result.length || 0;
     }
