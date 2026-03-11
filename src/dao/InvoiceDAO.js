@@ -141,14 +141,28 @@ class InvoiceDAO extends BaseDAO {
             WHERE status = 'Chưa thanh toán' 
             AND due_date < CURRENT_DATE
             AND due_date IS NOT NULL
+            AND deleted_at IS NULL
+            RETURNING id, invoice_number, billing_month, due_date
         `;
         const result = await this.executeQuery(query);
-        return result.rowCount || 0;
+        
+        // Log updated invoices for debugging
+        if (result.length > 0) {
+            console.log(`[InvoiceDAO] Updated ${result.length} overdue invoices:`);
+            result.forEach(inv => {
+                console.log(`  - ${inv.invoice_number} (${inv.billing_month}, due: ${inv.due_date})`);
+            });
+        }
+        
+        return result.length || 0;
     }
 
     /**
      * Get invoice statistics
-     * Only count current billing month (unpaid/paid) + all overdue invoices from previous months
+     * - Total: All invoices from current billing month + all overdue from any month
+     * - Paid: Only paid invoices from current billing month
+     * - Unpaid: Only unpaid invoices from current billing month
+     * - Overdue: All overdue invoices from any month
      */
     async getStatistics() {
         // Get current billing month (last month)
@@ -157,24 +171,56 @@ class InvoiceDAO extends BaseDAO {
         const currentBillingMonthStr = currentBillingMonth.toISOString().split('T')[0].substring(0, 7) + '-01';
 
         const query = `
+            WITH current_month_invoices AS (
+                -- All invoices from current billing month
+                SELECT *
+                FROM ${this.tableName}
+                WHERE deleted_at IS NULL
+                AND billing_month = $1
+            ),
+            all_overdue_invoices AS (
+                -- All overdue invoices from any month
+                SELECT *
+                FROM ${this.tableName}
+                WHERE deleted_at IS NULL
+                AND status = 'Quá hạn'
+            ),
+            combined_invoices AS (
+                -- Combine current month + overdue from previous months (avoid duplicates)
+                SELECT * FROM current_month_invoices
+                UNION
+                SELECT * FROM all_overdue_invoices WHERE billing_month < $1
+            )
             SELECT 
+                -- Total: current month + overdue from previous months
                 COUNT(*) as total_invoices,
-                COUNT(CASE WHEN status = 'Đã thanh toán' THEN 1 END) as paid_count,
-                COUNT(CASE WHEN status = 'Chưa thanh toán' THEN 1 END) as unpaid_count,
-                COUNT(CASE WHEN status = 'Quá hạn' THEN 1 END) as overdue_count,
+                
+                -- Paid: only from current month
+                (SELECT COUNT(*) FROM current_month_invoices WHERE status = 'Đã thanh toán') as paid_count,
+                
+                -- Unpaid: only from current month
+                (SELECT COUNT(*) FROM current_month_invoices WHERE status = 'Chưa thanh toán') as unpaid_count,
+                
+                -- Overdue: all overdue from any month
+                (SELECT COUNT(*) FROM all_overdue_invoices) as overdue_count,
+                
+                -- Amount totals from combined set
                 COALESCE(SUM(total_amount), 0) as total_amount,
-                COALESCE(SUM(CASE WHEN status = 'Đã thanh toán' THEN total_amount ELSE 0 END), 0) as paid_amount,
-                COALESCE(SUM(CASE WHEN status = 'Chưa thanh toán' THEN total_amount ELSE 0 END), 0) as unpaid_amount,
-                COALESCE(SUM(CASE WHEN status = 'Quá hạn' THEN total_amount ELSE 0 END), 0) as overdue_amount,
+                
+                -- Paid amount: only from current month
+                (SELECT COALESCE(SUM(total_amount), 0) FROM current_month_invoices WHERE status = 'Đã thanh toán') as paid_amount,
+                
+                -- Unpaid amount: only from current month
+                (SELECT COALESCE(SUM(total_amount), 0) FROM current_month_invoices WHERE status = 'Chưa thanh toán') as unpaid_amount,
+                
+                -- Overdue amount: all overdue from any month
+                (SELECT COALESCE(SUM(total_amount), 0) FROM all_overdue_invoices) as overdue_amount,
+                
+                -- Average and date range
                 COALESCE(ROUND(AVG(total_amount), 0), 0) as average_amount,
                 TO_CHAR(MIN(billing_month), 'YYYY-MM') as earliest_month,
                 TO_CHAR(MAX(billing_month), 'YYYY-MM') as latest_month
-            FROM ${this.tableName}
-            WHERE deleted_at IS NULL
-            AND (
-                billing_month = $1
-                OR status = 'Quá hạn'
-            )
+            FROM combined_invoices
         `;
         const result = await this.executeQuery(query, [currentBillingMonthStr]);
         return result[0] || {};
