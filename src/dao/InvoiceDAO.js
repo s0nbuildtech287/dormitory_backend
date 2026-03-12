@@ -170,133 +170,230 @@ class InvoiceDAO extends BaseDAO {
 
     /**
      * Get invoice statistics
-     * - Total: All invoices from current billing month + all overdue from any month
-     * - Paid: Only paid invoices from current billing month
-     * - Unpaid: Only unpaid invoices from current billing month
-     * - Overdue: All overdue invoices from any month
+     * - For current month: includes overdue from previous months
+     * - For historical months: only data from that specific month
      * @param {string} billingMonth - Optional billing month in YYYY-MM-DD format
      */
     async getStatistics(billingMonth = null) {
         let currentBillingMonthStr;
+        let isCurrentMonth = false;
+        
+        // Determine current billing month (Feb 2026)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const lastMonth = month === 0 ? 11 : month - 1;
+        const lastMonthYear = month === 0 ? year - 1 : year;
+        const actualCurrentMonth = `${lastMonthYear}-${String(lastMonth + 1).padStart(2, '0')}-01`;
         
         if (billingMonth) {
-            // Use provided billing month
             currentBillingMonthStr = billingMonth;
-            console.log(`[InvoiceDAO] Using provided billing month: ${currentBillingMonthStr}`);
+            isCurrentMonth = (billingMonth === actualCurrentMonth);
+            console.log(`[InvoiceDAO] Using provided billing month: ${currentBillingMonthStr} (current: ${isCurrentMonth})`);
         } else {
-            // Get current billing month (last month)
-            // Today is March 11, 2026 → billing month should be February 2026
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth(); // March = 2 (0-indexed)
-            
-            // Last month: if current month is March (2), last month is February (1)
-            const lastMonth = month === 0 ? 11 : month - 1;
-            const lastMonthYear = month === 0 ? year - 1 : year;
-            
-            // Format as YYYY-MM-01
-            currentBillingMonthStr = `${lastMonthYear}-${String(lastMonth + 1).padStart(2, '0')}-01`;
-            
-            console.log(`[InvoiceDAO] Current billing month: ${currentBillingMonthStr}`);
+            currentBillingMonthStr = actualCurrentMonth;
+            isCurrentMonth = true;
+            console.log(`[InvoiceDAO] Using current billing month: ${currentBillingMonthStr}`);
         }
 
-        const query = `
-            SELECT 
-                -- Total: current month + overdue from previous months (use DISTINCT to avoid duplicates)
-                (
-                    SELECT COUNT(DISTINCT id) 
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND (
-                        billing_month = $1
-                        OR (status = 'Quá hạn' AND billing_month < $1)
-                    )
-                ) as total_invoices,
+        let query;
+        
+        if (isCurrentMonth) {
+            // Current month: include overdue from previous months
+            query = `
+                SELECT 
+                    -- Total: current month + overdue from previous months
+                    (
+                        SELECT COUNT(DISTINCT id) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND (
+                            billing_month = $1
+                            OR (status = 'Quá hạn' AND billing_month < $1)
+                        )
+                    ) as total_invoices,
 
-                -- Paid: only from current month with status 'Đã thanh toán'
-                (
-                    SELECT COUNT(*) 
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND billing_month = $1
-                    AND status = 'Đã thanh toán'
-                ) as paid_count,
+                    -- Paid: only from current month with status 'Đã thanh toán'
+                    (
+                        SELECT COUNT(*) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Đã thanh toán'
+                    ) as paid_count,
 
-                -- Unpaid: only from current month with status 'Chưa thanh toán'
-                (
-                    SELECT COUNT(*) 
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND billing_month = $1
-                    AND status = 'Chưa thanh toán'
-                ) as unpaid_count,
+                    -- Unpaid: only from current month with status 'Chưa thanh toán'
+                    (
+                        SELECT COUNT(*) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Chưa thanh toán'
+                    ) as unpaid_count,
 
-                -- Overdue: all overdue from any month
-                (
-                    SELECT COUNT(*) 
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND status = 'Quá hạn'
-                ) as overdue_count,
+                    -- Overdue: all overdue from any month
+                    (
+                        SELECT COUNT(*) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND status = 'Quá hạn'
+                    ) as overdue_count,
 
-                -- Total amount: current month + overdue from previous months
-                (
-                    SELECT COALESCE(SUM(total_amount), 0)
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND (
-                        billing_month = $1
-                        OR (status = 'Quá hạn' AND billing_month < $1)
-                    )
-                ) as total_amount,
+                    -- Total amount: current month + overdue from previous months
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND (
+                            billing_month = $1
+                            OR (status = 'Quá hạn' AND billing_month < $1)
+                        )
+                    ) as total_amount,
 
-                -- Paid amount: only from current month
-                (
-                    SELECT COALESCE(SUM(total_amount), 0)
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND billing_month = $1
-                    AND status = 'Đã thanh toán'
-                ) as paid_amount,
+                    -- Paid amount: only from current month
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Đã thanh toán'
+                    ) as paid_amount,
 
-                -- Unpaid amount: only from current month
-                (
-                    SELECT COALESCE(SUM(total_amount), 0)
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND billing_month = $1
-                    AND status = 'Chưa thanh toán'
-                ) as unpaid_amount,
+                    -- Unpaid amount: only from current month
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Chưa thanh toán'
+                    ) as unpaid_amount,
 
-                -- Overdue amount: all overdue from any month
-                (
-                    SELECT COALESCE(SUM(total_amount), 0)
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND status = 'Quá hạn'
-                ) as overdue_amount,
+                    -- Overdue amount: all overdue from any month
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND status = 'Quá hạn'
+                    ) as overdue_amount,
 
-                -- Average amount: from current month only
-                (
-                    SELECT COALESCE(ROUND(AVG(total_amount), 0), 0)
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                    AND billing_month = $1
-                ) as average_amount,
+                    -- Average amount: from current month only
+                    (
+                        SELECT COALESCE(ROUND(AVG(total_amount), 0), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                    ) as average_amount,
 
-                -- Date range
-                (
-                    SELECT TO_CHAR(MIN(billing_month), 'YYYY-MM')
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                ) as earliest_month,
+                    -- Date range
+                    (
+                        SELECT TO_CHAR(MIN(billing_month), 'YYYY-MM')
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                    ) as earliest_month,
 
-                (
-                    SELECT TO_CHAR(MAX(billing_month), 'YYYY-MM')
-                    FROM ${this.tableName}
-                    WHERE deleted_at IS NULL
-                ) as latest_month
-        `;
+                    (
+                        SELECT TO_CHAR(MAX(billing_month), 'YYYY-MM')
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                    ) as latest_month
+            `;
+        } else {
+            // Historical month: only data from that specific month
+            query = `
+                SELECT 
+                    -- Total: only from selected month
+                    (
+                        SELECT COUNT(*) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                    ) as total_invoices,
+
+                    -- Paid: from selected month
+                    (
+                        SELECT COUNT(*) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Đã thanh toán'
+                    ) as paid_count,
+
+                    -- Unpaid: from selected month
+                    (
+                        SELECT COUNT(*) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Chưa thanh toán'
+                    ) as unpaid_count,
+
+                    -- Overdue: from selected month
+                    (
+                        SELECT COUNT(*) 
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Quá hạn'
+                    ) as overdue_count,
+
+                    -- Total amount: from selected month
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                    ) as total_amount,
+
+                    -- Paid amount: from selected month
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Đã thanh toán'
+                    ) as paid_amount,
+
+                    -- Unpaid amount: from selected month
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Chưa thanh toán'
+                    ) as unpaid_amount,
+
+                    -- Overdue amount: from selected month
+                    (
+                        SELECT COALESCE(SUM(total_amount), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                        AND status = 'Quá hạn'
+                    ) as overdue_amount,
+
+                    -- Average amount: from selected month
+                    (
+                        SELECT COALESCE(ROUND(AVG(total_amount), 0), 0)
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                        AND billing_month = $1
+                    ) as average_amount,
+
+                    -- Date range
+                    (
+                        SELECT TO_CHAR(MIN(billing_month), 'YYYY-MM')
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                    ) as earliest_month,
+
+                    (
+                        SELECT TO_CHAR(MAX(billing_month), 'YYYY-MM')
+                        FROM ${this.tableName}
+                        WHERE deleted_at IS NULL
+                    ) as latest_month
+            `;
+        }
+        
         const result = await this.executeQuery(query, [currentBillingMonthStr]);
         return result[0] || {};
     }
