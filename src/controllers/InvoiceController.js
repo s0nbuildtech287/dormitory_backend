@@ -149,7 +149,8 @@ class InvoiceController {
      */
     async getStatistics(req, res, next) {
         try {
-            const statistics = await InvoiceService.getStatistics();
+            const month = req.query.month || null;
+            const statistics = await InvoiceService.getStatistics(month);
             res.json({
                 success: true,
                 data: statistics

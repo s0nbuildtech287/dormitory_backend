@@ -240,12 +240,12 @@ class InvoiceService {
     /**
      * Get invoice statistics
      */
-    async getStatistics() {
+    async getStatistics(month = null) {
         try {
             // Auto-update overdue invoices before getting statistics
             await InvoiceDAO.updateOverdueInvoices();
             
-            return await InvoiceDAO.getStatistics();
+            return await InvoiceDAO.getStatistics(month);
         } catch (error) {
             throw new Error(`Get invoice statistics failed: ${error.message}`);
         }

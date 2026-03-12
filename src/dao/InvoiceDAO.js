@@ -174,22 +174,31 @@ class InvoiceDAO extends BaseDAO {
      * - Paid: Only paid invoices from current billing month
      * - Unpaid: Only unpaid invoices from current billing month
      * - Overdue: All overdue invoices from any month
+     * @param {string} billingMonth - Optional billing month in YYYY-MM-DD format
      */
-    async getStatistics() {
-        // Get current billing month (last month)
-        // Today is March 11, 2026 → billing month should be February 2026
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth(); // March = 2 (0-indexed)
+    async getStatistics(billingMonth = null) {
+        let currentBillingMonthStr;
         
-        // Last month: if current month is March (2), last month is February (1)
-        const lastMonth = month === 0 ? 11 : month - 1;
-        const lastMonthYear = month === 0 ? year - 1 : year;
-        
-        // Format as YYYY-MM-01
-        const currentBillingMonthStr = `${lastMonthYear}-${String(lastMonth + 1).padStart(2, '0')}-01`;
-        
-        console.log(`[InvoiceDAO] Current billing month: ${currentBillingMonthStr}`);
+        if (billingMonth) {
+            // Use provided billing month
+            currentBillingMonthStr = billingMonth;
+            console.log(`[InvoiceDAO] Using provided billing month: ${currentBillingMonthStr}`);
+        } else {
+            // Get current billing month (last month)
+            // Today is March 11, 2026 → billing month should be February 2026
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth(); // March = 2 (0-indexed)
+            
+            // Last month: if current month is March (2), last month is February (1)
+            const lastMonth = month === 0 ? 11 : month - 1;
+            const lastMonthYear = month === 0 ? year - 1 : year;
+            
+            // Format as YYYY-MM-01
+            currentBillingMonthStr = `${lastMonthYear}-${String(lastMonth + 1).padStart(2, '0')}-01`;
+            
+            console.log(`[InvoiceDAO] Current billing month: ${currentBillingMonthStr}`);
+        }
 
         const query = `
             SELECT 
