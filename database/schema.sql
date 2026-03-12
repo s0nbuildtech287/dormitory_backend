@@ -29,10 +29,8 @@
 -- Lưu ý: Thực hiện theo thứ tự từ bảng con đến bảng cha để tránh lỗi constraint
 DROP TABLE IF EXISTS log_system CASCADE;
 DROP TABLE IF EXISTS disciplinary_records CASCADE;  -- MỚI: Phiếu kỷ luật
-DROP TABLE IF EXISTS asset_movements CASCADE;       -- MỚI: Biến động tài sản
-DROP TABLE IF EXISTS asset_maintenance CASCADE;      -- MỚI: Bảo trì tài sản
-DROP TABLE IF EXISTS assets CASCADE;                 -- MỚI: Cơ sở vật chất
-DROP TABLE IF EXISTS asset_categories CASCADE;       -- MỚI: Danh mục tài sản
+DROP TABLE IF EXISTS assets CASCADE;                 -- Cơ sở vật chất
+DROP TABLE IF EXISTS asset_categories CASCADE;       -- Danh mục tài sản
 DROP TABLE IF EXISTS settings CASCADE;               -- MỚI: Cài đặt hệ thống
 DROP TABLE IF EXISTS feedbacks CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
@@ -60,8 +58,6 @@ DROP TYPE IF EXISTS feedback_status CASCADE;
 -- MỚI: Enum cho các tính năng mở rộng
 DROP TYPE IF EXISTS asset_status CASCADE;
 DROP TYPE IF EXISTS asset_condition CASCADE;
-DROP TYPE IF EXISTS movement_type CASCADE;
-DROP TYPE IF EXISTS maintenance_status CASCADE;
 DROP TYPE IF EXISTS violation_type CASCADE;
 DROP TYPE IF EXISTS disciplinary_status CASCADE;
 DROP TYPE IF EXISTS disciplinary_level CASCADE;
@@ -109,21 +105,7 @@ CREATE TYPE asset_condition AS ENUM (
     'Kém'                -- Cần thay thế <30%
 );
 
-CREATE TYPE movement_type AS ENUM (
-    'Nhập kho',          -- Mua mới/nhận tài sản
-    'Xuất kho',          -- Cấp phát cho phòng
-    'Chuyển phòng',      -- Di chuyển giữa các phòng
-    'Thu hồi',           -- Thu hồi về kho
-    'Thanh lý',          -- Thanh lý tài sản
-    'Kiểm kê'            -- Kiểm tra định kỳ
-);
 
-CREATE TYPE maintenance_status AS ENUM (
-    'Chờ xử lý',         -- Mới tạo phiếu
-    'Đang sửa chữa',     -- Đang thực hiện
-    'Hoàn thành',        -- Đã hoàn thành
-    'Hủy bỏ'             -- Không thực hiện
-);
 
 -- 3.6. MỚI: ENUMs cho phiếu kỷ luật
 CREATE TYPE violation_type AS ENUM (
@@ -463,174 +445,54 @@ CREATE INDEX idx_feedbacks_category ON feedbacks(category);
 -- BƯỚC 11: TẠO BẢNG ASSET_CATEGORIES (Danh mục tài sản)
 -- ============================================================================
 -- Mục đích: Phân loại cơ sở vật chất (bàn, ghế, tủ, quạt, điều hòa...)
--- Tối ưu: Tách thành bảng riêng để dễ quản lý và mở rộng
+-- Ghi chú: Đơn giản hóa - chỉ giữ thông tin cần thiết
 
 CREATE TABLE asset_categories (
-    id VARCHAR(50) PRIMARY KEY,
-    code VARCHAR(20) UNIQUE NOT NULL,         -- Mã danh mục (TB, NT, DD...)
-    name VARCHAR(100) NOT NULL,               -- Tên danh mục
+    id          VARCHAR(50) PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,        -- Tên danh mục (Bàn, Ghế, Quạt...)
+    unit        VARCHAR(20) DEFAULT 'Cái',    -- Đơn vị tính
     description TEXT,
-    unit VARCHAR(20) DEFAULT 'Cái',           -- Đơn vị tính
-    depreciation_rate DECIMAL(5,2) DEFAULT 0, -- % khấu hao/năm
-    warranty_period INTEGER DEFAULT 12,       -- Thời gian bảo hành (tháng)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tối ưu: Index để tìm kiếm nhanh
-CREATE INDEX idx_asset_categories_code ON asset_categories(code);
+CREATE INDEX idx_asset_categories_name ON asset_categories(name);
 
 -- ============================================================================
 -- BƯỚC 12: TẠO BẢNG ASSETS (Cơ sở vật chất)
 -- ============================================================================
 -- Mục đích: Quản lý từng tài sản cụ thể trong KTX
--- Tối ưu:
--- - Mỗi tài sản có mã riêng, QR code
--- - Theo dõi giá trị, khấu hao
--- - Lịch sử bảo hành, bảo trì
+-- Ghi chú: Lịch sử nhập/xuất được ghi vào log_system
+--          (entity_type = 'assets', action = 'Nhập kho'/'Xuất kho'/'Thu hồi'...)
+--          room_id = NULL nghĩa là tài sản đang ở kho
 
 CREATE TABLE assets (
-    id VARCHAR(50) PRIMARY KEY,
-    asset_code VARCHAR(50) UNIQUE NOT NULL,   -- Mã tài sản duy nhất
-    category_id VARCHAR(50) NOT NULL,         -- Danh mục tài sản
-    name VARCHAR(200) NOT NULL,               -- Tên tài sản
-    description TEXT,
-    
-    -- Thông tin vị trí
-    room_id VARCHAR(50),                      -- Phòng đang chứa (NULL = kho)
-    location VARCHAR(100),                    -- Vị trí cụ thể trong phòng
-    
-    -- Thông tin giá trị
-    purchase_price DECIMAL(12,2),            -- Giá mua
-    purchase_date DATE,                       -- Ngày mua
-    current_value DECIMAL(12,2),             -- Giá trị hiện tại
-    
-    -- Thông tin nhà cung cấp
-    supplier VARCHAR(200),                    -- Nhà cung cấp
-    warranty_expiry DATE,                     -- Hết hạn bảo hành
-    
-    -- Trạng thái
-    status asset_status DEFAULT 'Sẵn sàng',
-    condition asset_condition DEFAULT 'Mới',
-    
-    -- Metadata
-    qr_code VARCHAR(255),                     -- Mã QR để quét
-    images JSONB,                             -- Hình ảnh tài sản
-    specifications JSONB,                     -- Thông số kỹ thuật
-    note TEXT,
-    
-    created_by VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+    id            VARCHAR(50) PRIMARY KEY,
+    asset_code    VARCHAR(50) UNIQUE NOT NULL, -- Mã tài sản (TB001, QT002...)
+    category_id   VARCHAR(50) NOT NULL,
+    name          VARCHAR(200) NOT NULL,       -- Tên tài sản
+    room_id       VARCHAR(50),                 -- Phòng hiện tại (NULL = kho)
+    quantity      INTEGER NOT NULL DEFAULT 1,  -- Số lượng
+    status        asset_status DEFAULT 'Sẵn sàng',
+    condition     asset_condition DEFAULT 'Mới',
+    purchase_date DATE,                        -- Ngày mua
+    purchase_price DECIMAL(12,2),             -- Giá mua
+    note          TEXT,                        -- Ghi chú / tình trạng bảo trì
+    created_by    VARCHAR(50),
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
     FOREIGN KEY (category_id) REFERENCES asset_categories(id) ON DELETE RESTRICT,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (room_id)     REFERENCES rooms(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by)  REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Tối ưu: Indexes cho truy vấn nhanh
 CREATE INDEX idx_assets_category ON assets(category_id);
 CREATE INDEX idx_assets_room ON assets(room_id);
 CREATE INDEX idx_assets_status ON assets(status);
-CREATE INDEX idx_assets_condition ON assets(condition);
 CREATE INDEX idx_assets_code ON assets(asset_code);
 
--- ============================================================================
--- BƯỚC 13: TẠO BẢNG ASSET_MOVEMENTS (Biến động tài sản)
--- ============================================================================
--- Mục đích: Theo dõi lịch sử di chuyển, nhập/xuất tài sản
--- Tối ưu: Audit trail cho mọi thay đổi về tài sản
 
-CREATE TABLE asset_movements (
-    id VARCHAR(50) PRIMARY KEY,
-    asset_id VARCHAR(50) NOT NULL,
-    movement_type movement_type NOT NULL,
-    
-    -- Thông tin vị trí
-    from_location VARCHAR(100),               -- Từ đâu (phòng/kho)
-    to_location VARCHAR(100),                 -- Đến đâu (phòng/kho)
-    from_room_id VARCHAR(50),                 -- ID phòng cũ
-    to_room_id VARCHAR(50),                   -- ID phòng mới
-    
-    -- Thông tin biến động
-    quantity INTEGER DEFAULT 1,
-    reason TEXT,                              -- Lý do di chuyển
-    
-    -- Thông tin tài chính (nếu là mua/thanh lý)
-    amount DECIMAL(12,2),                    -- Số tiền liên quan
-    
-    -- Metadata
-    documents JSONB,                          -- Chứng từ liên quan
-    performed_by VARCHAR(50),                 -- Người thực hiện
-    approved_by VARCHAR(50),                  -- Người phê duyệt
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-    FOREIGN KEY (from_room_id) REFERENCES rooms(id) ON DELETE SET NULL,
-    FOREIGN KEY (to_room_id) REFERENCES rooms(id) ON DELETE SET NULL,
-    FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
-);
-
--- Tối ưu: Indexes cho tra cứu lịch sử
-CREATE INDEX idx_asset_movements_asset ON asset_movements(asset_id);
-CREATE INDEX idx_asset_movements_type ON asset_movements(movement_type);
-CREATE INDEX idx_asset_movements_date ON asset_movements(created_at);
-CREATE INDEX idx_asset_movements_rooms ON asset_movements(from_room_id, to_room_id);
-
--- ============================================================================
--- BƯỚC 14: TẠO BẢNG ASSET_MAINTENANCE (Bảo trì tài sản)
--- ============================================================================
--- Mục đích: Quản lý lịch trình và lịch sử bảo trì, sửa chữa
--- Tối ưu: Lập kế hoạch bảo trì định kỳ và xử lý sự cố
-
-CREATE TABLE asset_maintenance (
-    id VARCHAR(50) PRIMARY KEY,
-    asset_id VARCHAR(50) NOT NULL,
-    
-    -- Thông tin bảo trì
-    title VARCHAR(200) NOT NULL,              -- Tiêu đề phiếu
-    description TEXT,                         -- Mô tả chi tiết
-    maintenance_type VARCHAR(50),             -- Loại: Định kỳ/Sự cố/Bảo hành
-    
-    -- Thời gian
-    scheduled_date DATE,                      -- Ngày lên lịch
-    started_at TIMESTAMP,                     -- Bắt đầu thực hiện
-    completed_at TIMESTAMP,                   -- Hoàn thành
-    
-    -- Chi phí
-    estimated_cost DECIMAL(12,2),            -- Chi phí dự kiến
-    actual_cost DECIMAL(12,2),               -- Chi phí thực tế
-    
-    -- Thông tin xử lý
-    technician VARCHAR(100),                  -- Thợ kỹ thuật
-    vendor VARCHAR(200),                      -- Đơn vị sửa chữa
-    parts_replaced JSONB,                     -- Linh kiện thay thế
-    
-    -- Trạng thái
-    status maintenance_status DEFAULT 'Chờ xử lý',
-    priority INTEGER DEFAULT 2,               -- 1: Thấp, 2: Bình thường, 3: Cao, 4: Khẩn cấp
-    
-    -- Kết quả
-    result TEXT,                              -- Kết quả sau bảo trì
-    images JSONB,                             -- Hình ảnh trước/sau
-    
-    created_by VARCHAR(50),
-    assigned_to VARCHAR(50),                  -- Người được giao
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
-);
-
--- Tối ưu: Indexes cho quản lý bảo trì
-CREATE INDEX idx_maintenance_asset ON asset_maintenance(asset_id);
-CREATE INDEX idx_maintenance_status ON asset_maintenance(status);
-CREATE INDEX idx_maintenance_priority ON asset_maintenance(priority);
-CREATE INDEX idx_maintenance_scheduled ON asset_maintenance(scheduled_date);
-CREATE INDEX idx_maintenance_assigned ON asset_maintenance(assigned_to);
 
 -- ============================================================================
 -- BƯỚC 15: TẠO BẢNG DISCIPLINARY_RECORDS (Phiếu kỷ luật)
@@ -759,14 +621,11 @@ CREATE TRIGGER update_notifications_updated_at BEFORE UPDATE ON notifications
 CREATE TRIGGER update_feedbacks_updated_at BEFORE UPDATE ON feedbacks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- MỚI: Triggers cho các bảng mới
+-- Triggers cho bảng tài sản
 CREATE TRIGGER update_asset_categories_updated_at BEFORE UPDATE ON asset_categories
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_assets_updated_at BEFORE UPDATE ON assets
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_asset_maintenance_updated_at BEFORE UPDATE ON asset_maintenance
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_disciplinary_records_updated_at BEFORE UPDATE ON disciplinary_records
@@ -837,10 +696,9 @@ INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_
 
 -- MỞ RỘNG THÊM CHO TƯƠNG LAI:
 -- 1. QUẢN LÝ CƠ SỞ VẬT CHẤT:
---    - asset_categories: Phân loại tài sản
---    - assets: Chi tiết từng tài sản (QR code, giá trị, vị trí)
---    - asset_movements: Lịch sử nhập/xuất/di chuyển
---    - asset_maintenance: Bảo trì và sửa chữa
+--    - asset_categories: Phân loại tài sản (tên, đơn vị)
+--    - assets: Từng tài sản (mã, vị trí phòng, tình trạng)
+--    - Lịch sử nhập/xuất dùng log_system (entity_type = 'assets')
 
 -- 2. PHIẾU KỶ LUẬT:
 --    - disciplinary_records: Vi phạm và xử lý
