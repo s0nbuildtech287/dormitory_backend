@@ -98,6 +98,21 @@ class AssetController {
     }
 
     /**
+     * Get asset distribution by building
+     */
+    async getAssetsByBuilding(req, res, next) {
+        try {
+            const buildingData = await AssetService.getAssetsByBuilding();
+            res.json({
+                success: true,
+                data: buildingData
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Get asset statistics
      */
     async getStatistics(req, res, next) {

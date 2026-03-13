@@ -95,6 +95,17 @@ class AssetService {
     }
 
     /**
+     * Get asset distribution by building
+     */
+    async getAssetsByBuilding() {
+        try {
+            return await AssetDAO.getAssetsByBuilding();
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
      * Get asset statistics
      */
     async getStatistics() {

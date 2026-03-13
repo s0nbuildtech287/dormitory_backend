@@ -12,6 +12,9 @@ router.get('/', AssetController.getAll.bind(AssetController));
 // Get asset statistics
 router.get('/statistics', AssetController.getStatistics.bind(AssetController));
 
+// Get assets by building
+router.get('/buildings', AssetController.getAssetsByBuilding.bind(AssetController));
+
 // Get asset by ID
 router.get('/:id', AssetController.getById.bind(AssetController));
 

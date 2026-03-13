@@ -217,6 +217,48 @@ class AssetDAO {
     }
 
     /**
+     * Get asset distribution by building
+     */
+    async getAssetsByBuilding() {
+        try {
+            const query = `
+                SELECT 
+                    CASE 
+                        WHEN r.building IS NOT NULL THEN r.building
+                        WHEN a.location LIKE '%Tòa A%' OR a.location LIKE '%A-%' THEN 'A'
+                        WHEN a.location LIKE '%Tòa B%' OR a.location LIKE '%B-%' THEN 'B'
+                        WHEN a.location LIKE '%Tòa C%' OR a.location LIKE '%C-%' THEN 'C'
+                        WHEN a.location LIKE '%Tòa D%' OR a.location LIKE '%D-%' THEN 'D'
+                        ELSE 'Kho'
+                    END as building,
+                    COUNT(*) as asset_count,
+                    SUM(a.quantity) as total_quantity,
+                    SUM(CASE WHEN a.status = 'Đang sử dụng' THEN a.quantity ELSE 0 END) as in_use,
+                    SUM(CASE WHEN a.status = 'Sẵn sàng' THEN a.quantity ELSE 0 END) as in_stock,
+                    SUM(CASE WHEN a.status IN ('Hư hỏng', 'Đang bảo trì') THEN a.quantity ELSE 0 END) as damaged,
+                    SUM(a.purchase_price * a.quantity) as total_value
+                FROM assets a
+                LEFT JOIN rooms r ON a.room_id = r.id
+                GROUP BY 
+                    CASE 
+                        WHEN r.building IS NOT NULL THEN r.building
+                        WHEN a.location LIKE '%Tòa A%' OR a.location LIKE '%A-%' THEN 'A'
+                        WHEN a.location LIKE '%Tòa B%' OR a.location LIKE '%B-%' THEN 'B'
+                        WHEN a.location LIKE '%Tòa C%' OR a.location LIKE '%C-%' THEN 'C'
+                        WHEN a.location LIKE '%Tòa D%' OR a.location LIKE '%D-%' THEN 'D'
+                        ELSE 'Kho'
+                    END
+                ORDER BY building
+            `;
+
+            const result = await pool.query(query);
+            return result.rows;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
      * Get asset statistics
      */
     async getStatistics() {
