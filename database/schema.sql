@@ -255,7 +255,6 @@ CREATE TABLE rooms (
     maintenance_reason TEXT,                  -- Lý do bảo trì (chỉ dùng khi status = 'Maintenance')
     area DECIMAL(5,2),                        -- Tối ưu: Diện tích (m2)
     qr_code VARCHAR(255),                     -- Tối ưu: Mã QR cho check-in
-    equipment JSONB,                          -- Giữ lại cho thông tin cơ bản
     last_inspection_date DATE,                -- Tối ưu: Ngày kiểm tra cuối
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
