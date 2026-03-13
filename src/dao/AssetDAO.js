@@ -363,18 +363,22 @@ class AssetDAO {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
             `;
             await client.query(logQuery, [
-                `LOG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 importData.created_by,
                 'IMPORT_ASSET',
                 'assets',
                 result.rows[0].id,
                 existingAsset.rows.length > 0 ? JSON.stringify({ quantity: existingAsset.rows[0].quantity }) : null,
                 JSON.stringify({
+                    asset_code: importData.asset_code,
+                    asset_name: importData.asset_name,
+                    unit: importData.unit,
                     quantity: result.rows[0].quantity,
                     import_quantity: importData.quantity,
+                    purchase_price: importData.purchase_price,
+                    total_price: importData.total_price,
                     supplier: importData.supplier,
                     invoice_number: importData.invoice_number,
-                    total_price: importData.total_price,
                     notes: importData.notes
                 })
             ]);
@@ -398,9 +402,11 @@ class AssetDAO {
                 SELECT 
                     l.id, l.user_id, l.action, l.entity_id,
                     l.old_value, l.new_value, l.created_at,
-                    u.full_name as created_by_name
+                    u.full_name as created_by_name,
+                    a.asset_code, a.name as asset_name, a.unit, a.purchase_price
                 FROM log_system l
                 LEFT JOIN users u ON l.user_id = u.id
+                LEFT JOIN assets a ON l.entity_id = a.id
                 WHERE l.entity_type = 'assets' 
                 AND l.action IN ('IMPORT_ASSET', 'EXPORT_ASSET')
             `;

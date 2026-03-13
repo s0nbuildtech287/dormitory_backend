@@ -154,24 +154,30 @@ class AssetService {
                 const newValue = log.new_value || {};
                 const isImport = log.action === 'IMPORT_ASSET';
                 
+                // Prioritize data from new_value, fallback to joined asset data
+                const assetCode = newValue.asset_code || log.asset_code || '---';
+                const assetName = newValue.asset_name || log.asset_name || '---';
+                const unit = newValue.unit || log.unit || 'Cái';
+                const purchasePrice = newValue.purchase_price || log.purchase_price || 0;
+                
                 return {
                     id: log.id,
                     type: isImport ? 'import' : 'export',
-                    asset_code: newValue.asset_code || 'N/A',
-                    asset_name: newValue.asset_name || 'N/A',
+                    asset_code: assetCode,
+                    asset_name: assetName,
                     quantity: newValue.import_quantity || newValue.export_quantity || 0,
-                    unit: newValue.unit || 'Cái',
+                    unit: unit,
                     date: log.created_at,
-                    supplier: newValue.supplier,
-                    invoice_number: newValue.invoice_number,
-                    price: newValue.purchase_price || 0,
-                    total_price: newValue.total_price || 0,
-                    export_to: newValue.export_to,
-                    room_number: newValue.room_number,
-                    recipient_name: newValue.recipient_name,
-                    recipient_phone: newValue.recipient_phone,
-                    purpose: newValue.purpose,
-                    notes: newValue.notes,
+                    supplier: newValue.supplier || '---',
+                    invoice_number: newValue.invoice_number || '---',
+                    price: purchasePrice,
+                    total_price: newValue.total_price || (purchasePrice * (newValue.import_quantity || 0)),
+                    export_to: newValue.export_to || '---',
+                    room_number: newValue.room_number || '---',
+                    recipient_name: newValue.recipient_name || '---',
+                    recipient_phone: newValue.recipient_phone || '---',
+                    purpose: newValue.purpose || '---',
+                    notes: newValue.notes || '',
                     created_by: log.created_by_name || 'Unknown',
                 };
             });
