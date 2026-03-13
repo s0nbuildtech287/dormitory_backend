@@ -144,6 +144,21 @@ class AssetController {
     }
 
     /**
+     * Get assets by room
+     */
+    async getAssetsByRoom(req, res, next) {
+        try {
+            const assets = await AssetService.getAssetsByRoom(req.params.roomId);
+            res.json({
+                success: true,
+                data: assets
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Get import/export history
      */
     async getHistory(req, res, next) {

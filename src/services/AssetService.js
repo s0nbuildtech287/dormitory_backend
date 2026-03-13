@@ -143,6 +143,17 @@ class AssetService {
     }
 
     /**
+     * Get assets by room
+     */
+    async getAssetsByRoom(roomId) {
+        try {
+            return await AssetDAO.findByRoom(roomId);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
      * Get import/export history
      */
     async getHistory(filters) {

@@ -394,6 +394,30 @@ class AssetDAO {
     }
 
     /**
+     * Get assets by room
+     */
+    async findByRoom(roomId) {
+        try {
+            const query = `
+                SELECT 
+                    asset_code,
+                    MAX(name) as name,
+                    MAX(unit) as unit,
+                    SUM(quantity) as total_quantity
+                FROM assets
+                WHERE room_id = $1
+                GROUP BY asset_code
+                ORDER BY asset_code
+            `;
+
+            const result = await pool.query(query, [roomId]);
+            return result.rows;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
      * Get import/export history from log_system
      */
     async getHistory(filters = {}) {
