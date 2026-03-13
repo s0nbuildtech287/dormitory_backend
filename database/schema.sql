@@ -29,8 +29,7 @@
 -- Lưu ý: Thực hiện theo thứ tự từ bảng con đến bảng cha để tránh lỗi constraint
 DROP TABLE IF EXISTS log_system CASCADE;
 DROP TABLE IF EXISTS disciplinary_records CASCADE;  -- MỚI: Phiếu kỷ luật
-DROP TABLE IF EXISTS assets CASCADE;                 -- Cơ sở vật chất
-DROP TABLE IF EXISTS asset_categories CASCADE;       -- Danh mục tài sản
+DROP TABLE IF EXISTS assets CASCADE;                 -- Cơ sở vật chất (đã tối ưu)
 DROP TABLE IF EXISTS settings CASCADE;               -- MỚI: Cài đặt hệ thống
 DROP TABLE IF EXISTS feedbacks CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
@@ -442,55 +441,78 @@ CREATE INDEX idx_feedbacks_created_at ON feedbacks(created_at);
 CREATE INDEX idx_feedbacks_category ON feedbacks(category);
 
 -- ============================================================================
--- BƯỚC 11: TẠO BẢNG ASSET_CATEGORIES (Danh mục tài sản)
+-- BƯỚC 11: TẠO BẢNG ASSETS TỐI ƯU (GỘP CATEGORY)
 -- ============================================================================
--- Mục đích: Phân loại cơ sở vật chất (bàn, ghế, tủ, quạt, điều hòa...)
--- Ghi chú: Đơn giản hóa - chỉ giữ thông tin cần thiết
-
-CREATE TABLE asset_categories (
-    id          VARCHAR(50) PRIMARY KEY,
-    name        VARCHAR(100) NOT NULL,        -- Tên danh mục (Bàn, Ghế, Quạt...)
-    unit        VARCHAR(20) DEFAULT 'Cái',    -- Đơn vị tính
-    description TEXT,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_asset_categories_name ON asset_categories(name);
-
--- ============================================================================
--- BƯỚC 12: TẠO BẢNG ASSETS (Cơ sở vật chất)
--- ============================================================================
--- Mục đích: Quản lý từng tài sản cụ thể trong KTX
+-- Mục đích: Quản lý tài sản với thông tin danh mục gộp chung để đơn giản hóa
+-- Lợi ích: Giảm JOIN queries, dễ quản lý, phù hợp quy mô KTX
 -- Ghi chú: Lịch sử nhập/xuất được ghi vào log_system
---          (entity_type = 'assets', action = 'Nhập kho'/'Xuất kho'/'Thu hồi'...)
 --          room_id = NULL nghĩa là tài sản đang ở kho
 
 CREATE TABLE assets (
-    id            VARCHAR(50) PRIMARY KEY,
-    asset_code    VARCHAR(50) UNIQUE NOT NULL, -- Mã tài sản (TB001, QT002...)
-    category_id   VARCHAR(50) NOT NULL,
-    name          VARCHAR(200) NOT NULL,       -- Tên tài sản
-    room_id       VARCHAR(50),                 -- Phòng hiện tại (NULL = kho)
-    quantity      INTEGER NOT NULL DEFAULT 1,  -- Số lượng
-    status        asset_status DEFAULT 'Sẵn sàng',
-    condition     asset_condition DEFAULT 'Mới',
-    purchase_date DATE,                        -- Ngày mua
-    purchase_price DECIMAL(12,2),             -- Giá mua
-    note          TEXT,                        -- Ghi chú / tình trạng bảo trì
-    created_by    VARCHAR(50),
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (category_id) REFERENCES asset_categories(id) ON DELETE RESTRICT,
-    FOREIGN KEY (room_id)     REFERENCES rooms(id) ON DELETE SET NULL,
-    FOREIGN KEY (created_by)  REFERENCES users(id) ON DELETE SET NULL
+    -- Thông tin cơ bản
+    id                VARCHAR(50) PRIMARY KEY,
+    asset_code        VARCHAR(50) UNIQUE NOT NULL,     -- Mã tài sản (TB001, NT002, DL003...)
+    name              VARCHAR(200) NOT NULL,           -- Tên tài sản
+    
+    -- Thông tin danh mục (gộp từ asset_categories)
+    category_name     VARCHAR(100) NOT NULL,           -- Tên danh mục (Thiết bị điện tử, Nội thất...)
+    category_code     VARCHAR(10) NOT NULL,            -- Mã danh mục (TB, NT, DL, VS, DD...)
+    unit              VARCHAR(20) DEFAULT 'Cái',       -- Đơn vị tính
+    
+    -- Vị trí và số lượng
+    room_id           VARCHAR(50),                     -- Phòng hiện tại (NULL = kho)
+    location          VARCHAR(100),                    -- Vị trí cụ thể trong phòng
+    quantity          INTEGER NOT NULL DEFAULT 1,      -- Số lượng
+    
+    -- Trạng thái và tình trạng
+    status            asset_status DEFAULT 'Sẵn sàng',
+    condition         asset_condition DEFAULT 'Mới',
+    
+    -- Thông tin tài chính
+    purchase_date     DATE,                            -- Ngày mua
+    purchase_price    DECIMAL(12,2),                   -- Giá mua
+    current_value     DECIMAL(12,2),                   -- Giá trị hiện tại
+    depreciation_rate DECIMAL(5,2) DEFAULT 10.0,       -- Tỷ lệ khấu hao (%/năm)
+    
+    -- Thông tin nhà cung cấp và bảo hành
+    supplier          VARCHAR(200),                    -- Nhà cung cấp
+    warranty_period   INTEGER DEFAULT 12,             -- Thời gian bảo hành (tháng)
+    warranty_expiry   DATE,                           -- Ngày hết bảo hành
+    
+    -- Thông tin kỹ thuật
+    specifications    JSONB,                          -- Thông số kỹ thuật (JSON)
+    qr_code          VARCHAR(255),                    -- Mã QR cho quản lý
+    
+    -- Ghi chú và mô tả
+    description       TEXT,                           -- Mô tả chi tiết
+    note              TEXT,                           -- Ghi chú bảo trì/sử dụng
+    
+    -- Audit trail
+    created_by        VARCHAR(50),
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign keys
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    
+    -- Constraints
+    CHECK (quantity > 0),
+    CHECK (purchase_price >= 0),
+    CHECK (current_value >= 0),
+    CHECK (depreciation_rate >= 0 AND depreciation_rate <= 100),
+    CHECK (warranty_period >= 0)
 );
 
-CREATE INDEX idx_assets_category ON assets(category_id);
+-- Indexes tối ưu
+CREATE INDEX idx_assets_code ON assets(asset_code);
+CREATE INDEX idx_assets_name ON assets USING gin(to_tsvector('english', name));
+CREATE INDEX idx_assets_category ON assets(category_name, category_code);
 CREATE INDEX idx_assets_room ON assets(room_id);
 CREATE INDEX idx_assets_status ON assets(status);
-CREATE INDEX idx_assets_code ON assets(asset_code);
+CREATE INDEX idx_assets_condition ON assets(condition);
+CREATE INDEX idx_assets_category_status ON assets(category_name, status);
+CREATE INDEX idx_assets_warehouse ON assets(status, category_name) WHERE room_id IS NULL;
 
 
 
@@ -622,9 +644,6 @@ CREATE TRIGGER update_feedbacks_updated_at BEFORE UPDATE ON feedbacks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Triggers cho bảng tài sản
-CREATE TRIGGER update_asset_categories_updated_at BEFORE UPDATE ON asset_categories
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER update_assets_updated_at BEFORE UPDATE ON assets
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -684,6 +703,10 @@ INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_
 -- PHÂN TÍCH THIẾT KẾ VÀ TỐI ƯU
 -- ============================================================================
 
+-- ============================================================================
+-- PHÂN TÍCH THIẾT KẾ VÀ TỐI ƯU
+-- ============================================================================
+
 -- ĐIỂM MẠNH CỦA SCHEMA NÀY:
 -- ✓ Cấu trúc rõ ràng, dễ hiểu với comment chi tiết
 -- ✓ Sử dụng ENUM types đảm bảo tính toàn vẹn dữ liệu
@@ -694,11 +717,20 @@ INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_
 -- ✓ Lưu trữ JSONB linh hoạt cho dữ liệu động
 -- ✓ Audit trail đầy đủ qua log_system
 
+-- TỐI ƯU BẢNG ASSETS:
+-- ✓ GỘP asset_categories VÀO assets để đơn giản hóa
+-- ✓ Giảm số lượng JOIN queries cần thiết
+-- ✓ Thêm thông tin chi tiết: supplier, warranty, specifications
+-- ✓ Hỗ trợ QR code và location tracking
+-- ✓ Tính năng khấu hao và giá trị hiện tại
+-- ✓ Full-text search với gin index
+
 -- MỞ RỘNG THÊM CHO TƯƠNG LAI:
 -- 1. QUẢN LÝ CƠ SỞ VẬT CHẤT:
---    - asset_categories: Phân loại tài sản (tên, đơn vị)
---    - assets: Từng tài sản (mã, vị trí phòng, tình trạng)
---    - Lịch sử nhập/xuất dùng log_system (entity_type = 'assets')
+--    ✓ Thông tin danh mục gộp chung trong bảng assets
+--    ✓ Tracking vị trí chi tiết và QR code
+--    ✓ Quản lý bảo hành và khấu hao tự động
+--    ✓ Lịch sử nhập/xuất dùng log_system (entity_type = 'assets')
 
 -- 2. PHIẾU KỶ LUẬT:
 --    - disciplinary_records: Vi phạm và xử lý
@@ -720,8 +752,9 @@ INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_
 -- 2. Composite indexes cho truy vấn nhiều điều kiện
 -- 3. Partial indexes cho các điều kiện đặc biệt
 -- 4. JSONB cho dữ liệu linh hoạt nhưng vẫn query được
--- 5. Cân nhắc thêm View cho các truy vấn phức tạp thường dùng
--- 6. Cân nhắc partitioning cho bảng log_system khi dữ liệu lớn
+-- 5. Full-text search index cho tìm kiếm tài sản
+-- 6. Views tối ưu cho báo cáo thường dùng
+-- 7. Functions hỗ trợ tính toán khấu hao
 
 -- BẢO MẬT:
 -- ✓ Password đã hash (bcrypt)
@@ -749,7 +782,7 @@ INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_
 
 
 -- KHUYẾN NGHỊ TIẾP THEO:
--- 1. Tạo các View cho báo cáo thường dùng
+-- 1. Tạo các View cho báo cáo thường dùng (đã có trong sample_asset_data.sql)
 -- 2. Tạo stored procedures cho logic phức tạp
 -- 3. Backup strategy cho dữ liệu quan trọng
 -- 4. Monitor query performance
