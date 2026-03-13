@@ -126,6 +126,44 @@ class AssetController {
             next(error);
         }
     }
+
+    /**
+     * Import asset to warehouse
+     */
+    async importAsset(req, res, next) {
+        try {
+            const asset = await AssetService.importAsset(req.body, req.user.userId);
+            res.status(201).json({
+                success: true,
+                message: 'Asset imported successfully',
+                data: asset
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Get import/export history
+     */
+    async getHistory(req, res, next) {
+        try {
+            const filters = {
+                type: req.query.type, // 'import' or 'export'
+                date_from: req.query.date_from,
+                date_to: req.query.date_to,
+                limit: req.query.limit || 100
+            };
+
+            const history = await AssetService.getHistory(filters);
+            res.json({
+                success: true,
+                data: history
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new AssetController();

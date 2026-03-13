@@ -64,7 +64,11 @@ class AssetDAO {
                     MAX(category_name) as category_name,
                     MAX(unit) as unit,
                     MAX(purchase_date) as purchase_date,
-                    MAX(purchase_price) as purchase_price,
+                    -- Calculate average price per unit
+                    ROUND(
+                        SUM(purchase_price * quantity) / NULLIF(SUM(quantity), 0), 
+                        2
+                    ) as purchase_price,
                     MAX(supplier) as supplier,
                     (SELECT specifications FROM assets a2 WHERE a2.asset_code = assets.asset_code LIMIT 1) as specifications,
                     SUM(quantity) as total_quantity,
@@ -278,6 +282,160 @@ class AssetDAO {
 
             const result = await pool.query(query);
             return result.rows[0];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Import asset to warehouse (Nhập kho)
+     */
+    async importAsset(importData) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Check if asset with same code exists
+            const checkQuery = `
+                SELECT id, quantity FROM assets 
+                WHERE asset_code = $1 AND room_id IS NULL AND status = 'Sẵn sàng'
+                LIMIT 1
+            `;
+            const existingAsset = await client.query(checkQuery, [importData.asset_code]);
+
+            let result;
+            if (existingAsset.rows.length > 0) {
+                // Update existing asset quantity
+                const updateQuery = `
+                    UPDATE assets
+                    SET 
+                        quantity = quantity + $1,
+                        purchase_date = $2,
+                        purchase_price = $3,
+                        supplier = $4,
+                        note = $5,
+                        updated_at = NOW()
+                    WHERE id = $6
+                    RETURNING *
+                `;
+                result = await client.query(updateQuery, [
+                    importData.quantity,
+                    importData.import_date,
+                    importData.purchase_price,
+                    importData.supplier,
+                    importData.notes,
+                    existingAsset.rows[0].id
+                ]);
+            } else {
+                // Create new asset in warehouse
+                const insertQuery = `
+                    INSERT INTO assets (
+                        id, asset_code, name, category_name, unit,
+                        room_id, location, quantity, status,
+                        purchase_date, purchase_price, supplier,
+                        description, note, created_by, created_at, updated_at
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, NULL, 'Kho', $6, 'Sẵn sàng', $7, $8, $9, $10, $11, $12, NOW(), NOW()
+                    )
+                    RETURNING *
+                `;
+                result = await client.query(insertQuery, [
+                    importData.id,
+                    importData.asset_code,
+                    importData.asset_name,
+                    importData.category_name || 'Khác',
+                    importData.unit,
+                    importData.quantity,
+                    importData.import_date,
+                    importData.purchase_price,
+                    importData.supplier,
+                    `Nhập kho - Hóa đơn: ${importData.invoice_number || 'N/A'}`,
+                    importData.notes,
+                    importData.created_by
+                ]);
+            }
+
+            // Create log entry
+            const logQuery = `
+                INSERT INTO log_system (
+                    id, user_id, action, entity_type, entity_id,
+                    old_value, new_value, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+            `;
+            await client.query(logQuery, [
+                `LOG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                importData.created_by,
+                'IMPORT_ASSET',
+                'assets',
+                result.rows[0].id,
+                existingAsset.rows.length > 0 ? JSON.stringify({ quantity: existingAsset.rows[0].quantity }) : null,
+                JSON.stringify({
+                    quantity: result.rows[0].quantity,
+                    import_quantity: importData.quantity,
+                    supplier: importData.supplier,
+                    invoice_number: importData.invoice_number,
+                    total_price: importData.total_price,
+                    notes: importData.notes
+                })
+            ]);
+
+            await client.query('COMMIT');
+            return result.rows[0];
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Get import/export history from log_system
+     */
+    async getHistory(filters = {}) {
+        try {
+            let query = `
+                SELECT 
+                    l.id, l.user_id, l.action, l.entity_id,
+                    l.old_value, l.new_value, l.created_at,
+                    u.full_name as created_by_name
+                FROM log_system l
+                LEFT JOIN users u ON l.user_id = u.id
+                WHERE l.entity_type = 'assets' 
+                AND l.action IN ('IMPORT_ASSET', 'EXPORT_ASSET')
+            `;
+            const params = [];
+            let paramCount = 1;
+
+            if (filters.type) {
+                if (filters.type === 'import') {
+                    query += ` AND l.action = 'IMPORT_ASSET'`;
+                } else if (filters.type === 'export') {
+                    query += ` AND l.action = 'EXPORT_ASSET'`;
+                }
+            }
+
+            if (filters.date_from) {
+                query += ` AND l.created_at >= $${paramCount}`;
+                params.push(filters.date_from);
+                paramCount++;
+            }
+
+            if (filters.date_to) {
+                query += ` AND l.created_at <= $${paramCount}`;
+                params.push(filters.date_to);
+                paramCount++;
+            }
+
+            query += ` ORDER BY l.created_at DESC`;
+
+            if (filters.limit) {
+                query += ` LIMIT $${paramCount}`;
+                params.push(filters.limit);
+            }
+
+            const result = await pool.query(query, params);
+            return result.rows;
         } catch (error) {
             throw error;
         }

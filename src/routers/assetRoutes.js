@@ -15,6 +15,12 @@ router.get('/statistics', AssetController.getStatistics.bind(AssetController));
 // Get assets by building
 router.get('/buildings', AssetController.getAssetsByBuilding.bind(AssetController));
 
+// Get import/export history
+router.get('/history', AssetController.getHistory.bind(AssetController));
+
+// Import asset to warehouse
+router.post('/import', AssetController.importAsset.bind(AssetController));
+
 // Get asset by ID
 router.get('/:id', AssetController.getById.bind(AssetController));
 
