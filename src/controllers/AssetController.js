@@ -195,6 +195,74 @@ class AssetController {
             next(error);
         }
     }
+
+    /**
+     * Get asset limits
+     */
+    async getAssetLimits(req, res, next) {
+        try {
+            const limits = await AssetService.getAssetLimits();
+            res.json({
+                success: true,
+                data: limits
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Update asset limits
+     */
+    async updateAssetLimits(req, res, next) {
+        try {
+            const limits = req.body;
+            const userId = req.user?.userId || null;
+
+            const setting = await AssetService.updateAssetLimits(limits, userId);
+            res.json({
+                success: true,
+                message: 'Asset limits updated successfully',
+                data: setting
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Get asset regulations
+     */
+    async getAssetRegulations(req, res, next) {
+        try {
+            const regulations = await AssetService.getAssetRegulations();
+            res.json({
+                success: true,
+                data: regulations
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Update asset regulations
+     */
+    async updateAssetRegulations(req, res, next) {
+        try {
+            const regulations = req.body;
+            const userId = req.user?.userId || null;
+
+            const setting = await AssetService.updateAssetRegulations(regulations, userId);
+            res.json({
+                success: true,
+                message: 'Asset regulations updated successfully',
+                data: setting
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new AssetController();

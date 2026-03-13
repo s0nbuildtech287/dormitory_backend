@@ -673,7 +673,21 @@ INSERT INTO settings (id, category, name, value, description) VALUES
     "internetFee": 300000,
     "parkingFeePerVehicle": 50000,
     "dueDateDay": 10
-}', 'Cấu hình bảng giá tiền phòng, điện, nước và dịch vụ cho hệ thống hóa đơn');
+}', 'Cấu hình bảng giá tiền phòng, điện, nước và dịch vụ cho hệ thống hóa đơn'),
+('asset_limits', 'asset', 'Asset Limits Configuration', '{
+    "perRoom": {
+        "GIUONG": 5,
+        "TU": 5,
+        "BAN": 5,
+        "QUAT": 2,
+        "DIEUHOA": 2,
+        "DEN": 5
+    },
+    "perFloor": {
+        "WIFI": 1,
+        "CAMERA": 1
+    }
+}', 'Cấu hình giới hạn số lượng tài sản cho mỗi phòng và tầng');
 
 -- Insert default admin user
 INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_at, updated_at) VALUES 

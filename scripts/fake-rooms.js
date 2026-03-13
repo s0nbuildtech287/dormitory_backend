@@ -37,13 +37,6 @@ async function generateFakeRooms() {
             status: "Active",
             area: 25.0, // 25 m²
             qr_code: `QR_${roomNumber}`, // Fake QR code
-            equipment: JSON.stringify({
-              "Giường đơn": 1,
-              "Tủ quần áo": 1,
-              "Bàn học": 1,
-              Ghế: 1,
-              "Quạt máy": 1,
-            }),
             electric_meter_reading: 0.0,
             water_meter_reading: 0.0,
             last_inspection_date: new Date(2024, 0, 1).toISOString().split("T")[0], // 2024-01-01
@@ -60,11 +53,11 @@ async function generateFakeRooms() {
     // Insert vào database
     const values = rooms.map(
       (room) =>
-        `('${room.id}', '${room.room_number}', '${room.building}', ${room.floor}, ${room.capacity}, ${room.current_occupancy}, '${room.gender_type}', ${room.rent_price}, ${room.garbage_fee}, ${room.internet_fee}, ${room.parking_fee}, '${room.status}', ${room.area}, '${room.qr_code}', '${room.equipment}', ${room.electric_meter_reading}, ${room.water_meter_reading}, '${room.last_inspection_date}', '${room.created_at}', '${room.updated_at}')`,
+        `('${room.id}', '${room.room_number}', '${room.building}', ${room.floor}, ${room.capacity}, ${room.current_occupancy}, '${room.gender_type}', ${room.rent_price}, ${room.garbage_fee}, ${room.internet_fee}, ${room.parking_fee}, '${room.status}', ${room.area}, '${room.qr_code}', ${room.electric_meter_reading}, ${room.water_meter_reading}, '${room.last_inspection_date}', '${room.created_at}', '${room.updated_at}')`,
     );
 
     const query = `
-      INSERT INTO rooms (id, room_number, building, floor, capacity, current_occupancy, gender_type, rent_price, garbage_fee, internet_fee, parking_fee, status, area, qr_code, equipment, electric_meter_reading, water_meter_reading, last_inspection_date, created_at, updated_at)
+      INSERT INTO rooms (id, room_number, building, floor, capacity, current_occupancy, gender_type, rent_price, garbage_fee, internet_fee, parking_fee, status, area, qr_code, electric_meter_reading, water_meter_reading, last_inspection_date, created_at, updated_at)
             VALUES ${values.join(", ")}
             ON CONFLICT (room_number) DO NOTHING;
         `;

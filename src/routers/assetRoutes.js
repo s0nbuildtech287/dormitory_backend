@@ -18,6 +18,14 @@ router.get('/buildings', AssetController.getAssetsByBuilding.bind(AssetControlle
 // Get import/export history
 router.get('/history', AssetController.getHistory.bind(AssetController));
 
+// Asset settings - limits
+router.get('/settings/limits', AssetController.getAssetLimits.bind(AssetController));
+router.put('/settings/limits', AssetController.updateAssetLimits.bind(AssetController));
+
+// Asset settings - regulations
+router.get('/settings/regulations', AssetController.getAssetRegulations.bind(AssetController));
+router.put('/settings/regulations', AssetController.updateAssetRegulations.bind(AssetController));
+
 // Get assets by room
 router.get('/room/:roomId', AssetController.getAssetsByRoom.bind(AssetController));
 

@@ -442,6 +442,37 @@ class AssetDAO {
                 throw new Error(`Không đủ số lượng trong kho. Tồn kho: ${availableQty} ${exportData.unit}`);
             }
 
+            // CHECK ASSET LIMITS FROM SETTINGS
+            const limits = await this.getAssetLimits();
+            
+            // Get current asset count in target room
+            const currentCountQuery = `
+                SELECT COALESCE(SUM(quantity), 0) as current_count
+                FROM assets
+                WHERE room_id = $1 AND asset_code = $2
+            `;
+            const currentCount = await client.query(currentCountQuery, [exportData.room_id, exportData.asset_code]);
+            const currentQty = parseInt(currentCount.rows[0].current_count) || 0;
+            const newTotalQty = currentQty + exportData.quantity;
+
+            // Map asset_code to limit key
+            const assetCodeToLimitKey = {
+                'GIUONG': 'GIUONG',
+                'TU': 'TU',
+                'BAN': 'BAN',
+                'QUAT': 'QUAT',
+                'DIEUHOA': 'DIEUHOA',
+                'DEN': 'DEN'
+            };
+
+            const limitKey = assetCodeToLimitKey[exportData.asset_code];
+            if (limitKey && limits.perRoom && limits.perRoom[limitKey]) {
+                const maxAllowed = limits.perRoom[limitKey];
+                if (newTotalQty > maxAllowed) {
+                    throw new Error(`Vượt quá giới hạn! Phòng chỉ được phép tối đa ${maxAllowed} ${exportData.asset_name}. Hiện tại: ${currentQty}, muốn thêm: ${exportData.quantity}`);
+                }
+            }
+
             // Reduce quantity in warehouse
             if (availableQty === exportData.quantity) {
                 // Delete if quantity becomes 0
@@ -592,6 +623,120 @@ class AssetDAO {
 
             const result = await pool.query(query, params);
             return result.rows;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get asset limits from settings
+     */
+    async getAssetLimits() {
+        try {
+            const query = 'SELECT value FROM settings WHERE id = $1 AND is_active = TRUE';
+            const result = await pool.query(query, ['asset_limits']);
+            
+            if (result.rows.length === 0) {
+                // Return default values if not found
+                return {
+                    perRoom: {
+                        GIUONG: 5,
+                        TU: 5,
+                        BAN: 5,
+                        QUAT: 2,
+                        DIEUHOA: 1,
+                        DEN: 5
+                    },
+                    perFloor: {
+                        WIFI: 1,
+                        CAMERA: 1
+                    }
+                };
+            }
+            
+            return result.rows[0].value;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Update asset limits
+     */
+    async updateAssetLimits(limits, updatedBy) {
+        try {
+            const query = `
+                INSERT INTO settings (id, category, name, value, description, is_active, updated_by, updated_at)
+                VALUES ($1, $2, $3, $4, $5, TRUE, $6, CURRENT_TIMESTAMP)
+                ON CONFLICT (id) 
+                DO UPDATE SET 
+                    value = $4,
+                    updated_by = $6,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING *
+            `;
+            
+            const values = [
+                'asset_limits',
+                'asset',
+                'Giới hạn tài sản',
+                JSON.stringify(limits),
+                'Giới hạn số lượng tài sản tối đa cho mỗi phòng và mỗi tầng',
+                updatedBy
+            ];
+
+            const result = await pool.query(query, values);
+            return result.rows[0];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get asset regulations
+     */
+    async getAssetRegulations() {
+        try {
+            const query = 'SELECT value FROM settings WHERE id = $1 AND is_active = TRUE';
+            const result = await pool.query(query, ['asset_regulations']);
+            
+            if (result.rows.length === 0) {
+                return [];
+            }
+            
+            return result.rows[0].value;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Update asset regulations
+     */
+    async updateAssetRegulations(regulations, updatedBy) {
+        try {
+            const query = `
+                INSERT INTO settings (id, category, name, value, description, is_active, updated_by, updated_at)
+                VALUES ($1, $2, $3, $4, $5, TRUE, $6, CURRENT_TIMESTAMP)
+                ON CONFLICT (id) 
+                DO UPDATE SET 
+                    value = $4,
+                    updated_by = $6,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING *
+            `;
+            
+            const values = [
+                'asset_regulations',
+                'asset',
+                'Điều lệ tài sản',
+                JSON.stringify(regulations),
+                'Quy định về bảo quản, sử dụng và bồi thường tài sản trong ký túc xá',
+                updatedBy
+            ];
+
+            const result = await pool.query(query, values);
+            return result.rows[0];
         } catch (error) {
             throw error;
         }

@@ -222,6 +222,50 @@ class AssetService {
             throw error;
         }
     }
+
+    /**
+     * Get asset limits
+     */
+    async getAssetLimits() {
+        try {
+            return await AssetDAO.getAssetLimits();
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Update asset limits
+     */
+    async updateAssetLimits(limits, userId) {
+        try {
+            return await AssetDAO.updateAssetLimits(limits, userId);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get asset regulations
+     */
+    async getAssetRegulations() {
+        try {
+            return await AssetDAO.getAssetRegulations();
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Update asset regulations
+     */
+    async updateAssetRegulations(regulations, userId) {
+        try {
+            return await AssetDAO.updateAssetRegulations(regulations, userId);
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 
 module.exports = new AssetService();
