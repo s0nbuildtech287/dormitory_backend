@@ -15,13 +15,18 @@ const pool = require("../src/config/database");
  * - 2 bàn học
  * - 2 quạt trần
  * - 1 điều hòa
- * - Bóng đèn (giả sử 4 bóng/phòng)
+ * - 4 bóng đèn
  * 
  * Tài sản mỗi tầng:
  * - 1 camera (40 camera cho 40 tầng)
  * - 1 cục wifi (40 cục wifi cho 40 tầng)
  * 
  * Kho dự trữ: 10-30% tổng số tài sản đang sử dụng
+ * 
+ * Đơn giản hóa:
+ * - Mỗi loại tài sản dùng chung 1 asset_code
+ * - Bỏ: category_code, condition, current_value, depreciation_rate, warranty_period, warranty_expiry
+ * - Mỗi loại có giá mua cố định
  */
 
 async function generateFakeAssets() {
@@ -39,95 +44,103 @@ async function generateFakeAssets() {
     console.log(`📊 Tìm thấy ${rooms.length} phòng trong database`);
 
     const assets = [];
-    let assetCounter = 1;
+    let recordCounter = 1;
 
-    // Định nghĩa các loại tài sản
-    const assetCategories = [
+    // Định nghĩa các loại tài sản với thông tin đơn giản
+    const assetTypes = [
       {
+        asset_code: "GIUONG",
         name: "Giường đơn",
-        code: "GD",
+        category_name: "Nội thất",
         unit: "Cái",
         perRoom: 5,
         perFloor: 0,
         price: 1500000,
-        warranty: 24,
+        purchase_date: "2023-01-15",
       },
       {
+        asset_code: "TU",
         name: "Tủ quần áo",
-        code: "TU",
+        category_name: "Nội thất",
         unit: "Cái",
         perRoom: 5,
         perFloor: 0,
         price: 2000000,
-        warranty: 24,
+        purchase_date: "2023-01-15",
       },
       {
+        asset_code: "BAN",
         name: "Bàn học",
-        code: "BH",
+        category_name: "Nội thất",
         unit: "Cái",
         perRoom: 2,
         perFloor: 0,
         price: 800000,
-        warranty: 12,
+        purchase_date: "2023-02-10",
       },
       {
+        asset_code: "QUAT",
         name: "Quạt trần",
-        code: "QT",
+        category_name: "Thiết bị điện",
         unit: "Cái",
         perRoom: 2,
         perFloor: 0,
         price: 1200000,
-        warranty: 12,
+        purchase_date: "2023-03-05",
       },
       {
+        asset_code: "DIEUHOA",
         name: "Điều hòa",
-        code: "DH",
+        category_name: "Thiết bị điện",
         unit: "Cái",
         perRoom: 1,
         perFloor: 0,
         price: 8000000,
-        warranty: 36,
+        purchase_date: "2023-03-20",
       },
       {
+        asset_code: "DEN",
         name: "Bóng đèn LED",
-        code: "DL",
+        category_name: "Thiết bị điện",
         unit: "Cái",
         perRoom: 4,
         perFloor: 0,
         price: 150000,
-        warranty: 6,
+        purchase_date: "2023-04-01",
       },
       {
+        asset_code: "CAMERA",
         name: "Camera an ninh",
-        code: "CM",
+        category_name: "Thiết bị an ninh",
         unit: "Cái",
         perRoom: 0,
         perFloor: 1,
         price: 3000000,
-        warranty: 24,
+        purchase_date: "2023-05-10",
       },
       {
+        asset_code: "WIFI",
         name: "Bộ phát Wifi",
-        code: "WF",
+        category_name: "Thiết bị mạng",
         unit: "Cái",
         perRoom: 0,
         perFloor: 1,
         price: 1500000,
-        warranty: 12,
+        purchase_date: "2023-05-15",
       },
     ];
 
     // Tính tổng số tài sản cần cho tất cả phòng
-    const totalAssetsByCategory = {};
-    assetCategories.forEach((cat) => {
-      const roomAssets = cat.perRoom * rooms.length;
-      const floorAssets = cat.perFloor * 40; // 4 tòa × 10 tầng = 40 tầng
-      totalAssetsByCategory[cat.code] = roomAssets + floorAssets;
+    const totalAssetsByType = {};
+    assetTypes.forEach((type) => {
+      const roomAssets = type.perRoom * rooms.length;
+      const floorAssets = type.perFloor * 40; // 4 tòa × 10 tầng = 40 tầng
+      totalAssetsByType[type.asset_code] = roomAssets + floorAssets;
     });
 
     console.log("\n📦 Tổng số tài sản cần thiết:");
-    assetCategories.forEach((cat) => {
-      console.log(`   - ${cat.name}: ${totalAssetsByCategory[cat.code]} ${cat.unit}`);
+    assetTypes.forEach((type) => {
+      console.log(`   - ${type.name}: ${totalAssetsByType[type.asset_code]} ${type.unit}`);
     });
 
     // ========================================
@@ -136,35 +149,24 @@ async function generateFakeAssets() {
     console.log("\n🏠 Đang tạo tài sản cho các phòng...");
 
     for (const room of rooms) {
-      for (const category of assetCategories) {
-        if (category.perRoom > 0) {
-          const assetCode = `${category.code}${assetCounter.toString().padStart(4, "0")}`;
-          const purchaseDate = new Date(2023, Math.floor(Math.random() * 12), 1);
-          const warrantyExpiry = new Date(purchaseDate);
-          warrantyExpiry.setMonth(warrantyExpiry.getMonth() + category.warranty);
-
+      for (const type of assetTypes) {
+        if (type.perRoom > 0) {
           const asset = {
-            id: `asset-${assetCounter.toString().padStart(5, "0")}`,
-            asset_code: assetCode,
-            name: category.name,
-            category_name: getCategoryName(category.code),
-            category_code: category.code,
-            unit: category.unit,
+            id: `asset-${recordCounter.toString().padStart(5, "0")}`,
+            asset_code: type.asset_code,
+            name: type.name,
+            category_name: type.category_name,
+            unit: type.unit,
             room_id: room.id,
             location: `Phòng ${room.room_number}`,
-            quantity: category.perRoom,
+            quantity: type.perRoom,
             status: "Đang sử dụng",
-            condition: getRandomCondition(),
-            purchase_date: purchaseDate.toISOString().split("T")[0],
-            purchase_price: category.price,
-            current_value: calculateCurrentValue(category.price, purchaseDate),
-            depreciation_rate: 10.0,
+            purchase_date: type.purchase_date,
+            purchase_price: type.price,
             supplier: getRandomSupplier(),
-            warranty_period: category.warranty,
-            warranty_expiry: warrantyExpiry.toISOString().split("T")[0],
-            specifications: JSON.stringify(getSpecifications(category.name)),
-            qr_code: `QR_${assetCode}`,
-            description: `${category.name} tại ${room.room_number}`,
+            specifications: JSON.stringify(getSpecifications(type.name)),
+            qr_code: `QR_${type.asset_code}_${room.room_number}`,
+            description: `${type.name} tại ${room.room_number}`,
             note: null,
             created_by: "admin-1",
             created_at: new Date().toISOString(),
@@ -172,7 +174,7 @@ async function generateFakeAssets() {
           };
 
           assets.push(asset);
-          assetCounter++;
+          recordCounter++;
         }
       }
     }
@@ -194,35 +196,24 @@ async function generateFakeAssets() {
 
         if (!firstRoomOnFloor) continue;
 
-        for (const category of assetCategories) {
-          if (category.perFloor > 0) {
-            const assetCode = `${category.code}${assetCounter.toString().padStart(4, "0")}`;
-            const purchaseDate = new Date(2023, Math.floor(Math.random() * 12), 1);
-            const warrantyExpiry = new Date(purchaseDate);
-            warrantyExpiry.setMonth(warrantyExpiry.getMonth() + category.warranty);
-
+        for (const type of assetTypes) {
+          if (type.perFloor > 0) {
             const asset = {
-              id: `asset-${assetCounter.toString().padStart(5, "0")}`,
-              asset_code: assetCode,
-              name: category.name,
-              category_name: getCategoryName(category.code),
-              category_code: category.code,
-              unit: category.unit,
-              room_id: firstRoomOnFloor.id, // Gán vào phòng đầu tầng
+              id: `asset-${recordCounter.toString().padStart(5, "0")}`,
+              asset_code: type.asset_code,
+              name: type.name,
+              category_name: type.category_name,
+              unit: type.unit,
+              room_id: firstRoomOnFloor.id,
               location: `Tầng ${floor} - Tòa ${building}`,
-              quantity: category.perFloor,
+              quantity: type.perFloor,
               status: "Đang sử dụng",
-              condition: getRandomCondition(),
-              purchase_date: purchaseDate.toISOString().split("T")[0],
-              purchase_price: category.price,
-              current_value: calculateCurrentValue(category.price, purchaseDate),
-              depreciation_rate: 10.0,
+              purchase_date: type.purchase_date,
+              purchase_price: type.price,
               supplier: getRandomSupplier(),
-              warranty_period: category.warranty,
-              warranty_expiry: warrantyExpiry.toISOString().split("T")[0],
-              specifications: JSON.stringify(getSpecifications(category.name)),
-              qr_code: `QR_${assetCode}`,
-              description: `${category.name} tại tầng ${floor} tòa ${building}`,
+              specifications: JSON.stringify(getSpecifications(type.name)),
+              qr_code: `QR_${type.asset_code}_${building}${floor}`,
+              description: `${type.name} tại tầng ${floor} tòa ${building}`,
               note: null,
               created_by: "admin-1",
               created_at: new Date().toISOString(),
@@ -230,7 +221,7 @@ async function generateFakeAssets() {
             };
 
             assets.push(asset);
-            assetCounter++;
+            recordCounter++;
           }
         }
       }
@@ -241,38 +232,27 @@ async function generateFakeAssets() {
     // ========================================
     console.log("📦 Đang tạo tài sản dự trữ trong kho...");
 
-    for (const category of assetCategories) {
-      const totalInUse = totalAssetsByCategory[category.code];
+    for (const type of assetTypes) {
+      const totalInUse = totalAssetsByType[type.asset_code];
       const reservePercent = 0.1 + Math.random() * 0.2; // 10-30%
       const reserveQuantity = Math.ceil(totalInUse * reservePercent);
 
-      const assetCode = `${category.code}${assetCounter.toString().padStart(4, "0")}`;
-      const purchaseDate = new Date(2024, 0, 1);
-      const warrantyExpiry = new Date(purchaseDate);
-      warrantyExpiry.setMonth(warrantyExpiry.getMonth() + category.warranty);
-
       const asset = {
-        id: `asset-${assetCounter.toString().padStart(5, "0")}`,
-        asset_code: assetCode,
-        name: category.name,
-        category_name: getCategoryName(category.code),
-        category_code: category.code,
-        unit: category.unit,
+        id: `asset-${recordCounter.toString().padStart(5, "0")}`,
+        asset_code: type.asset_code,
+        name: type.name,
+        category_name: type.category_name,
+        unit: type.unit,
         room_id: null, // NULL = trong kho
         location: "Kho tổng",
         quantity: reserveQuantity,
         status: "Sẵn sàng",
-        condition: "Mới",
-        purchase_date: purchaseDate.toISOString().split("T")[0],
-        purchase_price: category.price,
-        current_value: category.price,
-        depreciation_rate: 10.0,
+        purchase_date: type.purchase_date,
+        purchase_price: type.price,
         supplier: getRandomSupplier(),
-        warranty_period: category.warranty,
-        warranty_expiry: warrantyExpiry.toISOString().split("T")[0],
-        specifications: JSON.stringify(getSpecifications(category.name)),
-        qr_code: `QR_${assetCode}`,
-        description: `${category.name} dự trữ trong kho`,
+        specifications: JSON.stringify(getSpecifications(type.name)),
+        qr_code: `QR_${type.asset_code}_KHO`,
+        description: `${type.name} dự trữ trong kho`,
         note: "Tài sản dự trữ",
         created_by: "admin-1",
         created_at: new Date().toISOString(),
@@ -280,10 +260,10 @@ async function generateFakeAssets() {
       };
 
       assets.push(asset);
-      assetCounter++;
+      recordCounter++;
 
       console.log(
-        `   - ${category.name}: ${reserveQuantity} ${category.unit} (${(reservePercent * 100).toFixed(1)}%)`
+        `   - ${type.name}: ${reserveQuantity} ${type.unit} (${(reservePercent * 100).toFixed(1)}%)`
       );
     }
 
@@ -305,20 +285,14 @@ async function generateFakeAssets() {
           '${asset.asset_code}',
           '${asset.name}',
           '${asset.category_name}',
-          '${asset.category_code}',
           '${asset.unit}',
           ${roomId},
           '${asset.location}',
           ${asset.quantity},
           '${asset.status}',
-          '${asset.condition}',
           '${asset.purchase_date}',
           ${asset.purchase_price},
-          ${asset.current_value},
-          ${asset.depreciation_rate},
           '${asset.supplier}',
-          ${asset.warranty_period},
-          '${asset.warranty_expiry}',
           '${asset.specifications}',
           '${asset.qr_code}',
           '${asset.description}',
@@ -331,13 +305,13 @@ async function generateFakeAssets() {
 
       const query = `
         INSERT INTO assets (
-          id, asset_code, name, category_name, category_code, unit,
-          room_id, location, quantity, status, condition,
-          purchase_date, purchase_price, current_value, depreciation_rate,
-          supplier, warranty_period, warranty_expiry, specifications,
+          id, asset_code, name, category_name, unit,
+          room_id, location, quantity, status,
+          purchase_date, purchase_price,
+          supplier, specifications,
           qr_code, description, note, created_by, created_at, updated_at
         ) VALUES ${values.join(", ")}
-        ON CONFLICT (asset_code) DO NOTHING;
+        ON CONFLICT (id) DO NOTHING;
       `;
 
       await pool.query(query);
@@ -349,21 +323,21 @@ async function generateFakeAssets() {
     // ========================================
     console.log("\n✅ Hoàn thành tạo fake data cho assets!");
     console.log(`\n📊 Thống kê:`);
-    console.log(`   - Tổng số tài sản: ${assets.length}`);
+    console.log(`   - Tổng số bản ghi: ${assets.length}`);
     console.log(`   - Tài sản đang sử dụng: ${assets.filter((a) => a.status === "Đang sử dụng").length}`);
     console.log(`   - Tài sản trong kho: ${assets.filter((a) => a.status === "Sẵn sàng").length}`);
 
     console.log(`\n📦 Chi tiết theo loại:`);
-    for (const category of assetCategories) {
-      const categoryAssets = assets.filter((a) => a.category_code === category.code);
-      const inUse = categoryAssets.filter((a) => a.status === "Đang sử dụng");
-      const inStock = categoryAssets.filter((a) => a.status === "Sẵn sàng");
-      const totalQty = categoryAssets.reduce((sum, a) => sum + a.quantity, 0);
+    for (const type of assetTypes) {
+      const typeAssets = assets.filter((a) => a.asset_code === type.asset_code);
+      const inUse = typeAssets.filter((a) => a.status === "Đang sử dụng");
+      const inStock = typeAssets.filter((a) => a.status === "Sẵn sàng");
+      const totalQty = typeAssets.reduce((sum, a) => sum + a.quantity, 0);
 
-      console.log(`   - ${category.name}:`);
-      console.log(`     • Tổng: ${totalQty} ${category.unit}`);
-      console.log(`     • Đang dùng: ${inUse.reduce((sum, a) => sum + a.quantity, 0)} ${category.unit}`);
-      console.log(`     • Trong kho: ${inStock.reduce((sum, a) => sum + a.quantity, 0)} ${category.unit}`);
+      console.log(`   - ${type.name}:`);
+      console.log(`     • Tổng: ${totalQty} ${type.unit}`);
+      console.log(`     • Đang dùng: ${inUse.reduce((sum, a) => sum + a.quantity, 0)} ${type.unit}`);
+      console.log(`     • Trong kho: ${inStock.reduce((sum, a) => sum + a.quantity, 0)} ${type.unit}`);
     }
   } catch (error) {
     console.error("❌ Lỗi khi tạo fake data:", error);
@@ -376,34 +350,6 @@ async function generateFakeAssets() {
 // ========================================
 // HELPER FUNCTIONS
 // ========================================
-
-function getCategoryName(code) {
-  const categoryMap = {
-    GD: "Nội thất",
-    TU: "Nội thất",
-    BH: "Nội thất",
-    QT: "Thiết bị điện",
-    DH: "Thiết bị điện",
-    DL: "Thiết bị điện",
-    CM: "Thiết bị an ninh",
-    WF: "Thiết bị mạng",
-  };
-  return categoryMap[code] || "Khác";
-}
-
-function getRandomCondition() {
-  const conditions = ["Mới", "Tốt", "Tốt", "Khá", "Khá"];
-  return conditions[Math.floor(Math.random() * conditions.length)];
-}
-
-function calculateCurrentValue(purchasePrice, purchaseDate) {
-  const monthsOld = Math.floor(
-    (new Date() - new Date(purchaseDate)) / (1000 * 60 * 60 * 24 * 30)
-  );
-  const depreciationRate = 0.1 / 12; // 10% per year = 0.833% per month
-  const currentValue = purchasePrice * Math.pow(1 - depreciationRate, monthsOld);
-  return Math.max(currentValue, purchasePrice * 0.2); // Minimum 20% of original value
-}
 
 function getRandomSupplier() {
   const suppliers = [

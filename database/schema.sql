@@ -451,12 +451,11 @@ CREATE INDEX idx_feedbacks_category ON feedbacks(category);
 CREATE TABLE assets (
     -- Thông tin cơ bản
     id                VARCHAR(50) PRIMARY KEY,
-    asset_code        VARCHAR(50) UNIQUE NOT NULL,     -- Mã tài sản (TB001, NT002, DL003...)
+    asset_code        VARCHAR(50) NOT NULL,            -- Mã tài sản (GIUONG, TU, BAN, QUAT, DIEUHOA, DEN, CAMERA, WIFI)
     name              VARCHAR(200) NOT NULL,           -- Tên tài sản
     
-    -- Thông tin danh mục (gộp từ asset_categories)
-    category_name     VARCHAR(100) NOT NULL,           -- Tên danh mục (Thiết bị điện tử, Nội thất...)
-    category_code     VARCHAR(10) NOT NULL,            -- Mã danh mục (TB, NT, DL, VS, DD...)
+    -- Thông tin danh mục
+    category_name     VARCHAR(100) NOT NULL,           -- Tên danh mục (Nội thất, Thiết bị điện...)
     unit              VARCHAR(20) DEFAULT 'Cái',       -- Đơn vị tính
     
     -- Vị trí và số lượng
@@ -464,20 +463,15 @@ CREATE TABLE assets (
     location          VARCHAR(100),                    -- Vị trí cụ thể trong phòng
     quantity          INTEGER NOT NULL DEFAULT 1,      -- Số lượng
     
-    -- Trạng thái và tình trạng
+    -- Trạng thái
     status            asset_status DEFAULT 'Sẵn sàng',
-    condition         asset_condition DEFAULT 'Mới',
     
     -- Thông tin tài chính
     purchase_date     DATE,                            -- Ngày mua
     purchase_price    DECIMAL(12,2),                   -- Giá mua
-    current_value     DECIMAL(12,2),                   -- Giá trị hiện tại
-    depreciation_rate DECIMAL(5,2) DEFAULT 10.0,       -- Tỷ lệ khấu hao (%/năm)
     
-    -- Thông tin nhà cung cấp và bảo hành
+    -- Thông tin nhà cung cấp
     supplier          VARCHAR(200),                    -- Nhà cung cấp
-    warranty_period   INTEGER DEFAULT 12,             -- Thời gian bảo hành (tháng)
-    warranty_expiry   DATE,                           -- Ngày hết bảo hành
     
     -- Thông tin kỹ thuật
     specifications    JSONB,                          -- Thông số kỹ thuật (JSON)
@@ -498,19 +492,15 @@ CREATE TABLE assets (
     
     -- Constraints
     CHECK (quantity > 0),
-    CHECK (purchase_price >= 0),
-    CHECK (current_value >= 0),
-    CHECK (depreciation_rate >= 0 AND depreciation_rate <= 100),
-    CHECK (warranty_period >= 0)
+    CHECK (purchase_price >= 0)
 );
 
 -- Indexes tối ưu
 CREATE INDEX idx_assets_code ON assets(asset_code);
 CREATE INDEX idx_assets_name ON assets USING gin(to_tsvector('english', name));
-CREATE INDEX idx_assets_category ON assets(category_name, category_code);
+CREATE INDEX idx_assets_category ON assets(category_name);
 CREATE INDEX idx_assets_room ON assets(room_id);
 CREATE INDEX idx_assets_status ON assets(status);
-CREATE INDEX idx_assets_condition ON assets(condition);
 CREATE INDEX idx_assets_category_status ON assets(category_name, status);
 CREATE INDEX idx_assets_warehouse ON assets(status, category_name) WHERE room_id IS NULL;
 
