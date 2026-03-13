@@ -60,17 +60,19 @@ class AssetDAO {
             const query = `
                 SELECT 
                     asset_code,
-                    name,
-                    category_name,
-                    unit,
-                    purchase_date,
-                    purchase_price,
+                    MAX(name) as name,
+                    MAX(category_name) as category_name,
+                    MAX(unit) as unit,
+                    MAX(purchase_date) as purchase_date,
+                    MAX(purchase_price) as purchase_price,
+                    MAX(supplier) as supplier,
+                    (SELECT specifications FROM assets a2 WHERE a2.asset_code = assets.asset_code LIMIT 1) as specifications,
                     SUM(quantity) as total_quantity,
                     SUM(CASE WHEN status = 'Đang sử dụng' THEN quantity ELSE 0 END) as in_use,
                     SUM(CASE WHEN status = 'Sẵn sàng' THEN quantity ELSE 0 END) as in_stock,
                     SUM(CASE WHEN status IN ('Hư hỏng', 'Đang bảo trì') THEN quantity ELSE 0 END) as damaged
                 FROM assets
-                GROUP BY asset_code, name, category_name, unit, purchase_date, purchase_price
+                GROUP BY asset_code
                 ORDER BY asset_code
             `;
 
