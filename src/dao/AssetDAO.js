@@ -401,9 +401,9 @@ class AssetDAO {
             const query = `
                 SELECT 
                     asset_code,
-                    MAX(name) as name,
+                    MAX(name) as asset_name,
                     MAX(unit) as unit,
-                    SUM(quantity) as total_quantity
+                    SUM(quantity) as quantity
                 FROM assets
                 WHERE room_id = $1
                 GROUP BY asset_code
