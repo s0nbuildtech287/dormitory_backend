@@ -144,6 +144,22 @@ class AssetController {
     }
 
     /**
+     * Export asset from warehouse to room
+     */
+    async exportAsset(req, res, next) {
+        try {
+            const asset = await AssetService.exportAsset(req.body, req.user.userId);
+            res.status(201).json({
+                success: true,
+                message: 'Asset exported successfully',
+                data: asset
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Get assets by room
      */
     async getAssetsByRoom(req, res, next) {

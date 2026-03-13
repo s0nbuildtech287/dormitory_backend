@@ -418,6 +418,132 @@ class AssetDAO {
     }
 
     /**
+     * Export asset from warehouse to room (Xuất kho)
+     */
+    async exportAsset(exportData) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Check if asset exists in warehouse with enough quantity
+            const checkQuery = `
+                SELECT id, quantity FROM assets 
+                WHERE asset_code = $1 AND room_id IS NULL AND status = 'Sẵn sàng'
+                LIMIT 1
+            `;
+            const warehouseAsset = await client.query(checkQuery, [exportData.asset_code]);
+
+            if (warehouseAsset.rows.length === 0) {
+                throw new Error('Không tìm thấy tài sản trong kho');
+            }
+
+            const availableQty = warehouseAsset.rows[0].quantity;
+            if (availableQty < exportData.quantity) {
+                throw new Error(`Không đủ số lượng trong kho. Tồn kho: ${availableQty} ${exportData.unit}`);
+            }
+
+            // Reduce quantity in warehouse
+            if (availableQty === exportData.quantity) {
+                // Delete if quantity becomes 0
+                await client.query('DELETE FROM assets WHERE id = $1', [warehouseAsset.rows[0].id]);
+            } else {
+                // Reduce quantity
+                await client.query(
+                    'UPDATE assets SET quantity = quantity - $1, updated_at = NOW() WHERE id = $2',
+                    [exportData.quantity, warehouseAsset.rows[0].id]
+                );
+            }
+
+            // Check if asset already exists in target room
+            const roomAssetQuery = `
+                SELECT id, quantity FROM assets 
+                WHERE asset_code = $1 AND room_id = $2
+                LIMIT 1
+            `;
+            const roomAsset = await client.query(roomAssetQuery, [exportData.asset_code, exportData.room_id]);
+
+            let result;
+            if (roomAsset.rows.length > 0) {
+                // Update existing asset in room
+                const updateQuery = `
+                    UPDATE assets
+                    SET 
+                        quantity = quantity + $1,
+                        status = 'Đang sử dụng',
+                        updated_at = NOW()
+                    WHERE id = $2
+                    RETURNING *
+                `;
+                result = await client.query(updateQuery, [exportData.quantity, roomAsset.rows[0].id]);
+            } else {
+                // Create new asset in room
+                const insertQuery = `
+                    INSERT INTO assets (
+                        id, asset_code, name, category_name, unit,
+                        room_id, location, quantity, status,
+                        purchase_date, purchase_price, supplier,
+                        description, note, created_by, created_at, updated_at
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, 'Đang sử dụng', $9, $10, $11, $12, $13, $14, NOW(), NOW()
+                    )
+                    RETURNING *
+                `;
+                result = await client.query(insertQuery, [
+                    exportData.id,
+                    exportData.asset_code,
+                    exportData.asset_name,
+                    exportData.category_name || 'Khác',
+                    exportData.unit,
+                    exportData.room_id,
+                    `Tòa ${exportData.building} - ${exportData.room_number}`,
+                    exportData.quantity,
+                    exportData.export_date,
+                    0, // purchase_price
+                    'Kho nội bộ',
+                    `Xuất kho đến ${exportData.building}-${exportData.room_number}`,
+                    exportData.notes,
+                    exportData.created_by
+                ]);
+            }
+
+            // Create log entry
+            const logQuery = `
+                INSERT INTO log_system (
+                    id, user_id, action, entity_type, entity_id,
+                    old_value, new_value, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+            `;
+            await client.query(logQuery, [
+                `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                exportData.created_by,
+                'EXPORT_ASSET',
+                'assets',
+                result.rows[0].id,
+                JSON.stringify({ warehouse_quantity: availableQty }),
+                JSON.stringify({
+                    asset_code: exportData.asset_code,
+                    asset_name: exportData.asset_name,
+                    unit: exportData.unit,
+                    export_quantity: exportData.quantity,
+                    building: exportData.building,
+                    room_id: exportData.room_id,
+                    room_number: exportData.room_number,
+                    purpose: exportData.purpose,
+                    notes: exportData.notes
+                })
+            ]);
+
+            await client.query('COMMIT');
+            return result.rows[0];
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
      * Get import/export history from log_system
      */
     async getHistory(filters = {}) {

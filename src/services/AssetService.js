@@ -143,6 +143,32 @@ class AssetService {
     }
 
     /**
+     * Export asset from warehouse to room
+     */
+    async exportAsset(exportData, userId) {
+        try {
+            // Validate required fields
+            if (!exportData.asset_code || !exportData.asset_name || !exportData.quantity || !exportData.room_id) {
+                throw new Error('Missing required fields: asset_code, asset_name, quantity, room_id');
+            }
+
+            if (exportData.quantity <= 0) {
+                throw new Error('Quantity must be greater than 0');
+            }
+
+            const newExport = {
+                id: this.generateAssetId(),
+                ...exportData,
+                created_by: userId,
+            };
+
+            return await AssetDAO.exportAsset(newExport);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
      * Get assets by room
      */
     async getAssetsByRoom(roomId) {

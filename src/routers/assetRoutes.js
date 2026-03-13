@@ -24,6 +24,9 @@ router.get('/room/:roomId', AssetController.getAssetsByRoom.bind(AssetController
 // Import asset to warehouse
 router.post('/import', AssetController.importAsset.bind(AssetController));
 
+// Export asset from warehouse to room
+router.post('/export', AssetController.exportAsset.bind(AssetController));
+
 // Get asset by ID
 router.get('/:id', AssetController.getById.bind(AssetController));
 
