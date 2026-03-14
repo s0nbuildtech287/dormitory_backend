@@ -11,11 +11,28 @@ class DisciplinaryDAO {
         u.full_name   AS student_name,
         u.email       AS student_email,
         u.conduct_score,
+        COALESCE(sc.snapshot_student_id, sc_latest.snapshot_student_id) AS snapshot_student_id,
+        rf.student_id AS rf_student_id,
         r.room_number,
         r.building,
         h.full_name   AS handled_by_name
       FROM disciplinary_records dr
       LEFT JOIN users u  ON dr.user_id    = u.id
+      LEFT JOIN student_contracts sc ON dr.contract_id = sc.id
+      LEFT JOIN LATERAL (
+        SELECT snapshot_student_id
+        FROM student_contracts sc2
+        WHERE sc2.user_id = dr.user_id
+        ORDER BY sc2.created_at DESC
+        LIMIT 1
+      ) sc_latest ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT student_id
+        FROM register_forms rf2
+        WHERE rf2.student_email = u.email
+        ORDER BY rf2.created_at DESC
+        LIMIT 1
+      ) rf ON TRUE
       LEFT JOIN rooms r  ON dr.room_id    = r.id
       LEFT JOIN users h  ON dr.handled_by = h.id
       WHERE 1=1
@@ -66,11 +83,28 @@ class DisciplinaryDAO {
         u.full_name  AS student_name,
         u.email      AS student_email,
         u.conduct_score,
+        COALESCE(sc.snapshot_student_id, sc_latest.snapshot_student_id) AS snapshot_student_id,
+        rf.student_id AS rf_student_id,
         r.room_number,
         r.building,
         h.full_name  AS handled_by_name
       FROM disciplinary_records dr
       LEFT JOIN users u ON dr.user_id    = u.id
+      LEFT JOIN student_contracts sc ON dr.contract_id = sc.id
+      LEFT JOIN LATERAL (
+        SELECT snapshot_student_id
+        FROM student_contracts sc2
+        WHERE sc2.user_id = dr.user_id
+        ORDER BY sc2.created_at DESC
+        LIMIT 1
+      ) sc_latest ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT student_id
+        FROM register_forms rf2
+        WHERE rf2.student_email = u.email
+        ORDER BY rf2.created_at DESC
+        LIMIT 1
+      ) rf ON TRUE
       LEFT JOIN rooms r ON dr.room_id    = r.id
       LEFT JOIN users h ON dr.handled_by = h.id
       WHERE dr.id = $1
