@@ -1,0 +1,229 @@
+const pool = require('../config/database');
+
+class DisciplinaryDAO {
+  /**
+   * Get all disciplinary records with filters + join user/room info
+   */
+  async findAll(filters = {}) {
+    let query = `
+      SELECT
+        dr.*,
+        u.full_name   AS student_name,
+        u.email       AS student_email,
+        u.conduct_score,
+        r.room_number,
+        r.building,
+        h.full_name   AS handled_by_name
+      FROM disciplinary_records dr
+      LEFT JOIN users u  ON dr.user_id    = u.id
+      LEFT JOIN rooms r  ON dr.room_id    = r.id
+      LEFT JOIN users h  ON dr.handled_by = h.id
+      WHERE 1=1
+    `;
+    const params = [];
+    let i = 1;
+
+    if (filters.user_id) {
+      query += ` AND dr.user_id = $${i++}`;
+      params.push(filters.user_id);
+    }
+    if (filters.status) {
+      query += ` AND dr.status = $${i++}`;
+      params.push(filters.status);
+    }
+    if (filters.violation_type) {
+      query += ` AND dr.violation_type = $${i++}`;
+      params.push(filters.violation_type);
+    }
+    if (filters.disciplinary_level) {
+      query += ` AND dr.disciplinary_level = $${i++}`;
+      params.push(filters.disciplinary_level);
+    }
+    if (filters.date_from) {
+      query += ` AND dr.violation_date >= $${i++}`;
+      params.push(filters.date_from);
+    }
+    if (filters.date_to) {
+      query += ` AND dr.violation_date <= $${i++}`;
+      params.push(filters.date_to);
+    }
+    if (filters.search) {
+      query += ` AND (u.full_name ILIKE $${i} OR u.email ILIKE $${i})`;
+      params.push(`%${filters.search}%`);
+      i++;
+    }
+
+    query += ` ORDER BY dr.violation_date DESC`;
+
+    const result = await pool.query(query, params);
+    return result.rows;
+  }
+
+  async findById(id) {
+    const query = `
+      SELECT
+        dr.*,
+        u.full_name  AS student_name,
+        u.email      AS student_email,
+        u.conduct_score,
+        r.room_number,
+        r.building,
+        h.full_name  AS handled_by_name
+      FROM disciplinary_records dr
+      LEFT JOIN users u ON dr.user_id    = u.id
+      LEFT JOIN rooms r ON dr.room_id    = r.id
+      LEFT JOIN users h ON dr.handled_by = h.id
+      WHERE dr.id = $1
+    `;
+    const result = await pool.query(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  /** Đếm số lần vi phạm cùng loại của 1 sinh viên (dùng để tính violation_count) */
+  async countByUserAndType(userId, violationType) {
+    const result = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM disciplinary_records
+       WHERE user_id = $1 AND violation_type = $2`,
+      [userId, violationType]
+    );
+    return parseInt(result.rows[0].cnt, 10);
+  }
+
+  /**
+   * Tạo phiếu vi phạm + trừ conduct_score + gửi email nếu đủ ngưỡng
+   * Toàn bộ trong 1 transaction
+   */
+  async create(data) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Insert record
+      const insertQ = `
+        INSERT INTO disciplinary_records (
+          id, user_id, room_id, contract_id,
+          violation_type, violation_date, description, evidence,
+          disciplinary_level, penalty_amount, penalty_paid,
+          score_deducted, violation_count,
+          email_sent, email_sent_at,
+          decision_number, decision_content, effective_date, expiry_date,
+          status, reported_by, handled_by, note,
+          created_at, updated_at
+        ) VALUES (
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,NOW(),NOW()
+        ) RETURNING *
+      `;
+      const vals = [
+        data.id,
+        data.user_id,
+        data.room_id || null,
+        data.contract_id || null,
+        data.violation_type,
+        data.violation_date,
+        data.description,
+        data.evidence ? JSON.stringify(data.evidence) : null,
+        data.disciplinary_level,
+        data.penalty_amount || 0,
+        false,
+        data.score_deducted || 0,
+        data.violation_count || 1,
+        data.email_sent || false,
+        data.email_sent_at || null,
+        data.decision_number || null,
+        data.decision_content || null,
+        data.effective_date || null,
+        data.expiry_date || null,
+        data.status || 'Chờ xử lý',
+        data.reported_by || null,
+        data.handled_by || null,
+        data.note || null,
+      ];
+      const inserted = await client.query(insertQ, vals);
+      const record = inserted.rows[0];
+
+      // Trừ conduct_score (trừ 0 nếu Buộc thôi ở)
+      if (data.score_deducted > 0) {
+        await client.query(
+          `UPDATE users
+           SET conduct_score = GREATEST(0, conduct_score - $1), updated_at = NOW()
+           WHERE id = $2`,
+          [data.score_deducted, data.user_id]
+        );
+      }
+
+      // Nếu Buộc thôi ở → terminate contract
+      if (data.disciplinary_level === 'Buộc thôi ở' && data.contract_id) {
+        await client.query(
+          `UPDATE student_contracts
+           SET status = 'Terminated', termination_reason = $1, updated_at = NOW()
+           WHERE id = $2`,
+          [`Kỷ luật buộc thôi ở - Phiếu ${record.id}`, data.contract_id]
+        );
+      }
+
+      await client.query('COMMIT');
+      return record;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async update(id, data) {
+    const fields = Object.keys(data);
+    const setClause = fields.map((f, idx) => `${f} = $${idx + 2}`).join(', ');
+    const values = [id, ...Object.values(data)];
+    const result = await pool.query(
+      `UPDATE disciplinary_records SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      values
+    );
+    return result.rows[0];
+  }
+
+  async delete(id) {
+    const result = await pool.query(
+      'DELETE FROM disciplinary_records WHERE id = $1 RETURNING *',
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  async getStatistics() {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*)                                                        AS total,
+        COUNT(*) FILTER (WHERE status = 'Chờ xử lý')                  AS pending,
+        COUNT(*) FILTER (WHERE status = 'Đã xử lý')                   AS resolved,
+        COUNT(*) FILTER (WHERE penalty_paid = FALSE AND penalty_amount > 0) AS unpaid_penalty,
+        SUM(penalty_amount) FILTER (WHERE penalty_paid = TRUE)         AS total_collected,
+        SUM(score_deducted)                                            AS total_score_deducted
+      FROM disciplinary_records
+    `);
+    return result.rows[0];
+  }
+
+  /** Lấy config điểm trừ từ settings (nếu admin đã lưu override) */
+  async getScoreConfig() {
+    const result = await pool.query(
+      `SELECT value FROM settings WHERE id = 'disciplinary_score_config' AND is_active = TRUE`
+    );
+    return result.rows[0]?.value || null;
+  }
+
+  /** Lưu config điểm trừ vào settings */
+  async saveScoreConfig(config, updatedBy) {
+    const result = await pool.query(
+      `INSERT INTO settings (id, category, name, value, description, is_active, updated_by, updated_at)
+       VALUES ('disciplinary_score_config', 'discipline', 'Cấu hình điểm trừ vi phạm', $1,
+               'Điểm trừ rèn luyện theo từng loại vi phạm', TRUE, $2, NOW())
+       ON CONFLICT (id) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()
+       RETURNING *`,
+      [JSON.stringify(config), updatedBy]
+    );
+    return result.rows[0];
+  }
+}
+
+module.exports = new DisciplinaryDAO();

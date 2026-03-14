@@ -153,6 +153,7 @@ CREATE TABLE users (
     avatar VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,           -- Tối ưu: Khóa tài khoản
     last_login TIMESTAMP,                     -- Tối ưu: Theo dõi đăng nhập
+    conduct_score INTEGER DEFAULT 100,        -- Điểm rèn luyện (0-100), trừ dần khi vi phạm
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP                      -- Tối ưu: Soft delete
@@ -532,6 +533,16 @@ CREATE TABLE disciplinary_records (
     disciplinary_level disciplinary_level NOT NULL,
     penalty_amount DECIMAL(10,2) DEFAULT 0,  -- Số tiền phạt (nếu có)
     penalty_paid BOOLEAN DEFAULT FALSE,       -- Đã đóng phạt chưa
+
+    -- Điểm rèn luyện
+    -- Quy tắc trừ điểm theo disciplinary_level (tính ở backend service):
+    --   Nhắc nhở: -2 | Cảnh cáo: -5 | Phạt tiền: -10 | Đình chỉ: -20 | Buộc thôi ở: -30
+    score_deducted INTEGER DEFAULT 0,         -- Số điểm rèn luyện bị trừ cho vi phạm này
+    violation_count INTEGER DEFAULT 1,        -- Lần vi phạm thứ N (cùng violation_type + user_id)
+
+    -- Email cảnh báo (tự động gửi khi violation_count >= 3)
+    email_sent BOOLEAN DEFAULT FALSE,         -- Đã gửi email cảnh báo chưa
+    email_sent_at TIMESTAMP,                  -- Thời điểm gửi email
     
     -- Quyết định
     decision_number VARCHAR(50),              -- Số quyết định kỷ luật
@@ -571,6 +582,10 @@ CREATE INDEX idx_disciplinary_type ON disciplinary_records(violation_type);
 CREATE INDEX idx_disciplinary_level ON disciplinary_records(disciplinary_level);
 CREATE INDEX idx_disciplinary_date ON disciplinary_records(violation_date);
 CREATE INDEX idx_disciplinary_penalty ON disciplinary_records(penalty_paid) WHERE penalty_amount > 0;
+-- Index đếm vi phạm theo sinh viên + loại (dùng khi tính violation_count)
+CREATE INDEX idx_disciplinary_user_type ON disciplinary_records(user_id, violation_type);
+-- Index lọc email chưa gửi (dùng cho job gửi email cảnh báo)
+CREATE INDEX idx_disciplinary_email ON disciplinary_records(email_sent) WHERE email_sent = FALSE;
 
 -- ============================================================================
 -- BƯỚC 16: TẠO BẢNG LOG_SYSTEM (Nhật ký hệ thống)

@@ -60,6 +60,7 @@ const feedbackRoutes = require("./routers/feedbackRoutes");
 const notificationRoutes = require("./routers/notificationRoutes");
 const logRoutes = require("./routers/logRoutes");
 const assetRoutes = require("./routers/assetRoutes");
+const disciplinaryRoutes = require("./routers/disciplinaryRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/registrations", registrationRoutes);
@@ -70,6 +71,7 @@ app.use("/api/feedbacks", feedbackRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/assets", assetRoutes);
+app.use("/api/disciplinary", disciplinaryRoutes);
 
 // 404 handler (must come after all routes)
 const { errorHandler, notFound } = require("./middlewares/errorHandler");
