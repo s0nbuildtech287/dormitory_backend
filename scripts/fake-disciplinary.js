@@ -83,6 +83,13 @@ async function run() {
       const effectiveDate = new Date(violationDate);
       effectiveDate.setDate(effectiveDate.getDate() + 1);
 
+      // Đếm số phiếu cùng loại đã có trong DB để tính violation_count đúng
+      const countRes = await client.query(
+        `SELECT COUNT(*) AS cnt FROM disciplinary_records WHERE user_id = $1 AND violation_type = $2`,
+        [student.id, vType]
+      );
+      const violationCount = parseInt(countRes.rows[0].cnt, 10) + 1;
+
       await client.query(`
         INSERT INTO disciplinary_records (
           id, user_id, room_id, contract_id,
@@ -107,7 +114,7 @@ async function run() {
         0,           // penalty_amount = 0
         false,       // penalty_paid
         scoreDeducted,
-        1,           // violation_count
+        violationCount,
         false,       // email_sent
         effectiveDate,
         status,
