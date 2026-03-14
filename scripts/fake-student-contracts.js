@@ -182,7 +182,7 @@ async function generateFakeStudentContracts() {
       const gender = currentRoom.gender_type;
       
       const studentName = generateName(gender);
-      const studentId = `SV${(2020000 + userIndex).toString()}`;
+      const studentId = `287116${String(Math.floor(Math.random() * 9000) + 1000)}`;
       const email = generateEmail(studentName, studentId);
       const phone = generatePhone();
       const cccd = generateCCCD();
