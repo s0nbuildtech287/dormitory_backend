@@ -59,7 +59,6 @@ const invoiceRoutes = require("./routers/invoiceRoutes");
 const feedbackRoutes = require("./routers/feedbackRoutes");
 const notificationRoutes = require("./routers/notificationRoutes");
 const logRoutes = require("./routers/logRoutes");
-const settingsRoutes = require("./routers/settingsRoutes");
 const assetRoutes = require("./routers/assetRoutes");
 
 app.use("/api/auth", authRoutes);
@@ -70,7 +69,6 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/feedbacks", feedbackRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/logs", logRoutes);
-app.use("/api/settings", settingsRoutes);
 app.use("/api/assets", assetRoutes);
 
 // 404 handler (must come after all routes)

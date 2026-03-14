@@ -477,6 +477,53 @@ class InvoiceDAO extends BaseDAO {
         const result = await this.executeQuery(query, [id]);
         return result[0];
     }
+
+    /**
+     * Get pricing settings from settings table
+     */
+    async getPricingSettings() {
+        const query = `
+            SELECT * FROM settings 
+            WHERE category = 'pricing' AND name = 'pricing_config' AND is_active = true
+            LIMIT 1
+        `;
+        const result = await this.executeQuery(query);
+        return result[0] || null;
+    }
+
+    /**
+     * Create pricing settings in settings table
+     */
+    async createPricingSettings(settingData) {
+        const query = `
+            INSERT INTO settings (id, category, name, value, description, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING *
+        `;
+        const result = await this.executeQuery(query, [
+            settingData.id,
+            settingData.category,
+            settingData.name,
+            JSON.stringify(settingData.value),
+            settingData.description,
+            settingData.is_active
+        ]);
+        return result[0];
+    }
+
+    /**
+     * Update pricing settings in settings table
+     */
+    async updatePricingSettings(value, updatedBy = null) {
+        const query = `
+            UPDATE settings 
+            SET value = $1, updated_by = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE id = 'pricing_config'
+            RETURNING *
+        `;
+        const result = await this.executeQuery(query, [JSON.stringify(value), updatedBy]);
+        return result[0];
+    }
 }
 
 module.exports = new InvoiceDAO();

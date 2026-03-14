@@ -16,6 +16,12 @@ router.get('/', RegistrationController.getAll);
 // Get statistics
 router.get('/statistics', requireAdmin, RegistrationController.getStatistics);
 
+// Get scoring weights
+router.get('/scoring-weights', requireAdmin, RegistrationController.getScoringWeights);
+
+// Update scoring weights
+router.put('/scoring-weights', requireAdmin, RegistrationController.updateScoringWeights);
+
 // Recalculate AI scores for all registrations (when settings change)
 router.post('/recalculate-scores', requireAdmin, RegistrationController.recalculateScores);
 

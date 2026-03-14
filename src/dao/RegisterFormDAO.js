@@ -102,6 +102,53 @@ class RegisterFormDAO extends BaseDAO {
             throw new Error(`Error in bulkCreate: ${error.message}`);
         }
     }
+
+    /**
+     * Get scoring weights settings from settings table
+     */
+    async getScoringWeightsSettings() {
+        const query = `
+            SELECT * FROM settings 
+            WHERE category = 'system' AND name = 'scoring_weights' AND is_active = true
+            LIMIT 1
+        `;
+        const result = await this.executeQuery(query);
+        return result[0] || null;
+    }
+
+    /**
+     * Create scoring weights settings in settings table
+     */
+    async createScoringWeightsSettings(settingData) {
+        const query = `
+            INSERT INTO settings (id, category, name, value, description, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING *
+        `;
+        const result = await this.executeQuery(query, [
+            settingData.id,
+            settingData.category,
+            settingData.name,
+            JSON.stringify(settingData.value),
+            settingData.description,
+            settingData.is_active
+        ]);
+        return result[0];
+    }
+
+    /**
+     * Update scoring weights settings in settings table
+     */
+    async updateScoringWeightsSettings(value, updatedBy = null) {
+        const query = `
+            UPDATE settings 
+            SET value = $1, updated_by = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE id = 'scoring_weights'
+            RETURNING *
+        `;
+        const result = await this.executeQuery(query, [JSON.stringify(value), updatedBy]);
+        return result[0];
+    }
 }
 
 module.exports = new RegisterFormDAO();

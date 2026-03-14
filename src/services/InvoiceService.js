@@ -2,7 +2,6 @@ const InvoiceDAO = require('../dao/InvoiceDAO');
 const StudentContractDAO = require('../dao/StudentContractDAO');
 const RoomDAO = require('../dao/RoomDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
-const SettingsDAO = require('../dao/SettingsDAO');
 
 class InvoiceService {
     /**
@@ -338,7 +337,7 @@ class InvoiceService {
      */
     async getPricingSettings() {
         try {
-            let setting = await SettingsDAO.getSettingByName('pricing', 'pricing_config');
+            let setting = await InvoiceDAO.getPricingSettings();
 
             // If not found, create default settings
             if (!setting) {
@@ -363,7 +362,7 @@ class InvoiceService {
                     is_active: true
                 };
 
-                setting = await SettingsDAO.createSetting(defaultPricing);
+                setting = await InvoiceDAO.createPricingSettings(defaultPricing);
                 console.log('✅ Default pricing_config created successfully');
             }
 
@@ -381,7 +380,7 @@ class InvoiceService {
             // Validate pricing data
             this.validatePricingSettings(pricingData);
 
-            const result = await SettingsDAO.updateSetting('pricing_config', pricingData, req?.user?.userId);
+            const result = await InvoiceDAO.updatePricingSettings(pricingData, req?.user?.userId);
 
             // Log action
             if (req && req.user) {

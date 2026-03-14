@@ -1,6 +1,5 @@
 const RegisterFormDAO = require("../dao/RegisterFormDAO");
 const LogSystemDAO = require("../dao/LogSystemDAO");
-const SettingsDAO = require("../dao/SettingsDAO");
 const StudentContractDAO = require("../dao/StudentContractDAO");
 const UserDAO = require("../dao/UserDAO");
 const bcrypt = require("bcryptjs");
@@ -44,7 +43,7 @@ class RegistrationService {
    */
   async getScoringWeights() {
     try {
-      const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
+      const setting = await RegisterFormDAO.getScoringWeightsSettings();
 
       if (setting && setting.value && setting.value.weights) {
         return {
@@ -75,7 +74,7 @@ class RegistrationService {
    */
   async getScoreMappings() {
     try {
-      const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
+      const setting = await RegisterFormDAO.getScoringWeightsSettings();
 
       if (setting && setting.value && setting.value.scoreMappings) {
         return setting.value.scoreMappings;
@@ -265,7 +264,7 @@ class RegistrationService {
    */
   async getBasketWeights(basket) {
     try {
-      const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
+      const setting = await RegisterFormDAO.getScoringWeightsSettings();
 
       if (setting && setting.value && setting.value.weights) {
         const weights = setting.value.weights;
@@ -386,7 +385,7 @@ class RegistrationService {
 
       // Check for full slots per basket and mark registrations accordingly
       try {
-        const setting = await SettingsDAO.getSettingByName("system", "scoring_weights");
+        const setting = await RegisterFormDAO.getScoringWeightsSettings();
         let totalSlots = 1000; // Default
         let quotas = {
           policy_priority: 10,
@@ -1308,6 +1307,193 @@ class RegistrationService {
       return await RegisterFormDAO.findById(id);
     } catch (error) {
       throw new Error(`Update registration failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get scoring weights settings (full settings object)
+   */
+  async getScoringWeightsSettings() {
+    try {
+      let setting = await RegisterFormDAO.getScoringWeightsSettings();
+
+      // If not found, create default settings
+      if (!setting) {
+        console.log("⚠️ scoring_weights not found, creating default...");
+
+        const defaultSettings = {
+          id: "scoring_weights",
+          category: "system",
+          name: "scoring_weights",
+          value: {
+            quotas: {
+              totalSlots: 1000,
+              policy_priority: 10,
+              freshmen: 60,
+              seniors: 30,
+              waterfall_enabled: true,
+            },
+            weights: {
+              basket1: {
+                w1_priority: 0.4,
+                w2_year: 0.3,
+                w3_gpa: 0.3,
+              },
+              basket2: {
+                w1_priority: 0.2,
+                w2_year: 0.5,
+                w3_gpa: 0.3,
+              },
+              basket3: {
+                w1_priority: 0.1,
+                w2_year: 0.2,
+                w3_gpa: 0.7,
+              },
+            },
+            scoreMappings: {
+              priority: {
+                absolute_policy: 100,
+                priority_area: 70,
+                other_objects: 30,
+                non_priority: 0,
+              },
+              year: {
+                year1: 100,
+                year2: 60,
+                year3: 40,
+                year4: 20,
+              },
+              gpa: {
+                conversion_factor: 25,
+                min_gpa_filter: 2.0,
+              },
+            },
+          },
+          description: "Cấu hình hệ thống chấm điểm và phân bổ chỗ ở cho đăng ký KTX",
+          is_active: true,
+        };
+
+        setting = await RegisterFormDAO.createScoringWeightsSettings(defaultSettings);
+        console.log("✅ Default scoring_weights created successfully");
+      }
+
+      return setting;
+    } catch (error) {
+      throw new Error(`Get scoring weights settings failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update scoring weights settings
+   */
+  async updateScoringWeightsSettings(scoringWeights, req = null) {
+    try {
+      // Validate scoring weights
+      this.validateScoringWeights(scoringWeights);
+
+      const result = await RegisterFormDAO.updateScoringWeightsSettings(scoringWeights, req?.user?.userId);
+
+      // Log action
+      if (req && req.user) {
+        await LogSystemDAO.log(
+          req.user.userId,
+          "UPDATE_SCORING_WEIGHTS",
+          "settings",
+          "scoring_weights",
+          null,
+          scoringWeights,
+          req
+        );
+      }
+
+      return result;
+    } catch (error) {
+      throw new Error(`Update scoring weights failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Validate scoring weights structure (supports both flat and 3-basket structure)
+   */
+  validateScoringWeights(config) {
+    // Validate weights - supports both flat structure and 3-basket structure
+    if (config.weights) {
+      // Check if it's a 3-basket structure (has basket1, basket2, basket3)
+      if (config.weights.basket1 || config.weights.basket2 || config.weights.basket3) {
+        // Validate each basket
+        ["basket1", "basket2", "basket3"].forEach((basketKey) => {
+          if (config.weights[basketKey]) {
+            const { w1_priority, w2_year, w3_gpa } = config.weights[basketKey];
+
+            if (typeof w1_priority !== "number" || w1_priority < 0 || w1_priority > 1) {
+              throw new Error(`Invalid ${basketKey}.w1_priority: must be a number between 0 and 1`);
+            }
+            if (typeof w2_year !== "number" || w2_year < 0 || w2_year > 1) {
+              throw new Error(`Invalid ${basketKey}.w2_year: must be a number between 0 and 1`);
+            }
+            if (typeof w3_gpa !== "number" || w3_gpa < 0 || w3_gpa > 1) {
+              throw new Error(`Invalid ${basketKey}.w3_gpa: must be a number between 0 and 1`);
+            }
+
+            const totalWeight = w1_priority + w2_year + w3_gpa;
+            if (Math.abs(totalWeight - 1.0) > 0.01) {
+              throw new Error(`${basketKey} total weight must equal 1.0 (current: ${totalWeight.toFixed(2)})`);
+            }
+          }
+        });
+      } else {
+        // Flat structure (legacy support)
+        const { w1_priority, w2_year, w3_gpa } = config.weights;
+
+        if (typeof w1_priority !== "number" || w1_priority < 0 || w1_priority > 1) {
+          throw new Error("Invalid w1_priority: must be a number between 0 and 1");
+        }
+        if (typeof w2_year !== "number" || w2_year < 0 || w2_year > 1) {
+          throw new Error("Invalid w2_year: must be a number between 0 and 1");
+        }
+        if (typeof w3_gpa !== "number" || w3_gpa < 0 || w3_gpa > 1) {
+          throw new Error("Invalid w3_gpa: must be a number between 0 and 1");
+        }
+
+        const totalWeight = w1_priority + w2_year + w3_gpa;
+        if (Math.abs(totalWeight - 1.0) > 0.01) {
+          throw new Error(`Total weight must equal 1.0 (current: ${totalWeight.toFixed(2)})`);
+        }
+      }
+    }
+
+    // Validate quotas (should sum to 100%)
+    if (config.quotas) {
+      const { totalSlots, policy_priority, freshmen, seniors } = config.quotas;
+
+      // Validate total slots if provided
+      if (totalSlots !== undefined && (typeof totalSlots !== "number" || totalSlots < 0)) {
+        throw new Error("Invalid totalSlots: must be a positive number");
+      }
+
+      if (typeof policy_priority !== "number" || policy_priority < 0 || policy_priority > 100) {
+        throw new Error("Invalid policy_priority quota");
+      }
+      if (typeof freshmen !== "number" || freshmen < 0 || freshmen > 100) {
+        throw new Error("Invalid freshmen quota");
+      }
+      if (typeof seniors !== "number" || seniors < 0 || seniors > 100) {
+        throw new Error("Invalid seniors quota");
+      }
+
+      const totalQuota = policy_priority + freshmen + seniors;
+      if (Math.abs(totalQuota - 100) > 1) {
+        throw new Error(`Total quota must equal 100% (current: ${totalQuota.toFixed(1)}%)`);
+      }
+    }
+
+    // Validate score mappings (optional, just check structure exists)
+    if (config.scoreMappings) {
+      const { priority, year, gpa } = config.scoreMappings;
+
+      if (!priority || !year || !gpa) {
+        throw new Error("Score mappings must include priority, year, and gpa sections");
+      }
     }
   }
 }

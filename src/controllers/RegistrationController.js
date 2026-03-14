@@ -261,6 +261,46 @@ class RegistrationController {
             next(error);
         }
     }
+
+    /**
+     * Get scoring weights
+     */
+    async getScoringWeights(req, res, next) {
+        try {
+            const setting = await RegistrationService.getScoringWeightsSettings();
+            res.json({
+                success: true,
+                data: setting
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Update scoring weights
+     */
+    async updateScoringWeights(req, res, next) {
+        try {
+            const { scoringWeights } = req.body;
+
+            if (!scoringWeights) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Scoring weights are required'
+                });
+            }
+
+            const result = await RegistrationService.updateScoringWeightsSettings(scoringWeights, req);
+            res.json({
+                success: true,
+                message: 'Scoring weights updated successfully',
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new RegistrationController();
