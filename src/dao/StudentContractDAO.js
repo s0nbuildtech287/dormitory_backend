@@ -71,42 +71,45 @@ class StudentContractDAO extends BaseDAO {
    * Search and filter contracts (supports 'Pending'|'Active'|'All')
    */
   async searchAndFilter(filters = {}) {
-    let paramIndex = 1;
-    const values = [];
+      let paramIndex = 1;
+      const values = [];
 
-    let query = `
-            SELECT 
-                sc.*,
-                u.full_name    AS student_name,
-                u.email        AS student_email,
-                u.avatar       AS student_avatar,
-                r.room_number,
-                r.building
-            FROM ${this.tableName} sc
-            LEFT JOIN users u ON sc.user_id = u.id
-            LEFT JOIN rooms r ON sc.room_id = r.id
-            WHERE 1=1
-        `;
+      let query = `
+              SELECT 
+                  sc.*,
+                  u.full_name    AS student_name,
+                  u.email        AS student_email,
+                  u.avatar       AS student_avatar,
+                  r.room_number,
+                  r.building,
+                  rf.student_id  AS rf_student_id
+              FROM ${this.tableName} sc
+              LEFT JOIN users u ON sc.user_id = u.id
+              LEFT JOIN rooms r ON sc.room_id = r.id
+              LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
+              WHERE 1=1
+          `;
 
-    if (filters.status) {
-      query += ` AND sc.status = $${paramIndex++}`;
-      values.push(filters.status);
+      if (filters.status) {
+        query += ` AND sc.status = $${paramIndex++}`;
+        values.push(filters.status);
+      }
+
+      if (filters.roomId) {
+        query += ` AND sc.room_id = $${paramIndex++}`;
+        values.push(filters.roomId);
+      }
+
+      if (filters.searchTerm) {
+        query += ` AND (u.full_name ILIKE $${paramIndex} OR sc.contract_number ILIKE $${paramIndex + 1} OR sc.snapshot_student_id ILIKE $${paramIndex + 2} OR rf.student_id ILIKE $${paramIndex + 3})`;
+        values.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`, `%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
+        paramIndex += 4;
+      }
+
+      query += ` ORDER BY sc.created_at DESC`;
+      return this.executeQuery(query, values);
     }
 
-    if (filters.roomId) {
-      query += ` AND sc.room_id = $${paramIndex++}`;
-      values.push(filters.roomId);
-    }
-
-    if (filters.searchTerm) {
-      query += ` AND (u.full_name ILIKE $${paramIndex} OR sc.contract_number ILIKE $${paramIndex + 1} OR sc.snapshot_student_id ILIKE $${paramIndex + 2})`;
-      values.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
-      paramIndex += 3;
-    }
-
-    query += ` ORDER BY sc.created_at DESC`;
-    return this.executeQuery(query, values);
-  }
 
   /**
    * Create a Pending contract record (no room yet)
