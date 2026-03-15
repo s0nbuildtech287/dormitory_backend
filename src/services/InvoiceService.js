@@ -207,14 +207,25 @@ class InvoiceService {
             }
 
             // Recalculate total if meter readings changed
-            if (data.electric_start || data.electric_end || data.water_start || data.water_end) {
-                const electricUsage = (data.electric_end || oldData.electric_end) - (data.electric_start || oldData.electric_start);
-                const waterUsage = (data.water_end || oldData.water_end) - (data.water_start || oldData.water_start);
+            if (data.electric_start != null || data.electric_end != null || data.water_start != null || data.water_end != null) {
+                const electricUsage = (data.electric_end ?? oldData.electric_end) - (data.electric_start ?? oldData.electric_start);
+                const waterUsage = (data.water_end ?? oldData.water_end) - (data.water_start ?? oldData.water_start);
 
-                const electricCost = electricUsage * (data.electric_rate || oldData.electric_rate);
-                const waterCost = waterUsage * (data.water_rate || oldData.water_rate);
+                const electricCost = Math.max(0, electricUsage) * (data.electric_rate ?? oldData.electric_rate);
+                const waterCost = Math.max(0, waterUsage) * (data.water_rate ?? oldData.water_rate);
 
-                data.total_amount = (data.rent_amount || oldData.rent_amount) + electricCost + waterCost + (data.other_fees || oldData.other_fees || 0);
+                const serviceFees = data.service_fees ?? oldData.service_fees ?? 0;
+                const discount = data.discount_amount ?? oldData.discount_amount ?? 0;
+                const penalty = data.penalty_amount ?? oldData.penalty_amount ?? 0;
+                const rent = data.rent_amount ?? oldData.rent_amount ?? 0;
+
+                // Only recalculate if frontend didn't already send total_amount
+                if (data.total_amount == null) {
+                    data.total_amount = rent + electricCost + waterCost + serviceFees - discount + penalty;
+                }
+
+                data.electric_amount = electricCost;
+                data.water_amount = waterCost;
             }
 
             await InvoiceDAO.update(id, data);
