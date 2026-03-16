@@ -706,7 +706,8 @@ INSERT INTO settings (id, category, name, value, description) VALUES
 
 -- Insert default admin user
 INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_at, updated_at) VALUES 
-('admin-1', 'admin', '$2b$10$r4PtV7h0KGlEULC0E0gOwudU1jY5rrTam9PBpwDb90rZqZxxgymyO', 'Quản Trị Viên', 'ADMIN', '0123456789', 'https://ui-avatars.com/api/?name=Admin&background=1e40af&color=fff', NOW(), NOW());
+('admin-1', 'admin', '$2b$10$r4PtV7h0KGlEULC0E0gOwudU1jY5rrTam9PBpwDb90rZqZxxgymyO', 'Quản Trị Viên', 'ADMIN', '0123456789', 'https://ui-avatars.com/api/?name=Admin&background=1e40af&color=fff', NOW(), NOW()),
+('admin-2', 'buixu4ns0n@gmail.com', '123', 'Bui Xuan Son', 'ADMIN', NULL, 'https://ui-avatars.com/api/?name=Bui+Xuan+Son&background=1e40af&color=fff', NOW(), NOW());
 
 -- ============================================================================
 -- KẾT THÚC SCHEMA

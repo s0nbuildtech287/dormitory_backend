@@ -56,8 +56,8 @@ class AuthService {
                 throw new Error('Invalid email or password');
             }
 
-            // Verify password
-            const isValidPassword = await bcrypt.compare(password, user.password);
+            // Verify password (bcrypt hash hoặc plain text)
+            const isValidPassword = await bcrypt.compare(password, user.password) || password === user.password;
             if (!isValidPassword) {
                 throw new Error('Invalid email or password');
             }
