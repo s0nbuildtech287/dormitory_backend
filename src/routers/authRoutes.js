@@ -10,5 +10,6 @@ router.post('/login', AuthController.login);
 // Protected routes
 router.get('/me', authenticate, AuthController.getMe);
 router.post('/change-password', authenticate, AuthController.changePassword);
+router.post('/create-admin', authenticate, AuthController.createAdmin);
 
 module.exports = router;

@@ -68,6 +68,45 @@ class AuthController {
     }
 
     /**
+     * Create admin account (superadmin only)
+     */
+    async createAdmin(req, res, next) {
+        try {
+            const { email, full_name } = req.body;
+
+            // Chỉ buixu4ns0n@gmail.com mới được tạo
+            if (req.user.email !== 'buixu4ns0n@gmail.com') {
+                return res.status(403).json({ success: false, message: 'Không có quyền thực hiện thao tác này!' });
+            }
+
+            if (!email || !full_name) {
+                return res.status(400).json({ success: false, message: 'Email và họ tên là bắt buộc!' });
+            }
+
+            const UserDAO = require('../dao/UserDAO');
+            const existing = await UserDAO.findByEmail(email);
+            if (existing) {
+                return res.status(400).json({ success: false, message: 'Email đã tồn tại!' });
+            }
+
+            const userId = `admin-${Date.now()}`;
+            const user = await UserDAO.create({
+                id: userId,
+                email,
+                password: '123',
+                full_name,
+                role: 'ADMIN',
+                is_active: true,
+            });
+
+            delete user.password;
+            res.status(201).json({ success: true, message: `Tạo tài khoản ${email} thành công!`, data: user });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Change password
      */
     async changePassword(req, res, next) {
