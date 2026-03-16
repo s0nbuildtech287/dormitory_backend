@@ -68,6 +68,45 @@ class AuthController {
     }
 
     /**
+     * Send OTP to email
+     */
+    async sendOtp(req, res, next) {
+        try {
+            const { email } = req.body;
+            if (!email) return res.status(400).json({ success: false, message: 'Email là bắt buộc!' });
+
+            const otpStore = require('../untils/otpStore');
+            const EmailService = require('../services/EmailService');
+
+            const code = otpStore.set(email);
+            await EmailService.sendOtp(email, code);
+
+            res.json({ success: true, message: `Mã OTP đã được gửi đến ${email}` });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Verify OTP
+     */
+    async verifyOtp(req, res, next) {
+        try {
+            const { email, code } = req.body;
+            if (!email || !code) return res.status(400).json({ success: false, message: 'Email và mã OTP là bắt buộc!' });
+
+            const otpStore = require('../untils/otpStore');
+            const isValid = otpStore.verify(email, code);
+
+            if (!isValid) return res.status(400).json({ success: false, message: 'Mã OTP không đúng hoặc đã hết hạn!' });
+
+            res.json({ success: true, message: 'Xác thực OTP thành công!' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Create admin account (superadmin only)
      */
     async createAdmin(req, res, next) {
