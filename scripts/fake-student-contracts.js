@@ -88,9 +88,6 @@ async function generateFakeStudentContracts() {
     const contracts = [];
     const timestamp = Date.now();
     
-    // Mật khẩu mặc định cho tất cả sinh viên: "123456"
-    const defaultPassword = await bcrypt.hash("123456", 10);
-    
     // Phân bổ theo 3 rổ: Rổ 1 (10%) = 100, Rổ 2 (60%) = 600, Rổ 3 (30%) = 300
     const basket1Count = 100; // Chính sách
     const basket2Count = 600; // Tân sinh viên (năm 1)
@@ -277,7 +274,7 @@ async function generateFakeStudentContracts() {
       users.push({
         id: userId,
         email,
-        password: defaultPassword,
+        password: bcrypt.hashSync(cccd, 10),
         full_name: studentName,
         role: "STUDENT",
         phone,
@@ -477,7 +474,7 @@ async function generateFakeStudentContracts() {
     console.log(`\n✅ Đã tạo thành công fake data!`);
     console.log(`📊 Tổng quan:`);
     console.log(`   - ${registerForms.length} hồ sơ đăng ký (trạng thái: Chấp nhận)`);
-    console.log(`   - ${users.length} tài khoản sinh viên (mật khẩu: 123456)`);
+    console.log(`   - ${users.length} tài khoản sinh viên (mật khẩu: số CCCD của sinh viên)`);
     console.log(`   - ${contracts.length} hợp đồng (${activeCount} Active, ${expiredCount} Expired)`);
     console.log(`   - ${roomIndex + 1} phòng đã được gán sinh viên`);
     console.log(`\n📋 Phân bổ theo rổ:`);

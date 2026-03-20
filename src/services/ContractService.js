@@ -250,7 +250,8 @@ class ContractService {
 
       const userId = `user-${Date.now()}`;
       const bcrypt = require("bcryptjs");
-      const defaultPassword = await bcrypt.hash("123456", 10);
+      const rawPassword = registration.cccd || "123456";
+      const defaultPassword = await bcrypt.hash(rawPassword, 10);
 
       await UserDAO.create({
         id: userId,
