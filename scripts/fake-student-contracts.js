@@ -92,7 +92,7 @@ async function generateFakeStudentContracts() {
     
     // Phân bổ theo 3 rổ: Rổ 1 (10%) = 100, Rổ 2 (60%) = 600, Rổ 3 (30%) = 300
     const basket1Count = 100; // Chính sách
-    const basket2Count = 600; // Tân sinh viên (năm 1)
+    const basket2Count = 599; // Tân sinh viên (năm 1) — giảm 1 để nhường chỗ cho SV đặc cách
     const basket3Count = 300; // Khóa cũ (năm 2,3,4)
     
     // Phân bổ theo thời gian tạo hồ sơ
@@ -463,6 +463,87 @@ async function generateFakeStudentContracts() {
       await pool.query(query);
       console.log(`   ✓ Đã insert ${Math.min((i + 100), contracts.length)}/${contracts.length} contracts`);
     }
+
+    // ── Sinh viên đặc cách ──────────────────────────────────────────────────
+    console.log(`\n📝 Đang tạo tài khoản sinh viên đặc cách (student@tlu.edu.vn)...`);
+    {
+      const specialCccd = "123456";
+      const specialPasswordHash = await bcrypt.hash(specialCccd, 10);
+      const specialTimestamp = Date.now();
+
+      // Lấy đúng phòng tiếp theo trong danh sách (phòng đang dở dang sau 999 SV)
+      const specialRoom = rooms[roomIndex];
+      if (!specialRoom) throw new Error("Không tìm thấy phòng để gán cho sinh viên đặc cách!");
+
+      const specialRegFormId  = `reg-special-${specialTimestamp}`;
+      const specialUserId     = `user-special-${specialTimestamp}`;
+      const specialContractId = `contract-special-${specialTimestamp}`;
+
+      const startDate = new Date(); startDate.setMonth(startDate.getMonth() - 3);
+      const endDate   = new Date(startDate); endDate.setMonth(endDate.getMonth() + 6);
+      const reviewedAt = new Date(startDate); reviewedAt.setDate(reviewedAt.getDate() - 15);
+      const createdAt  = new Date(reviewedAt); createdAt.setDate(createdAt.getDate() - 7);
+
+      // Register form
+      await pool.query(`
+        INSERT INTO register_forms (
+          id, student_name, student_id, student_email, phone_number, gender, dob, cccd, address,
+          faculty, major, class, year, gpa, distance, priority_reasons, status, ai_suggestion,
+          ai_score, ai_reasoning, evidence_images, note, reviewed_by, reviewed_at, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+        ON CONFLICT (id) DO NOTHING
+      `, [
+        specialRegFormId,
+        'Nguyễn Văn Student', '28711699999', 'student@tlu.edu.vn', '0987654321',
+        specialRoom.gender_type, '2003-05-15', specialCccd,
+        '123 Đường Láng, Hà Nội', 'Công nghệ thông tin', 'Chuyên ngành Công nghệ thông tin',
+        'CNTT1', 2, 3.20, 15, null,
+        'Chấp nhận', 'Nên duyệt', 85,
+        JSON.stringify({ priorityScore: 0, yearScore: 60, gpaScore: 80, totalScore: 85 }),
+        null, 'Hồ sơ đã được phê duyệt và tạo hợp đồng', 'admin-1',
+        reviewedAt.toISOString(), createdAt.toISOString(), reviewedAt.toISOString()
+      ]);
+
+      // User
+      await pool.query(`
+        INSERT INTO users (id, email, password, full_name, role, phone, avatar, is_active, last_login, created_at, updated_at, deleted_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        ON CONFLICT (id) DO NOTHING
+      `, [
+        specialUserId, 'student@tlu.edu.vn', specialPasswordHash,
+        'Nguyễn Văn Student', 'STUDENT', '0987654321',
+        'https://ui-avatars.com/api/?name=Nguyen+Van+Student&background=random',
+        true, null, reviewedAt.toISOString(), new Date().toISOString(), null
+      ]);
+
+      // Contract
+      await pool.query(`
+        INSERT INTO student_contracts (
+          id, user_id, room_id, register_form_id, contract_number, start_date, end_date,
+          rent_price, deposit_amount, deposit_paid, hard_copy_received, email_sent_at, status,
+          snapshot_student_id, snapshot_cccd, snapshot_gender, snapshot_year, snapshot_faculty,
+          snapshot_phone, terms_conditions, signed_at, termination_reason, created_by, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+        ON CONFLICT (id) DO NOTHING
+      `, [
+        specialContractId, specialUserId, specialRoom.id, specialRegFormId,
+        `HD-2024-SPECIAL`, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0],
+        specialRoom.rent_price, specialRoom.rent_price * 2, true, true,
+        createdAt.toISOString(), 'Active',
+        '28711699999', specialCccd, specialRoom.gender_type, 2, 'Công nghệ thông tin', '0987654321',
+        'Sinh viên cam kết tuân thủ nội quy ký túc xá.',
+        startDate.toISOString(), null, 'admin-1', createdAt.toISOString(), new Date().toISOString()
+      ]);
+
+      // Cập nhật occupancy phòng đặc cách
+      await pool.query(
+        `UPDATE rooms SET current_occupancy = current_occupancy + 1, updated_at = NOW() WHERE id = $1`,
+        [specialRoom.id]
+      );
+
+      console.log(`   ✓ Tạo xong: student@tlu.edu.vn | mật khẩu CCCD: ${specialCccd} | phòng: ${specialRoom.id}`);
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Cập nhật current_occupancy cho các phòng
     console.log(`\n📝 Đang cập nhật current_occupancy cho các phòng...`);
