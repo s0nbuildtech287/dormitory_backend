@@ -61,7 +61,8 @@ async function generateHistoryInvoices() {
         let totalInserted = 0;
         let skipped = 0;
 
-        for (const { year, month } of historyMonths) {
+        for (let monthIdx = 0; monthIdx < historyMonths.length; monthIdx++) {
+            const { year, month } = historyMonths[monthIdx];
             const billingDate = new Date(year, month, 1);
             const billingMonthStr = formatLocalDate(billingDate);
             const dueDateObj = new Date(year, month + 1, 10); // Hạn đóng ngày 10 tháng tiếp
@@ -135,7 +136,7 @@ async function generateHistoryInvoices() {
                 // ----- ID & số hóa đơn -----
                 const randomStr = Math.random().toString(36).substring(2, 15);
                 const invoiceId = `invoice-hist-${timestamp}-${i}-${randomStr}`;
-                const seq = (20000 + i + historyMonths.indexOf({ year, month }) * rooms.length).toString();
+                const seq = (20000 + i + monthIdx * rooms.length).toString();
                 const invoiceNumber = `HD-${year}${(month + 1).toString().padStart(2, "0")}-${seq}`;
 
                 const createdAt = new Date(year, month, 1).toISOString();

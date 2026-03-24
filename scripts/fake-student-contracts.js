@@ -68,6 +68,8 @@ async function generateFakeStudentContracts() {
   try {
     console.log("🚀 Bắt đầu tạo fake data cho 1000 hồ sơ đăng ký + hợp đồng sinh viên + tài khoản...");
 
+
+
     // Lấy danh sách 200 phòng đầu tiên
     const roomsResult = await pool.query(`
       SELECT id, room_number, building, floor, gender_type, rent_price, capacity
@@ -274,7 +276,8 @@ async function generateFakeStudentContracts() {
       users.push({
         id: userId,
         email,
-        password: bcrypt.hashSync(cccd, 10),
+        password: '__HASH_PLACEHOLDER__',
+        _cccd: cccd, // dùng để hash sau, sẽ xóa trước khi insert
         full_name: studentName,
         role: "STUDENT",
         phone,
@@ -366,6 +369,19 @@ async function generateFakeStudentContracts() {
     for (let i = 0; i < basket3Count; i++) {
       createStudent(3, i);
     }
+
+    // Hash tất cả CCCD song song (Promise.all) thay vì tuần tự
+    // Chia thành batch 50 để tránh quá tải CPU
+    console.log(`\n� Đang hash ${users.length} CCCD (song song theo batch 50)...`);
+    const HASH_BATCH = 50;
+    for (let i = 0; i < users.length; i += HASH_BATCH) {
+      const batch = users.slice(i, i + HASH_BATCH);
+      const hashes = await Promise.all(batch.map(u => bcrypt.hash(u._cccd, 10)));
+      hashes.forEach((hash, j) => { users[i + j].password = hash; });
+      console.log(`   ✓ ${Math.min(i + HASH_BATCH, users.length)}/${users.length}`);
+    }
+    // Xóa field tạm _cccd
+    users.forEach(u => delete u._cccd);
 
     console.log(`\n📝 Đang insert ${registerForms.length} register forms vào database...`);
     
