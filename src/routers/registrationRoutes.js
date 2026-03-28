@@ -4,7 +4,10 @@ const RegistrationController = require('../controllers/RegistrationController');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
-// All routes require authentication
+// Public route — không cần token (sinh viên đăng ký ngoài đợt)
+router.post('/', RegistrationController.create);
+
+// All routes below require authentication
 router.use(authenticate);
 
 // Import from Excel (only authenticated users - remove requireAdmin for testing)
@@ -27,9 +30,6 @@ router.post('/recalculate-scores', requireAdmin, RegistrationController.recalcul
 
 // Get registration by ID
 router.get('/:id', RegistrationController.getById);
-
-// Create new registration
-router.post('/', RegistrationController.create);
 
 // Update registration
 router.put('/:id', requireAdmin, RegistrationController.update);

@@ -45,26 +45,10 @@ class RegistrationController {
      */
     async create(req, res, next) {
         try {
-            // Validate authentication
-            if (!req.user) {
-                return res.status(401).json({
-                    success: false,
-                    message: 'Not authenticated'
-                });
-            }
-
-            // Validate authorization (only admin can create)
-            if (req.user.role !== 'ADMIN') {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Only admins can create registrations'
-                });
-            }
-
             const registration = await RegistrationService.createRegistration(req.body, req);
             res.status(201).json({
                 success: true,
-                message: 'Registration created successfully',
+                message: 'Gửi đơn đăng ký thành công! Ban quản lý sẽ xem xét và liên hệ với bạn sớm nhất.',
                 data: registration
             });
         } catch (error) {
