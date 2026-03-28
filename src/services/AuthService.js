@@ -99,8 +99,8 @@ class AuthService {
                 throw new Error('User not found');
             }
 
-            // Verify old password
-            const isValidPassword = await bcrypt.compare(oldPassword, user.password);
+            // Verify old password (bcrypt hash hoặc plain text fallback)
+            const isValidPassword = await bcrypt.compare(oldPassword, user.password) || oldPassword === user.password;
             if (!isValidPassword) {
                 throw new Error('Invalid old password');
             }
