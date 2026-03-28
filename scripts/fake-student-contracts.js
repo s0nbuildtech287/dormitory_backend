@@ -465,10 +465,10 @@ async function generateFakeStudentContracts() {
     }
 
     // ── Sinh viên đặc cách ──────────────────────────────────────────────────
-    console.log(`\n📝 Đang tạo tài khoản sinh viên đặc cách (student@tlu.edu.vn)...`);
+    console.log(`\n📝 Đang tạo tài khoản sinh viên đặc cách (xu4ns0n@gmail.com)...`);
     {
-      const specialCccd = "123456";
-      const specialPasswordHash = await bcrypt.hash(specialCccd, 10);
+      const specialPassword = "123";
+      const specialPasswordHash = await bcrypt.hash(specialPassword, 10);
       const specialTimestamp = Date.now();
 
       // Lấy đúng phòng tiếp theo trong danh sách (phòng đang dở dang sau 999 SV)
@@ -494,8 +494,8 @@ async function generateFakeStudentContracts() {
         ON CONFLICT (id) DO NOTHING
       `, [
         specialRegFormId,
-        'Nguyễn Văn Student', '28711699999', 'student@tlu.edu.vn', '0987654321',
-        specialRoom.gender_type, '2003-05-15', specialCccd,
+        'Bùi Xuân Sơn', '28711699999', 'xu4ns0n@gmail.com', '0987654321',
+        specialRoom.gender_type, '2003-05-15', '123456789012',
         '123 Đường Láng, Hà Nội', 'Công nghệ thông tin', 'Chuyên ngành Công nghệ thông tin',
         'CNTT1', 2, 3.20, 15, null,
         'Chấp nhận', 'Nên duyệt', 85,
@@ -510,9 +510,9 @@ async function generateFakeStudentContracts() {
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
         ON CONFLICT (id) DO NOTHING
       `, [
-        specialUserId, 'student@tlu.edu.vn', specialPasswordHash,
-        'Nguyễn Văn Student', 'STUDENT', '0987654321',
-        'https://ui-avatars.com/api/?name=Nguyen+Van+Student&background=random',
+        specialUserId, 'xu4ns0n@gmail.com', specialPasswordHash,
+        'Bùi Xuân Sơn', 'STUDENT', '0987654321',
+        'https://ui-avatars.com/api/?name=Bui+Xuan+Son&background=random',
         true, null, reviewedAt.toISOString(), new Date().toISOString(), null
       ]);
 
@@ -541,7 +541,7 @@ async function generateFakeStudentContracts() {
         [specialRoom.id]
       );
 
-      console.log(`   ✓ Tạo xong: student@tlu.edu.vn | mật khẩu CCCD: ${specialCccd} | phòng: ${specialRoom.id}`);
+      console.log(`   ✓ Tạo xong: xu4ns0n@gmail.com | mật khẩu: 123 | phòng: ${specialRoom.id}`);
     }
     // ────────────────────────────────────────────────────────────────────────
 
