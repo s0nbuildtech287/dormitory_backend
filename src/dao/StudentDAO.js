@@ -168,7 +168,13 @@ class StudentDAO {
                 r.building,
                 r.floor,
                 r.area,
-                r.rent_price AS room_rent_price
+                r.capacity,
+                r.current_occupancy,
+                r.rent_price AS room_rent_price,
+                r.internet_fee,
+                r.garbage_fee,
+                r.parking_fee,
+                r.last_inspection_date
             FROM student_contracts sc
             LEFT JOIN rooms r ON r.id = sc.room_id
             WHERE sc.user_id = $1
