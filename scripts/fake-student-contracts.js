@@ -478,6 +478,7 @@ async function generateFakeStudentContracts() {
       const specialRegFormId  = `reg-special-${specialTimestamp}`;
       const specialUserId     = `user-special-${specialTimestamp}`;
       const specialContractId = `contract-special-${specialTimestamp}`;
+      const specialCccd       = '123456789012';
 
       const startDate = new Date(); startDate.setMonth(startDate.getMonth() - 3);
       const endDate   = new Date(startDate); endDate.setMonth(endDate.getMonth() + 6);
