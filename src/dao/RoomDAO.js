@@ -43,6 +43,7 @@ class RoomDAO extends BaseDAO {
                         json_build_object(
                             'student_name', u.full_name,
                             'student_id', sc.snapshot_student_id,
+                            'email', u.email,
                             'contract_number', sc.contract_number
                         )
                     ) FILTER (WHERE sc.id IS NOT NULL), '[]'::json
