@@ -11,6 +11,7 @@
  *   6. fake-assets.js           — Tạo tài sản
  *   7. fake-disciplinary.js     — Tạo phiếu kỷ luật
  *   8. fake-notifications.js    — Tạo thông báo
+ *   9. fake-activity-logs.js    — Tạo 20 log hoạt động admin
  *
  * Chạy: node scripts/fake-all-data.js
  */
@@ -29,6 +30,7 @@ const steps = [
   { file: 'fake-assets.js',            label: 'Fake Assets (tài sản)' },
   { file: 'fake-disciplinary.js',      label: 'Fake Disciplinary (kỷ luật)' },
   { file: 'fake-notifications.js',     label: 'Fake Notifications (thông báo)' },
+  { file: 'fake-activity-logs.js',     label: 'Fake Activity Logs (lịch sử hoạt động)' },
 ];
 
 function run() {

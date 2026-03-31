@@ -37,6 +37,9 @@ console.log = originalConsoleLog; // Restore logging
 
 const app = express();
 
+// Trust proxy để lấy IP thật từ X-Forwarded-For header
+app.set('trust proxy', true);
+
 // Middleware
 app.use(cors());
 app.use(express.json());

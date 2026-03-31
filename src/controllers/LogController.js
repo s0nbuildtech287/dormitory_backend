@@ -18,23 +18,35 @@ class LogController {
     }
 
     /**
-     * Get activity logs with filters
+     * Get activity logs with filters + pagination
      */
     async getActivityLogs(req, res, next) {
         try {
+            const page  = req.query.page  ? parseInt(req.query.page)  : 1;
+            const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+            const offset = (page - 1) * limit;
+
             const filters = {
-                userId: req.query.userId,
-                action: req.query.action,
+                userId:     req.query.userId,
+                action:     req.query.action,
                 entityType: req.query.entityType,
-                startDate: req.query.startDate,
-                endDate: req.query.endDate,
-                limit: req.query.limit ? parseInt(req.query.limit) : 100
+                startDate:  req.query.startDate,
+                endDate:    req.query.endDate,
+                search:     req.query.search,
+                limit,
+                offset,
             };
 
-            const logs = await LogSystemDAO.getActivityLogs(filters);
+            const { rows, total } = await LogSystemDAO.getActivityLogs(filters);
             res.json({
                 success: true,
-                data: logs
+                data: rows,
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                },
             });
         } catch (error) {
             next(error);
