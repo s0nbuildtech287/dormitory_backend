@@ -197,6 +197,44 @@ class ContractService {
   }
 
   /**
+   * Revert contract: xóa contract, set registration về "Chờ duyệt", xóa user account
+   * Chỉ cho phép khi Pending + chưa cọc + chưa bản cứng
+   */
+  async revertContract(id, adminId, req = null) {
+    try {
+      const contract = await StudentContractDAO.findById(id);
+      if (!contract) throw new Error("Không tìm thấy hợp đồng");
+      if (contract.status !== "Pending") throw new Error("Chỉ có thể hoàn tác hợp đồng ở trạng thái Chờ gán phòng");
+      if (contract.deposit_paid) throw new Error("Không thể hoàn tác: sinh viên đã nộp tiền cọc");
+      if (contract.hard_copy_received) throw new Error("Không thể hoàn tác: đã nhận bản cứng hợp đồng");
+
+      // Set registration về "Chờ duyệt" nếu có liên kết
+      if (contract.register_form_id) {
+        await RegisterFormDAO.update(contract.register_form_id, {
+          status: "Chờ duyệt",
+          reviewed_by: null,
+          reviewed_at: null,
+          note: null,
+        });
+      }
+
+      // Xóa contract
+      await StudentContractDAO.delete(id);
+
+      // Xóa user account đi kèm
+      if (contract.user_id) {
+        await UserDAO.delete(contract.user_id);
+      }
+
+      await LogSystemDAO.log(adminId, "REVERT_CONTRACT", "student_contracts", id, contract, null, req);
+
+      return { reverted: true };
+    } catch (error) {
+      throw new Error(`Revert contract failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Delete contract
    */
   async deleteContract(id, adminId, req = null) {

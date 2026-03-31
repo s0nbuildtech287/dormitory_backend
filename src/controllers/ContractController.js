@@ -146,6 +146,19 @@ class ContractController {
   }
 
   /**
+   * Revert contract → set registration back to "Chờ duyệt", delete contract + user
+   * Chỉ cho phép khi: status=Pending, chưa cọc, chưa bản cứng
+   */
+  async revert(req, res, next) {
+    try {
+      await ContractService.revertContract(req.params.id, req.user.userId, req);
+      res.json({ success: true, message: "Đã hoàn tác hợp đồng, hồ sơ trở về trạng thái chờ duyệt" });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Delete contract
    */
   async deleteContract(req, res, next) {
