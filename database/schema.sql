@@ -371,6 +371,11 @@ CREATE TABLE invoices (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,                          -- Soft delete: NULL = active, NOT NULL = deleted
+
+    -- Số liệu điện/nước do sinh viên gửi
+    meter_submitted_by   VARCHAR(50),              -- user_id người gửi
+    meter_submitted_at   TIMESTAMP,                -- Thời điểm gửi
+    meter_submitter_name VARCHAR(100),             -- Tên người gửi (snapshot)
     
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL

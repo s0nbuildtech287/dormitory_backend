@@ -16,6 +16,7 @@
  */
 
 const StudentDAO = require('../dao/StudentDAO');
+const db = require('../config/database');
 
 class StudentController {
 
@@ -171,6 +172,115 @@ class StudentController {
 
             const records = await StudentDAO.getDisciplinaryRecords(userId);
             res.json({ success: true, data: records });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /student/invoices/meter-reading
+     * Sinh viên gửi số điện/nước trong 5 ngày đầu tháng.
+     * Body: { electric_end, water_end }
+     * - Tìm hóa đơn tháng hiện tại của phòng sinh viên
+     * - Cập nhật electric_end, water_end, tính lại electric_amount, water_amount, total_amount
+     * - Lưu thông tin người gửi và thời gian
+     */
+    async submitMeterReading(req, res, next) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return res.status(401).json({ success: false, message: 'Không xác thực được người dùng' });
+            }
+
+            // Kiểm tra trong 5 ngày đầu tháng
+            const today = new Date();
+            if (today.getDate() > 5) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Chỉ được gửi số điện/nước trong 5 ngày đầu tháng (ngày 1-5)',
+                });
+            }
+
+            const { electric_end, water_end } = req.body;
+            if (electric_end == null || water_end == null) {
+                return res.status(400).json({ success: false, message: 'Vui lòng nhập đủ số điện và số nước' });
+            }
+            if (Number(electric_end) < 0 || Number(water_end) < 0) {
+                return res.status(400).json({ success: false, message: 'Số điện/nước không được âm' });
+            }
+
+            // Lấy phòng của sinh viên
+            const contractRes = await db.query(
+                `SELECT sc.room_id, u.full_name
+                 FROM student_contracts sc
+                 JOIN users u ON u.id = sc.user_id
+                 WHERE sc.user_id = $1 AND sc.status = 'Active' AND sc.room_id IS NOT NULL
+                 LIMIT 1`,
+                [userId]
+            );
+            if (contractRes.rows.length === 0) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng phòng đang hoạt động' });
+            }
+            const { room_id, full_name } = contractRes.rows[0];
+
+            // Tìm hóa đơn tháng trước (tháng cần nộp số liệu)
+            const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const billingMonthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
+
+            const invoiceRes = await db.query(
+                `SELECT * FROM invoices WHERE room_id = $1 AND billing_month = $2 AND deleted_at IS NULL LIMIT 1`,
+                [room_id, billingMonthStr]
+            );
+            if (invoiceRes.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: `Không tìm thấy hóa đơn tháng ${prevMonth.getMonth() + 1}/${prevMonth.getFullYear()} cho phòng của bạn`,
+                });
+            }
+            const invoice = invoiceRes.rows[0];
+
+            // Validate: electric_end >= electric_start
+            if (Number(electric_end) < Number(invoice.electric_start)) {
+                return res.status(400).json({ success: false, message: `Số điện cuối (${electric_end}) không được nhỏ hơn số điện đầu kỳ (${invoice.electric_start})` });
+            }
+            if (Number(water_end) < Number(invoice.water_start)) {
+                return res.status(400).json({ success: false, message: `Số nước cuối (${water_end}) không được nhỏ hơn số nước đầu kỳ (${invoice.water_start})` });
+            }
+
+            // Tính lại
+            const electricAmount = (Number(electric_end) - Number(invoice.electric_start)) * Number(invoice.electric_rate);
+            const waterAmount    = (Number(water_end)    - Number(invoice.water_start))    * Number(invoice.water_rate);
+            const totalAmount    = Number(invoice.rent_amount) + electricAmount + waterAmount
+                                 + Number(invoice.service_fees) - Number(invoice.discount_amount) + Number(invoice.penalty_amount);
+
+            await db.query(
+                `UPDATE invoices SET
+                    electric_end          = $1,
+                    electric_amount       = $2,
+                    water_end             = $3,
+                    water_amount          = $4,
+                    total_amount          = $5,
+                    meter_submitted_by    = $6,
+                    meter_submitted_at    = NOW(),
+                    meter_submitter_name  = $7,
+                    updated_at            = NOW()
+                 WHERE id = $8`,
+                [electric_end, electricAmount, water_end, waterAmount, totalAmount, userId, full_name, invoice.id]
+            );
+
+            res.json({
+                success: true,
+                message: 'Gửi số điện/nước thành công! Hóa đơn đã được cập nhật.',
+                data: {
+                    invoice_id:      invoice.id,
+                    invoice_number:  invoice.invoice_number,
+                    electric_end,
+                    water_end,
+                    electric_amount: electricAmount,
+                    water_amount:    waterAmount,
+                    total_amount:    totalAmount,
+                },
+            });
         } catch (error) {
             next(error);
         }

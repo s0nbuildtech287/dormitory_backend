@@ -50,7 +50,8 @@ function generateEmail(name, studentId) {
   const firstName = nameParts[nameParts.length - 1];
   const lastNameInitial = nameParts[0].charAt(0);
   
-  return `${firstName}${lastNameInitial}${studentId.slice(-4)}@student.edu.vn`;
+  // Dùng toàn bộ studentId để đảm bảo unique
+  return `${firstName}${lastNameInitial}${studentId}@student.edu.vn`;
 }
 
 function generatePhone() {
@@ -426,7 +427,7 @@ async function generateFakeStudentContracts() {
           id, email, password, full_name, role, phone, avatar, is_active, last_login,
           created_at, updated_at, deleted_at
         ) VALUES ${values.join(", ")}
-        ON CONFLICT (id) DO NOTHING;
+        ON CONFLICT DO NOTHING;
       `;
 
       await pool.query(query);

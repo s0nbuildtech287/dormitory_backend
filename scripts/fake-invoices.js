@@ -10,10 +10,12 @@ async function generateFakeInvoices() {
         r.id as room_id,
         r.room_number,
         r.building,
-        r.current_occupancy
+        COUNT(sc.id) as current_occupancy
       FROM rooms r
-      WHERE r.current_occupancy >= 3
-      AND r.building IN ('A', 'B')
+      INNER JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
+      WHERE r.building IN ('A', 'B')
+      GROUP BY r.id, r.room_number, r.building
+      HAVING COUNT(sc.id) >= 3
       ORDER BY r.id
     `);
     
@@ -213,15 +215,23 @@ async function generateFakeInvoices() {
     }
 
     // Thống kê
-    const paidCount = invoices.filter(inv => inv.status === "Đã thanh toán").length;
+    const paidCount   = invoices.filter(inv => inv.status === "Đã thanh toán").length;
     const unpaidCount = invoices.filter(inv => inv.status === "Chưa thanh toán").length;
-    const overdueCount = invoices.filter(inv => inv.status === "Quá hạn").length;
+    const overdueCount= invoices.filter(inv => inv.status === "Quá hạn").length;
+
+    // Tính tháng động để log minh bạch
+    const billingMonthMain  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const billingMonthOver  = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const dueDateMain       = new Date(now.getFullYear(), now.getMonth(), 10);
+    const dueDateOver       = new Date(now.getFullYear(), now.getMonth() - 1, 10);
+    const fmtMonth = (d) => `tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+    const fmtDate  = (d) => `${d.getDate()}/${d.getMonth() + 1}`;
 
     console.log(`\n✅ Đã tạo thành công ${invoices.length} hóa đơn fake data!`);
     console.log(`\n📊 Tổng quan theo trạng thái:`);
-    console.log(`   - ${paidCount} hóa đơn đã thanh toán (tháng 2, đã thanh toán 1-8/3)`);
-    console.log(`   - ${unpaidCount} hóa đơn chưa thanh toán (tháng 2, hạn đóng 10/3)`);
-    console.log(`   - ${overdueCount} hóa đơn quá hạn (tháng 1, hạn đóng 10/2)`);
+    console.log(`   - ${paidCount} hóa đơn đã thanh toán (${fmtMonth(billingMonthMain)}, đã thanh toán 1-8/${now.getMonth() + 1})`);
+    console.log(`   - ${unpaidCount} hóa đơn chưa thanh toán (${fmtMonth(billingMonthMain)}, hạn đóng ${fmtDate(dueDateMain)})`);
+    console.log(`   - ${overdueCount} hóa đơn quá hạn (${fmtMonth(billingMonthOver)}, hạn đóng ${fmtDate(dueDateOver)})`);
     console.log(`\n💰 Chi tiết giá:`);
     console.log(`   - Tiền phòng: 500,000 VNĐ/người × 3-5 người = 1,500,000-2,500,000 VNĐ`);
     console.log(`   - Điện: 3,500 VNĐ/kWh (tiêu thụ 50-100 kWh/tháng)`);
@@ -229,14 +239,11 @@ async function generateFakeInvoices() {
     console.log(`   - Rác: 70,000 VNĐ/phòng/tháng`);
     console.log(`   - Mạng: 300,000 VNĐ/phòng/tháng`);
     console.log(`   - Gửi xe: 50,000 VNĐ/xe/tháng`);
-    console.log(`   - Giảm giá: 0 VNĐ (không có giảm giá)`);
-    console.log(`\n📦 Phòng:`);
-    console.log(`   - ${rooms.length} phòng có >= 3 người ở toà A và B`);
-    console.log(`   - Mỗi phòng có 1 hóa đơn`);
+    console.log(`\n📦 Phòng: ${rooms.length} phòng có >= 3 người ở toà A và B`);
     console.log(`\n⚠️ Phân bổ:`);
-    console.log(`   - 170 hóa đơn đầu: Tháng 2 (hạn 10/3) → ĐÃ THANH TOÁN (1-8/3)`);
-    console.log(`   - 20 hóa đơn tiếp: Tháng 2 (hạn 10/3) → CHƯA THANH TOÁN`);
-    console.log(`   - 10 hóa đơn cuối: Tháng 1 (hạn 10/2) → QUÁ HẠN, có phí phạt`);
+    console.log(`   - 170 hóa đơn đầu: ${fmtMonth(billingMonthMain)} (hạn ${fmtDate(dueDateMain)}) → ĐÃ THANH TOÁN`);
+    console.log(`   - 20 hóa đơn tiếp: ${fmtMonth(billingMonthMain)} (hạn ${fmtDate(dueDateMain)}) → CHƯA THANH TOÁN`);
+    console.log(`   - 10 hóa đơn cuối: ${fmtMonth(billingMonthOver)} (hạn ${fmtDate(dueDateOver)}) → QUÁ HẠN`);
     
   } catch (error) {
     console.error("❌ Lỗi khi tạo fake data:", error);

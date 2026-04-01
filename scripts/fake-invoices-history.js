@@ -29,15 +29,17 @@ async function generateHistoryInvoices() {
     try {
         console.log("🚀 Bắt đầu tạo fake hóa đơn lịch sử (5 tháng)...");
 
-        // Lấy tất cả phòng có người ở
+        // Lấy tất cả phòng có người ở (dùng contracts thay vì current_occupancy)
         const roomsResult = await pool.query(`
       SELECT
         r.id as room_id,
         r.room_number,
         r.building,
-        r.current_occupancy
+        COUNT(sc.id) as current_occupancy
       FROM rooms r
-      WHERE r.current_occupancy > 0
+      INNER JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
+      GROUP BY r.id, r.room_number, r.building
+      HAVING COUNT(sc.id) > 0
       ORDER BY r.id
     `);
 

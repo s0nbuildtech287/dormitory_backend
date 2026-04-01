@@ -34,6 +34,7 @@ router.get('/contracts', StudentController.getContracts);
 
 // ── Hóa đơn ────────────────────────────────────────────────────────────────
 router.get('/invoices', StudentController.getInvoices);
+router.post('/invoices/meter-reading', StudentController.submitMeterReading);
 
 // ── Thông báo ──────────────────────────────────────────────────────────────
 router.get('/notifications', StudentController.getNotifications);
