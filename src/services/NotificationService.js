@@ -45,10 +45,21 @@ class NotificationService {
      */
     async createNotification(data, adminId, req = null) {
         try {
+            // Map các type từ frontend về enum hợp lệ trong DB
+            const TYPE_MAP = {
+                "Tài chính":           "Thanh toán",
+                "Hợp đồng":            "Thông báo chung",
+                "Nội quy":             "Kỷ luật",
+                "Thông báo hệ thống":  "Bảo trì",
+                "Hoạt động":           "Thông báo chung",
+            };
+            const mappedType = TYPE_MAP[data.type] || data.type || "Thông báo chung";
+
             const notificationId = `notif-${Date.now()}`;
             const notification = await NotificationDAO.create({
                 id: notificationId,
                 ...data,
+                type: mappedType,
                 created_by: adminId
             });
 
