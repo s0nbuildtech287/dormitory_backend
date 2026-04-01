@@ -39,7 +39,6 @@ const app = express();
 
 // Trust proxy để lấy IP thật từ X-Forwarded-For header
 app.set('trust proxy', true);
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -90,7 +89,12 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 1234;
 
-app.listen(PORT, () => {
+const http = require("http");
+const { initSocket } = require("./socket.js");
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 
   // Khởi động các tác vụ định kỳ

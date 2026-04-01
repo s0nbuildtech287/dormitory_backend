@@ -1,5 +1,6 @@
 const FeedbackDAO = require('../dao/FeedbackDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
+const { emitAdminAlert } = require('../socket.js');
 
 class FeedbackService {
     /**
@@ -52,6 +53,13 @@ class FeedbackService {
                 feedback,
                 req
             );
+
+            // Notify admins real-time
+            emitAdminAlert("new_feedback", {
+                id:       feedbackId,
+                category: data.category || 'Khác',
+                content:  (data.content || '').substring(0, 100),
+            });
 
             return feedback;
         } catch (error) {

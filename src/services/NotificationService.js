@@ -1,5 +1,6 @@
 const NotificationDAO = require('../dao/NotificationDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
+const { emitNotification } = require('../socket.js');
 
 class NotificationService {
     /**
@@ -61,6 +62,9 @@ class NotificationService {
                 notification,
                 req
             );
+
+            // Emit real-time qua WebSocket
+            emitNotification(notification);
 
             return notification;
         } catch (error) {

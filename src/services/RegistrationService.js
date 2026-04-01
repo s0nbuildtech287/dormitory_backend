@@ -4,6 +4,7 @@ const StudentContractDAO = require("../dao/StudentContractDAO");
 const UserDAO = require("../dao/UserDAO");
 const bcrypt = require("bcryptjs");
 const xlsx = require("xlsx");
+const { emitAdminAlert } = require("../socket.js");
 
 class RegistrationService {
   /**
@@ -668,6 +669,15 @@ class RegistrationService {
       if (req && req.user) {
         await LogSystemDAO.log(req.user.userId, "CREATE_REGISTRATION", "register_forms", registrationId, null, registrationData, req);
       }
+
+      // Notify admins real-time
+      emitAdminAlert("new_registration", {
+        id:           registrationId,
+        student_name: data.student_name,
+        student_id:   data.student_id,
+        faculty:      data.faculty,
+        ai_suggestion: aiSuggestion,
+      });
 
       return registration;
     } catch (error) {
