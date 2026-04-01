@@ -239,6 +239,14 @@ class StudentController {
             }
             const invoice = invoiceRes.rows[0];
 
+            // Không cho gửi nếu hóa đơn đã thanh toán
+            if (invoice.status === 'Đã thanh toán') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Hóa đơn tháng này đã được thanh toán, không thể cập nhật số liệu.',
+                });
+            }
+
             // Validate: electric_end >= electric_start
             if (Number(electric_end) < Number(invoice.electric_start)) {
                 return res.status(400).json({ success: false, message: `Số điện cuối (${electric_end}) không được nhỏ hơn số điện đầu kỳ (${invoice.electric_start})` });

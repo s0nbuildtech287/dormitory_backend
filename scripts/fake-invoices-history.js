@@ -35,9 +35,12 @@ async function generateHistoryInvoices() {
         r.id as room_id,
         r.room_number,
         r.building,
-        COUNT(sc.id) as current_occupancy
+        COUNT(sc.id) as current_occupancy,
+        MIN(sc.user_id) as sample_user_id,
+        MIN(u.full_name) as sample_user_name
       FROM rooms r
       INNER JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
+      INNER JOIN users u ON u.id = sc.user_id
       GROUP BY r.id, r.room_number, r.building
       HAVING COUNT(sc.id) > 0
       ORDER BY r.id
@@ -49,15 +52,14 @@ async function generateHistoryInvoices() {
         }
         console.log(`📦 Tìm thấy ${rooms.length} phòng có người ở`);
 
-        // 5 tháng lịch sử cần tạo (từ mới nhất đến cũ nhất)
-        // Tháng 2/2026 đã có → bắt đầu từ tháng 1/2026
-        const historyMonths = [
-            { year: 2026, month: 0 },  // Tháng 1/2026 (month index 0)
-            { year: 2025, month: 11 }, // Tháng 12/2025
-            { year: 2025, month: 10 }, // Tháng 11/2025
-            { year: 2025, month: 9 },  // Tháng 10/2025
-            { year: 2025, month: 8 },  // Tháng 9/2025
-        ];
+        // 6 tháng lịch sử — tự động tính từ tháng hiện tại trở về trước
+        // fake-invoices.js đã tạo tháng (now-1) và (now-2), nên history bắt đầu từ (now-3)
+        // Tổng 6 tháng: now-1, now-2 (từ fake-invoices) + now-3..now-7 (từ đây) = 7 tháng gần nhất
+        const now = new Date();
+        const historyMonths = Array.from({ length: 5 }, (_, i) => {
+            const d = new Date(now.getFullYear(), now.getMonth() - 3 - i, 1);
+            return { year: d.getFullYear(), month: d.getMonth() };
+        });
 
         const paymentMethods = ["Tiền mặt", "Chuyển khoản", "Ví điện tử"];
         let totalInserted = 0;
@@ -143,6 +145,9 @@ async function generateHistoryInvoices() {
 
                 const createdAt = new Date(year, month, 1).toISOString();
 
+                // Ngày sinh viên gửi số liệu: ngày 1-4 của tháng tiếp theo (trong 5 ngày đầu)
+                const meterSubmittedAt = new Date(year, month + 1, randInt(1, 4)).toISOString();
+
                 invoices.push({
                     id: invoiceId,
                     room_id: room.room_id,
@@ -177,6 +182,9 @@ async function generateHistoryInvoices() {
                     created_by: "admin-1",
                     created_at: createdAt,
                     updated_at: new Date().toISOString(),
+                    meter_submitted_by:   room.sample_user_id   || null,
+                    meter_submitted_at:   meterSubmittedAt,
+                    meter_submitter_name: room.sample_user_name || null,
                 });
             }
 
@@ -196,7 +204,10 @@ async function generateHistoryInvoices() {
                         `${inv.discount_amount}, ${inv.penalty_amount}, ` +
                         `${inv.total_amount}, '${inv.status}', '${inv.due_date}', ` +
                         `'${inv.paid_at}', '${inv.payment_method}', '${inv.payment_reference}', ` +
-                        `NULL, '${inv.created_by}', '${inv.created_at}', '${inv.updated_at}')`
+                        `NULL, '${inv.created_by}', '${inv.created_at}', '${inv.updated_at}', ` +
+                        `${inv.meter_submitted_by ? `'${inv.meter_submitted_by}'` : 'NULL'}, ` +
+                        `'${inv.meter_submitted_at}', ` +
+                        `${inv.meter_submitter_name ? `'${inv.meter_submitter_name.replace(/'/g, "''")}'` : 'NULL'})`
                 );
 
                 const query = `
@@ -210,7 +221,8 @@ async function generateHistoryInvoices() {
             service_fees,
             discount_amount, penalty_amount, total_amount,
             status, due_date, paid_at, payment_method, payment_reference,
-            note, created_by, created_at, updated_at
+            note, created_by, created_at, updated_at,
+            meter_submitted_by, meter_submitted_at, meter_submitter_name
           ) VALUES ${values.join(", ")}
           ON CONFLICT (id) DO NOTHING;
         `;
