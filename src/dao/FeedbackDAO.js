@@ -35,41 +35,45 @@ class FeedbackDAO extends BaseDAO {
                 f.*,
                 u.full_name as student_name,
                 u.email as student_email,
+                rf.student_id as student_code,
                 r.room_number,
                 r.building,
                 resolver.full_name as resolver_name
             FROM ${this.tableName} f
             LEFT JOIN users u ON f.user_id = u.id
+            LEFT JOIN register_forms rf ON rf.student_email = u.email
             LEFT JOIN rooms r ON f.room_id = r.id
             LEFT JOIN users resolver ON f.resolved_by = resolver.id
             WHERE 1=1
         `;
         const values = [];
+        let p = 1;
 
         if (filters.status) {
-            query += ` AND f.status = ?`;
+            query += ` AND f.status = $${p++}`;
             values.push(filters.status);
         }
 
         if (filters.category) {
-            query += ` AND f.category = ?`;
+            query += ` AND f.category = $${p++}`;
             values.push(filters.category);
         }
 
         if (filters.sentiment) {
-            query += ` AND f.sentiment = ?`;
+            query += ` AND f.sentiment = $${p++}`;
             values.push(filters.sentiment);
         }
 
         if (filters.searchTerm) {
-            query += ` AND (f.content LIKE ? OR u.full_name LIKE ?)`;
-            values.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
+            query += ` AND (f.content ILIKE $${p} OR u.full_name ILIKE $${p} OR rf.student_id ILIKE $${p})`;
+            values.push(`%${filters.searchTerm}%`);
+            p++;
         }
 
         query += ` ORDER BY f.created_at DESC`;
 
         if (filters.limit) {
-            query += ` LIMIT ?`;
+            query += ` LIMIT $${p++}`;
             values.push(filters.limit);
         }
 
@@ -108,8 +112,9 @@ class FeedbackDAO extends BaseDAO {
                 COUNT(CASE WHEN status = 'Resolved' THEN 1 END) as resolved_count
             FROM ${this.tableName}
             GROUP BY status, category, sentiment
+            ORDER BY count DESC
         `;
-        return this.executeQuery(query);
+        return this.executeQuery(query, []);
     }
 
     /**
