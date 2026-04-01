@@ -26,20 +26,20 @@ async function generateFakeInvoices() {
     console.log("� Bắt đầu tạo fake data cho hóa đơn...");
 
     // Lấy 200 phòng có sinh viên (kể cả hợp đồng Expired)
+    // Dùng capacity của phòng thay vì COUNT contracts để tránh đếm trùng
     const roomsResult = await pool.query(`
-      SELECT
+      SELECT DISTINCT
         r.id as room_id,
         r.room_number,
         r.building,
-        COUNT(sc.id) as current_occupancy,
-        MIN(sc.user_id) as sample_user_id,
-        MIN(u.full_name) as sample_user_name
+        r.capacity as current_occupancy,
+        MIN(sc.user_id) OVER (PARTITION BY r.id) as sample_user_id,
+        MIN(u.full_name) OVER (PARTITION BY r.id) as sample_user_name
       FROM rooms r
       INNER JOIN student_contracts sc ON sc.room_id = r.id
         AND sc.status IN ('Active', 'Expired')
       INNER JOIN users u ON u.id = sc.user_id
-      GROUP BY r.id, r.room_number, r.building
-      ORDER BY COUNT(sc.id) DESC, r.id
+      ORDER BY r.id
       LIMIT 200
     `);
 

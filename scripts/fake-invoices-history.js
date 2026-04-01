@@ -24,19 +24,18 @@ async function generateHistoryInvoices() {
 
         // Lấy 200 phòng có sinh viên (kể cả hợp đồng Expired)
         const roomsResult = await pool.query(`
-            SELECT
+            SELECT DISTINCT
                 r.id as room_id,
                 r.room_number,
                 r.building,
-                COUNT(sc.id) as current_occupancy,
-                MIN(sc.user_id) as sample_user_id,
-                MIN(u.full_name) as sample_user_name
+                r.capacity as current_occupancy,
+                MIN(sc.user_id) OVER (PARTITION BY r.id) as sample_user_id,
+                MIN(u.full_name) OVER (PARTITION BY r.id) as sample_user_name
             FROM rooms r
             INNER JOIN student_contracts sc ON sc.room_id = r.id
                 AND sc.status IN ('Active', 'Expired')
             INNER JOIN users u ON u.id = sc.user_id
-            GROUP BY r.id, r.room_number, r.building
-            ORDER BY COUNT(sc.id) DESC, r.id
+            ORDER BY r.id
             LIMIT 200
         `);
 
@@ -49,24 +48,25 @@ async function generateHistoryInvoices() {
         const now = new Date();
         const paymentMethods = ["Tiền mặt", "Chuyển khoản", "Ví điện tử"];
 
-        // 5 tháng lịch sử: now-3, now-4, now-5, now-6, now-7
-        // (now-1 và now-2 đã có từ fake-invoices.js)
+        // 5 tháng lịch sử: now-2, now-3, now-4, now-5, now-6
+        // now-2 (tháng 2): chỉ tạo 190 đã TT (10 quá hạn đã có từ fake-invoices.js)
+        // now-3 đến now-6: mỗi tháng 200 đã TT
         const historyMonths = Array.from({ length: 5 }, (_, i) => {
-            const d = new Date(now.getFullYear(), now.getMonth() - 3 - i, 1);
-            return { year: d.getFullYear(), month: d.getMonth() };
+            const d = new Date(now.getFullYear(), now.getMonth() - 2 - i, 1);
+            return { year: d.getFullYear(), month: d.getMonth(), count: i === 0 ? 190 : 200 };
         });
 
         let totalInserted = 0;
 
         for (let monthIdx = 0; monthIdx < historyMonths.length; monthIdx++) {
-            const { year, month } = historyMonths[monthIdx];
+            const { year, month, count } = historyMonths[monthIdx];
             const billingDate    = new Date(year, month, 1);
             const billingMonthStr = formatLocalDate(billingDate);
             const dueDateObj     = new Date(year, month + 1, 10);
             const dueDateStr     = formatLocalDate(dueDateObj);
             const monthLabel     = `${month + 1}/${year}`;
 
-            console.log(`\n📅 Đang xử lý tháng ${monthLabel} (200 phòng)...`);
+            console.log(`\n📅 Đang xử lý tháng ${monthLabel} (${count} hóa đơn đã TT)...`);
 
             // Xóa data cũ của tháng này
             await pool.query(
@@ -77,7 +77,7 @@ async function generateHistoryInvoices() {
             const invoices = [];
             const timestamp = Date.now();
 
-            for (let i = 0; i < 200; i++) {
+            for (let i = 0; i < count; i++) {
                 const room = rooms[i % rooms.length];
                 const occupancy = Math.max(Number(room.current_occupancy) || 1, 1);
 
@@ -165,18 +165,15 @@ async function generateHistoryInvoices() {
                     ) VALUES ${values.join(", ")}
                     ON CONFLICT (id) DO NOTHING;
                 `);
-                console.log(`   ✓ Tháng ${monthLabel}: ${Math.min(b + 50, invoices.length)}/200`);
+                console.log(`   ✓ Tháng ${monthLabel}: ${Math.min(b + 50, invoices.length)}/${count}`);
             }
             totalInserted += invoices.length;
         }
 
         console.log(`\n✅ Hoàn tất! Đã insert ${totalInserted} hóa đơn lịch sử.`);
-        console.log(`📊 ${historyMonths.length} tháng × 200 phòng = ${totalInserted} hóa đơn (tất cả ĐÃ THANH TOÁN)`);
-
-        // Log tháng nào được tạo
-        const now2 = new Date();
-        historyMonths.forEach(({ year, month }) => {
-            console.log(`   - Tháng ${month + 1}/${year}`);
+        console.log(`📊 Phân bổ:`);
+        historyMonths.forEach(({ year, month, count }) => {
+            console.log(`   - Tháng ${month + 1}/${year}: ${count} hóa đơn đã TT${count === 190 ? ' (10 quá hạn đã có riêng)' : ''}`);
         });
 
     } catch (error) {
