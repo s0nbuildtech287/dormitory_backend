@@ -13,6 +13,12 @@ router.use(authenticate);
 // Import from Excel (only authenticated users - remove requireAdmin for testing)
 router.post('/import/excel', upload.single('file'), RegistrationController.importExcel);
 
+// Import from Google Sheets URL
+router.post('/import/sheets', RegistrationController.importGoogleSheets);
+
+// Get service account emails (for admin to know which emails to share the sheet with)
+router.get('/service-accounts', RegistrationController.getServiceAccountEmails);
+
 // Get all registrations
 router.get('/', RegistrationController.getAll);
 

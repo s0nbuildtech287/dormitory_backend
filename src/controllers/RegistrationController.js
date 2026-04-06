@@ -1,5 +1,6 @@
 const RegistrationService = require('../services/RegistrationService');
 const upload = require('../middlewares/upload');
+const { SERVICE_ACCOUNT_EMAILS } = require('../services/GoogleSheetsService');
 
 class RegistrationController {
     /**
@@ -280,6 +281,60 @@ class RegistrationController {
                 success: true,
                 message: 'Scoring weights updated successfully',
                 data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Import registrations from Google Sheets URL
+     */
+    async importGoogleSheets(req, res, next) {
+        try {
+            const { sheetUrl } = req.body;
+
+            if (!sheetUrl || typeof sheetUrl !== 'string' || !sheetUrl.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'URL Google Sheets là bắt buộc'
+                });
+            }
+
+            // Basic URL validation
+            const trimmedUrl = sheetUrl.trim();
+            if (!trimmedUrl.includes('docs.google.com/spreadsheets') && !trimmedUrl.match(/^[a-zA-Z0-9_-]+$/)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'URL không hợp lệ. Vui lòng dán đúng link Google Sheets'
+                });
+            }
+
+            const userId = req.user?.userId || 'system';
+            const result = await RegistrationService.importFromGoogleSheets(
+                trimmedUrl,
+                userId,
+                req
+            );
+
+            res.json({
+                success: true,
+                message: `Đồng bộ thành công ${result.success} hồ sơ từ Google Sheets`,
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Get service account emails (for admin to share the sheet with)
+     */
+    async getServiceAccountEmails(req, res, next) {
+        try {
+            res.json({
+                success: true,
+                data: SERVICE_ACCOUNT_EMAILS
             });
         } catch (error) {
             next(error);
