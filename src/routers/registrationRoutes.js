@@ -16,6 +16,9 @@ router.post('/import/excel', upload.single('file'), RegistrationController.impor
 // Import from Google Sheets URL
 router.post('/import/sheets', RegistrationController.importGoogleSheets);
 
+// Debug: xem raw headers + preview data từ Sheets (không import vào DB)
+router.post('/import/sheets/debug', RegistrationController.debugSheet);
+
 // Get service account emails (for admin to know which emails to share the sheet with)
 router.get('/service-accounts', RegistrationController.getServiceAccountEmails);
 

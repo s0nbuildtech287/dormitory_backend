@@ -241,9 +241,29 @@ class RegistrationService {
    * @returns {number} Basket number (1, 2, or 3)
    */
   determineBasket(priorityReasons, year) {
-    // Rổ 1: Chính sách (có priority_reasons)
+    // Rổ 1: Chính sách - chỉ khi priority_reasons chứa keyword ưu tiên thực sự
+    // Không dùng check rỗng/không rỗng vì Google Sheets có thể trả về
+    // các giá trị như "Không có", "Không thuộc diện ưu tiên", v.v.
     if (priorityReasons && priorityReasons.trim() !== "") {
-      return 1;
+      const lowerReason = priorityReasons.toLowerCase();
+      const hasPriority =
+        lowerReason.includes("hộ nghèo") ||
+        lowerReason.includes("cận nghèo") ||
+        lowerReason.includes("thương binh") ||
+        lowerReason.includes("liệt sỹ") ||
+        lowerReason.includes("khuyết tật") ||
+        lowerReason.includes("lưu học sinh") ||
+        lowerReason.includes("hoàn cảnh khó khăn đặc biệt") ||
+        lowerReason.includes("vùng sâu") ||
+        lowerReason.includes("vùng xa") ||
+        lowerReason.includes("hải đảo") ||
+        lowerReason.includes("vùng có điều kiện kinh tế đặc biệt khó khăn") ||
+        lowerReason.includes("giấy xác nhận ưu tiên") ||
+        lowerReason.includes("ưu tiên khác");
+
+      if (hasPriority) {
+        return 1;
+      }
     }
 
     // Rổ 2: Tân sinh viên (năm 1, không có chính sách)
@@ -829,20 +849,195 @@ class RegistrationService {
   }
 
   /**
-   * Import registrations from Excel file với chi tiết xử lý từng bước
-   *
-   * LUỒNG IMPORT EXCEL:
-   * 1. Đọc file Excel/CSV từ Google Form đã export
-   * 2. Validate từng dòng dữ liệu
-   * 3. Chuẩn hóa dữ liệu (format, trim, lowercase email...)
-   * 4. Tính điểm AI suggestion (nếu có đủ thông tin)
-   * 5. Insert vào database
-   * 6. Log lại quá trình import
-   *
+   * Xử lý 1 row dữ liệu (dùng chung cho cả CSV và Google Sheets)
+   * validate → normalize → check duplicate → tính điểm AI → lưu DB
+   * @param {object} row - Object với key là tên cột
+   * @param {number} rowNumber - Số thứ tự dòng (để log lỗi)
+   * @param {Array} warnings - Mảng warnings để push vào
+   * @returns {object} registration object đã lưu
+   */
+  async _processRow(row, rowNumber, warnings) {
+    console.log(`\n--- Xử lý dòng ${rowNumber} ---`);
+
+    // ===== VALIDATE =====
+    const validationErrors = [];
+    if (!row["Họ tên"] && !row["student_name"]) validationErrors.push("Thiếu họ tên");
+    if (!row["Email"] && !row["email"] && !row["student_email"]) validationErrors.push("Thiếu email");
+    if (!row["Số điện thoại"] && !row["phone"] && !row["phone_number"]) validationErrors.push("Thiếu số điện thoại");
+    if (!row["Giới tính"] && !row["gender"]) validationErrors.push("Thiếu giới tính");
+    if (validationErrors.length > 0) throw new Error(`Dữ liệu không hợp lệ: ${validationErrors.join(", ")}`);
+
+    // ===== NORMALIZE =====
+    console.log("  📝 Chuẩn hóa dữ liệu...");
+
+    const studentEmail = (row["student_email"] || row["Email"] || row["email"]).toString().trim().toLowerCase();
+
+    let genderRaw = (row["Giới tính"] || row["gender"]).toString().trim();
+    let gender;
+    if (genderRaw.toLowerCase().includes("nam") || genderRaw.charAt(0).toUpperCase() === "M") {
+      gender = "Nam";
+    } else {
+      gender = "Nữ";
+    }
+
+    const phone = (row["Số điện thoại"] || row["phone"] || row["phone_number"]).toString().replace(/[\s-]/g, "");
+
+    let dob = null;
+    if (row["Ngày sinh"] || row["dob"]) {
+      try {
+        const dobStr = row["Ngày sinh"] || row["dob"];
+        if (dobStr instanceof Date) {
+          dob = dobStr.toISOString().split("T")[0];
+        } else {
+          const parts = dobStr.toString().split(/[-/]/);
+          if (parts.length === 3) {
+            if (parseInt(parts[0]) <= 31) {
+              dob = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+            } else {
+              dob = dobStr;
+            }
+          }
+        }
+      } catch (e) {
+        warnings.push({ row: rowNumber, message: "Không parse được ngày sinh, bỏ qua trường này" });
+      }
+    }
+
+    const gpa = row["GPA"] || row["gpa"] ? parseFloat(row["GPA"] || row["gpa"]) : null;
+    const distance = row["Khoảng cách"] || row["distance"] ? parseInt(row["Khoảng cách"] || row["distance"]) : null;
+
+    let year = row["Năm học"] || row["year"] || 1;
+    if (typeof year === "string") {
+      const match = year.match(/\d+/);
+      year = match ? parseInt(match[0]) : 1;
+    } else {
+      year = parseInt(year) || 1;
+    }
+
+    // ===== CHECK DUPLICATE =====
+    console.log("  🔍 Kiểm tra trùng lặp...");
+    const existingByEmail = await RegisterFormDAO.findOne({ student_email: studentEmail });
+    if (existingByEmail) throw new Error(`Email đã tồn tại trong hệ thống: ${studentEmail}`);
+
+    const studentId = row["Mã SV"] || row["student_id"] || null;
+    if (studentId) {
+      const existingByStudentId = await RegisterFormDAO.findByStudentId(studentId);
+      if (existingByStudentId.length > 0) throw new Error(`Mã sinh viên đã tồn tại: ${studentId}`);
+    }
+
+    // ===== AI SCORING =====
+    console.log("  🤖 Tính điểm AI suggestion...");
+    let aiSuggestion = null;
+    let aiScore = null;
+    let aiReasoning = null;
+
+    if (gpa !== null && year !== undefined) {
+      const priorityRaw = (row["Lý do ưu tiên"] || row["priority_reasons"] || "").toString().trim();
+
+      const basket = this.determineBasket(priorityRaw, year);
+      const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
+      console.log(`    ➜ Basket: Rổ ${basket} (${basketName})`);
+
+      const weights = await this.getBasketWeights(basket);
+      console.log(`    ⚖️  Weights (Rổ ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
+
+      const scoreMappings = await this.getScoreMappings();
+
+      const priorityScore = this.calculatePriorityScore(priorityRaw, scoreMappings);
+      console.log(`    ➜ PriorityScore: ${priorityScore}`);
+
+      const yearScore = this.calculateYearScore(year, scoreMappings);
+      console.log(`    ➜ YearScore (Năm ${year}): ${yearScore}`);
+
+      const gpaScoreResult = this.calculateGPAScore(gpa, year, scoreMappings);
+      if (gpaScoreResult.isFiltered) {
+        console.log(`    ➜ GPAScore: ${gpaScoreResult.score} ⛔ FILTERED (${gpaScoreResult.reason})`);
+        aiScore = 0;
+        aiSuggestion = "Không ưu tiên";
+        aiReasoning = JSON.stringify({
+          filtered: true,
+          reason: "GPA < 2.0 - Không đạt tiêu chuẩn tối thiểu",
+          min_gpa_required: 2.0,
+          actual_gpa: gpa,
+        });
+        console.log(`  ❌ GPA không đạt tiêu chuẩn tối thiểu (2.0) - Đánh giá: Không ưu tiên`);
+      } else {
+        const scoreExplanation = gpaScoreResult.reason || `${gpa} × 25`;
+        console.log(`    ➜ GPAScore (${scoreExplanation}): ${gpaScoreResult.score}`);
+
+        aiScore = this.calculateFinalAIScore({
+          priorityScore,
+          yearScore,
+          gpaScore: gpaScoreResult.score,
+          weights,
+        });
+        aiSuggestion = this.determineAISuggestion(aiScore, basket);
+        aiReasoning = JSON.stringify({
+          description: "Hệ thống tính điểm theo Rổ (mỗi rổ có trọng số riêng)",
+          basket,
+          basket_name: basketName,
+          priority_score: priorityScore,
+          year_score: yearScore,
+          gpa_score: gpaScoreResult.score,
+          basket_weights: weights,
+          final_score: aiScore,
+          formula: `(${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${aiScore}`,
+        });
+        console.log(`  ✨ AI Score: ${aiScore} -> ${aiSuggestion} (Rổ ${basket})`);
+      }
+    } else {
+      console.log("  ⚠️  Thiếu thông tin GPA hoặc Năm học, không tính AI Score");
+    }
+
+    // ===== BUILD RECORD =====
+    const registrationId = `reg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // evidence_images: hỗ trợ cả CSV (1 URL) và Sheets (nhiều URL cách nhau bởi dấu phẩy/xuống dòng)
+    let evidenceImages = null;
+    const imgRaw = row["Ảnh minh chứng"] || row["evidence_images"] || row["Ảnh"] || row["Minh chứng"] || "";
+    if (imgRaw && imgRaw.toString().trim() !== "") {
+      const imgLinks = imgRaw.toString().split(/,|\n/).map((s) => s.trim()).filter(Boolean);
+      evidenceImages = JSON.stringify(imgLinks);
+    }
+
+    const registration = {
+      id: registrationId,
+      student_name: (row["Họ tên"] || row["student_name"]).toString().trim(),
+      student_id: studentId || null,
+      student_email: studentEmail,
+      phone_number: phone,
+      gender,
+      dob,
+      cccd: (row["cccd"] || row["CCCD"] || "").toString().trim() || null,
+      address: (row["Địa chỉ"] || row["address"] || "").toString().trim(),
+      faculty: (row["Khoa"] || row["faculty"] || "").toString().trim(),
+      major: (row["Chuyên ngành"] || row["major"] || "").toString().trim(),
+      class: (row["Lớp"] || row["class"] || "").toString().trim(),
+      year,
+      gpa,
+      distance,
+      priority_reasons: (row["priority_reasons"] || row["Lý do ưu tiên"] || "").toString().trim(),
+      evidence_images: evidenceImages,
+      note: (row["note"] || row["Ghi chú"] || "").toString().trim(),
+      ai_suggestion: aiSuggestion,
+      ai_score: aiScore,
+      ai_reasoning: aiReasoning,
+      status: "Chờ duyệt",
+    };
+
+    // ===== LƯU DB =====
+    console.log("  💾 Lưu vào database...");
+    await RegisterFormDAO.create(registration);
+    console.log(`  ✅ Thành công: ${registration.student_name}`);
+    return registration;
+  }
+
+  /**
+   * Import registrations from Excel file
    * @param {string} filePath - Đường dẫn file Excel đã upload
    * @param {string} adminId - ID của admin thực hiện import
    * @param {object} req - Request object để log
-   * @returns {object} Kết quả import: { success: số lượng thành công, errors: danh sách lỗi }
+   * @returns {object} Kết quả import: { success, failed, total, errors, warnings }
    */
   async importFromExcel(filePath, adminId, req = null) {
     try {
@@ -878,232 +1073,9 @@ class RegistrationService {
       for (let i = 0; i < rawData.length; i++) {
         const rowNumber = i + 2; // +2 vì Excel bắt đầu từ 1 và có header row
         const row = rawData[i];
-
         try {
-          console.log(`\n--- Xử lý dòng ${rowNumber} ---`);
-
-          // ========== BƯỚC 2.1: VALIDATE DỮ LIỆU BỮT BUỘC ==========
-          const validationErrors = [];
-
-          // Các trường bắt buộc - hỗ trợ cả tiếng Việt và snake_case từ CSV
-          if (!row["Họ tên"] && !row["student_name"]) {
-            validationErrors.push("Thiếu họ tên");
-          }
-          // CSV có cột 'email' nhưng trong DB là 'student_email', nên check cả hai
-          if (!row["Email"] && !row["email"] && !row["student_email"]) {
-            validationErrors.push("Thiếu email");
-          }
-          if (!row["Số điện thoại"] && !row["phone"] && !row["phone_number"]) {
-            validationErrors.push("Thiếu số điện thoại");
-          }
-          if (!row["Giới tính"] && !row["gender"]) {
-            validationErrors.push("Thiếu giới tính");
-          }
-
-          if (validationErrors.length > 0) {
-            throw new Error(`Dữ liệu không hợp lệ: ${validationErrors.join(", ")}`);
-          }
-
-          // ========== BƯỚC 2.2: CHUẨN HÓA DỮ LIỆU ==========
-          console.log("  📝 Chuẩn hóa dữ liệu...");
-
-          // Lấy và chuẩn hóa email (lowercase, trim)
-          // CSV có 2 cột: 'email' (email người đăng ký) và 'student_email' (email sinh viên)
-          // Ta lưu student_email vào DB
-          const studentEmail = (row["student_email"] || row["Email"] || row["email"]).toString().trim().toLowerCase();
-
-          // Chuẩn hóa giới tính (ENCODING-AGNOSTIC - chỉ check chữ cái đầu)
-          let genderRaw = (row["Giới tính"] || row["gender"]).toString().trim();
-          const firstChar = genderRaw.charAt(0).toUpperCase();
-          let gender; // Khai báo biến
-
-          // Logic: N + "am" = Nam, còn N khác = Nữ (vì "Nữ" có thể bị encode sai)
-          if (genderRaw.toLowerCase().includes("nam") || firstChar === "M") {
-            gender = "Nam";
-          } else {
-            // Mặc định là Nữ cho tất cả trường hợp còn lại (F, N, Nữ bị encode)
-            gender = "Nữ";
-          }
-
-          // Chuẩn hóa số điện thoại (loại bỏ khoảng trắng, dấu gạch ngang)
-          const phone = (row["Số điện thoại"] || row["phone"] || row["phone_number"]).toString().replace(/[\s-]/g, "");
-
-          // Chuẩn hóa ngày sinh (nếu có)
-          let dob = null;
-          if (row["Ngày sinh"] || row["dob"]) {
-            try {
-              const dobStr = row["Ngày sinh"] || row["dob"];
-              // Excel có thể trả về date object hoặc string
-              if (dobStr instanceof Date) {
-                dob = dobStr.toISOString().split("T")[0];
-              } else {
-                // Parse string date (nhiều format: DD/MM/YYYY, YYYY-MM-DD...)
-                const parts = dobStr.toString().split(/[-/]/);
-                if (parts.length === 3) {
-                  // Assume DD/MM/YYYY if first part <= 31
-                  if (parseInt(parts[0]) <= 31) {
-                    dob = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-                  } else {
-                    // Assume YYYY-MM-DD
-                    dob = dobStr;
-                  }
-                }
-              }
-            } catch (e) {
-              warnings.push({ row: rowNumber, message: "Không parse được ngày sinh, bỏ qua trường này" });
-            }
-          }
-
-          // Parse số (GPA, khoảng cách)
-          const gpa = row["GPA"] || row["gpa"] ? parseFloat(row["GPA"] || row["gpa"]) : null;
-          const distance = row["Khoảng cách"] || row["distance"] ? parseInt(row["Khoảng cách"] || row["distance"]) : null;
-
-          // Parse year (năm học) - convert "năm 4" → 4
-          let year = row["Năm học"] || row["year"] || 1;
-          if (typeof year === "string") {
-            const match = year.match(/\d+/);
-            year = match ? parseInt(match[0]) : 1;
-          } else {
-            year = parseInt(year) || 1;
-          }
-
-          // ========== BƯỚC 2.3: CHECK TRÙNG LẶP ==========
-          console.log("  🔍 Kiểm tra trùng lặp...");
-          const existingByEmail = await RegisterFormDAO.findOne({ student_email: studentEmail });
-          if (existingByEmail) {
-            throw new Error(`Email đã tồn tại trong hệ thống: ${studentEmail}`);
-          }
-
-          const studentId = row["Mã SV"] || row["student_id"];
-          if (studentId) {
-            const existingByStudentId = await RegisterFormDAO.findByStudentId(studentId);
-            if (existingByStudentId.length > 0) {
-              throw new Error(`Mã sinh viên đã tồn tại: ${studentId}`);
-            }
-          }
-
-          // ========== BƯỚC 2.4: TÍNH ĐIỂM AI SUGGESTION ==========
-          console.log("  🤖 Tính điểm AI suggestion (hệ thống mới)...");
-          let aiSuggestion = null;
-          let aiScore = null;
-          let aiReasoning = null;
-          let isGPAFiltered = false;
-
-          // Chỉ tính nếu có đủ thông tin chính
-          if (gpa !== null && year !== undefined) {
-            // 0. Xác định Rổ (Basket)
-            const basket = this.determineBasket(row["Lý do ưu tiên"] || row["priority_reasons"], year);
-            const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
-            console.log(`    ➜ Basket: Rổ ${basket} (${basketName})`);
-
-            // Get basket-specific weights from database
-            const weights = await this.getBasketWeights(basket);
-            console.log(`    ⚖️  Weights (Rổ ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
-
-            // Get score mappings from database
-            const scoreMappings = await this.getScoreMappings();
-
-            // 1. Tính Priority Score (Điểm Ưu tiên)
-            const priorityScore = this.calculatePriorityScore(row["Lý do ưu tiên"] || row["priority_reasons"], scoreMappings);
-            console.log(`    ➜ PriorityScore: ${priorityScore}`);
-
-            // 2. Tính Year Score (Điểm Năm học)
-            const yearScore = this.calculateYearScore(year, scoreMappings);
-            console.log(`    ➜ YearScore (Năm ${year}): ${yearScore}`);
-
-            // 3. Tính GPA Score (Điểm GPA) - Truyền year để xử lý đặc biệt cho năm 1
-            const gpaScoreResult = this.calculateGPAScore(gpa, year, scoreMappings);
-            if (gpaScoreResult.isFiltered) {
-              console.log(`    ➜ GPAScore: ${gpaScoreResult.score} ⛔ FILTERED (${gpaScoreResult.reason})`);
-              isGPAFiltered = true;
-            } else {
-              const scoreExplanation = gpaScoreResult.reason || `${gpa} × 25`;
-              console.log(`    ➜ GPAScore (${scoreExplanation}): ${gpaScoreResult.score}`);
-            }
-
-            // 4. Tính Final AI Score (0-100)
-            if (!isGPAFiltered) {
-              aiScore = this.calculateFinalAIScore({
-                priorityScore: priorityScore,
-                yearScore: yearScore,
-                gpaScore: gpaScoreResult.score,
-                weights: weights,
-              });
-
-              aiSuggestion = this.determineAISuggestion(aiScore, basket);
-
-              aiReasoning = JSON.stringify({
-                description: "Hệ thống tính điểm theo Rổ (mỗi rổ có trọng số riêng)",
-                basket: basket,
-                basket_name: basketName,
-                priority_score: priorityScore,
-                year_score: yearScore,
-                gpa_score: gpaScoreResult.score,
-                basket_weights: weights,
-                final_score: aiScore,
-                formula: `(${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${aiScore}`,
-              });
-
-              console.log(`  ✨ AI Score: ${aiScore} -> ${aiSuggestion} (Rổ ${basket})`);
-            } else {
-              // GPA < 2.0 → Set to lowest priority with valid enum value
-              aiScore = 0;
-              aiSuggestion = "Không ưu tiên"; // Valid enum value
-              aiReasoning = JSON.stringify({
-                filtered: true,
-                reason: "GPA < 2.0 - Không đạt tiêu chuẩn tối thiểu",
-                min_gpa_required: 2.0,
-                actual_gpa: gpa,
-              });
-              console.log(`  ❌ GPA không đạt tiêu chuẩn tối thiểu (2.0) - Đánh giá: Không ưu tiên`);
-            }
-          } else {
-            console.log("  ⚠️  Thiếu thông tin GPA hoặc Năm học, không tính AI Score");
-          }
-
-          // ========== BƯỚC 2.5: TẠO OBJECT HỒ SƠ ==========
-          const registrationId = `reg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-          // Parse evidence_images nếu có (CSV có thể là string URL)
-          let evidenceImages = null;
-          if (row["evidence_images"]) {
-            try {
-              evidenceImages = JSON.stringify([row["evidence_images"]]);
-            } catch (e) {
-              evidenceImages = null;
-            }
-          }
-
-          const registration = {
-            id: registrationId,
-            student_name: (row["Họ tên"] || row["student_name"]).toString().trim(),
-            student_id: studentId || null,
-            student_email: studentEmail,
-            phone_number: phone,
-            gender: gender,
-            dob: dob,
-            cccd: (row["cccd"] || row["CCCD"] || "").toString().trim() || null,
-            address: (row["Địa chỉ"] || row["address"] || "").toString().trim(),
-            faculty: (row["Khoa"] || row["faculty"] || "").toString().trim(),
-            major: (row["Chuyên ngành"] || row["major"] || "").toString().trim(),
-            class: (row["Lớp"] || row["class"] || "").toString().trim(),
-            year: year,
-            gpa: gpa,
-            distance: distance,
-            priority_reasons: (row["priority_reasons"] || row["Lý do ưu tiên"] || "").toString().trim(),
-            evidence_images: evidenceImages,
-            note: (row["note"] || row["Ghi chú"] || "").toString().trim(),
-            ai_suggestion: aiSuggestion,
-            ai_score: aiScore,
-            ai_reasoning: aiReasoning,
-            status: "Chờ duyệt",
-          };
-
-          // ========== BƯỚC 2.6: LƯU VÀO DATABASE ==========
-          console.log("  💾 Lưu vào database...");
-          await RegisterFormDAO.create(registration);
+          const registration = await this._processRow(row, rowNumber, warnings);
           registrations.push(registration);
-          console.log(`  ✅ Thành công: ${registration.student_name}`);
         } catch (error) {
           console.log(`  ❌ Lỗi: ${error.message}`);
           errors.push({
@@ -1181,153 +1153,9 @@ class RegistrationService {
       for (let i = 0; i < rawData.length; i++) {
         const rowNumber = i + 2;
         const row = rawData[i];
-
         try {
-          console.log(`\n--- Xử lý hàng ${rowNumber} ---`);
-
-          // ===== VALIDATE =====
-          const validationErrors = [];
-          if (!row["Họ tên"] && !row["student_name"]) validationErrors.push("Thiếu họ tên");
-          if (!row["Email"] && !row["email"] && !row["student_email"]) validationErrors.push("Thiếu email");
-          if (!row["Số điện thoại"] && !row["phone"] && !row["phone_number"]) validationErrors.push("Thiếu số điện thoại");
-          if (!row["Giới tính"] && !row["gender"]) validationErrors.push("Thiếu giới tính");
-          if (validationErrors.length > 0) throw new Error(`Dữ liệu không hợp lệ: ${validationErrors.join(", ")}`);
-
-          // ===== NORMALIZE =====
-          const studentEmail = (row["student_email"] || row["Email"] || row["email"]).toString().trim().toLowerCase();
-
-          let genderRaw = (row["Giới tính"] || row["gender"]).toString().trim();
-          let gender;
-          if (genderRaw.toLowerCase().includes("nam") || genderRaw.charAt(0).toUpperCase() === "M") {
-            gender = "Nam";
-          } else {
-            gender = "Nữ";
-          }
-
-          const phone = (row["Số điện thoại"] || row["phone"] || row["phone_number"]).toString().replace(/[\s-]/g, "");
-
-          let dob = null;
-          if (row["Ngày sinh"] || row["dob"]) {
-            try {
-              const dobStr = row["Ngày sinh"] || row["dob"];
-              if (dobStr instanceof Date) {
-                dob = dobStr.toISOString().split("T")[0];
-              } else {
-                const parts = dobStr.toString().split(/[-/]/);
-                if (parts.length === 3) {
-                  dob = parseInt(parts[0]) <= 31
-                    ? `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`
-                    : dobStr;
-                }
-              }
-            } catch (e) {
-              warnings.push({ row: rowNumber, message: "Không parse được ngày sinh" });
-            }
-          }
-
-          const gpa = row["GPA"] || row["gpa"] ? parseFloat(row["GPA"] || row["gpa"]) : null;
-          const distance = row["Khoảng cách"] || row["distance"] ? parseInt(row["Khoảng cách"] || row["distance"]) : null;
-
-          let year = row["Năm học"] || row["year"] || 1;
-          if (typeof year === "string") {
-            const match = year.match(/\d+/);
-            year = match ? parseInt(match[0]) : 1;
-          } else {
-            year = parseInt(year) || 1;
-          }
-
-          // ===== CHECK DUPLICATE =====
-          const existingByEmail = await RegisterFormDAO.findOne({ student_email: studentEmail });
-          if (existingByEmail) throw new Error(`Email đã tồn tại: ${studentEmail}`);
-
-          const studentId = row["Mã SV"] || row["student_id"] || null;
-          if (studentId) {
-            const existingByStudentId = await RegisterFormDAO.findByStudentId(studentId);
-            if (existingByStudentId.length > 0) throw new Error(`Mã sinh viên đã tồn tại: ${studentId}`);
-          }
-
-          // ===== AI SCORING =====
-          let aiSuggestion = null;
-          let aiScore = null;
-          let aiReasoning = null;
-          let isGPAFiltered = false;
-
-          if (gpa !== null && year !== undefined) {
-            const basket = this.determineBasket(row["Lý do ưu tiên"] || row["priority_reasons"], year);
-            const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
-            const weights = await this.getBasketWeights(basket);
-            const scoreMappings = await this.getScoreMappings();
-
-            const priorityScore = this.calculatePriorityScore(row["Lý do ưu tiên"] || row["priority_reasons"], scoreMappings);
-            const yearScore = this.calculateYearScore(year, scoreMappings);
-            const gpaScoreResult = this.calculateGPAScore(gpa, year, scoreMappings);
-
-            if (gpaScoreResult.isFiltered) {
-              isGPAFiltered = true;
-              aiScore = 0;
-              aiSuggestion = "Không ưu tiên";
-              aiReasoning = JSON.stringify({
-                filtered: true,
-                reason: "GPA < 2.0 - Không đạt tiêu chuẩn tối thiểu",
-                actual_gpa: gpa,
-              });
-            } else {
-              aiScore = this.calculateFinalAIScore({ priorityScore, yearScore, gpaScore: gpaScoreResult.score, weights });
-              aiSuggestion = this.determineAISuggestion(aiScore, basket);
-              aiReasoning = JSON.stringify({
-                description: "Hệ thống tính điểm theo Rổ",
-                basket, basket_name: basketName,
-                priority_score: priorityScore,
-                year_score: yearScore,
-                gpa_score: gpaScoreResult.score,
-                basket_weights: weights,
-                final_score: aiScore,
-                formula: `(${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${aiScore}`,
-                source: "google_sheets",
-              });
-            }
-          }
-
-          // ===== BUILD RECORD =====
-          const registrationId = `reg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-          // Ảnh minh chứng: Google Form lưu link Drive vào Sheets
-          // Một ô có thể chứa nhiều link cách nhau bởi dấu phẩy
-          let evidenceImages = null;
-          const imgRaw = row["Ảnh minh chứng"] || row["evidence_images"] || row["Ảnh"] || row["Minh chứng"] || "";
-          if (imgRaw && imgRaw.trim() !== "") {
-            const imgLinks = imgRaw.split(/,|\n/).map((s) => s.trim()).filter(Boolean);
-            evidenceImages = JSON.stringify(imgLinks);
-          }
-
-          const registration = {
-            id: registrationId,
-            student_name: (row["Họ tên"] || row["student_name"]).toString().trim(),
-            student_id: studentId || null,
-            student_email: studentEmail,
-            phone_number: phone,
-            gender,
-            dob,
-            cccd: (row["CCCD"] || row["cccd"] || "").toString().trim() || null,
-            address: (row["Địa chỉ"] || row["address"] || "").toString().trim(),
-            faculty: (row["Khoa"] || row["faculty"] || "").toString().trim(),
-            major: (row["Chuyên ngành"] || row["major"] || "").toString().trim(),
-            class: (row["Lớp"] || row["class"] || "").toString().trim(),
-            year,
-            gpa,
-            distance,
-            priority_reasons: (row["Lý do ưu tiên"] || row["priority_reasons"] || "").toString().trim(),
-            evidence_images: evidenceImages,
-            note: (row["Ghi chú"] || row["note"] || "").toString().trim(),
-            ai_suggestion: aiSuggestion,
-            ai_score: aiScore,
-            ai_reasoning: aiReasoning,
-            status: "Chờ duyệt",
-          };
-
-          await RegisterFormDAO.create(registration);
+          const registration = await this._processRow(row, rowNumber, warnings);
           registrations.push(registration);
-          console.log(`  ✅ Thành công: ${registration.student_name} (AI: ${aiScore})`);
         } catch (error) {
           console.log(`  ❌ Lỗi hàng ${rowNumber}: ${error.message}`);
           errors.push({

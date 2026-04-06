@@ -1,6 +1,7 @@
 const RegistrationService = require('../services/RegistrationService');
 const upload = require('../middlewares/upload');
-const { SERVICE_ACCOUNT_EMAILS } = require('../services/GoogleSheetsService');
+const GoogleSheetsService = require('../services/GoogleSheetsService');
+const { SERVICE_ACCOUNT_EMAILS } = GoogleSheetsService;
 
 class RegistrationController {
     /**
@@ -321,6 +322,26 @@ class RegistrationController {
                 success: true,
                 message: `Đồng bộ thành công ${result.success} hồ sơ từ Google Sheets`,
                 data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Debug: đọc raw data từ Google Sheets, trả về headers + 3 hàng đầu để kiểm tra mapping
+     */
+    async debugSheet(req, res, next) {
+        try {
+            const { sheetUrl } = req.body;
+            if (!sheetUrl) return res.status(400).json({ success: false, message: 'Thiếu sheetUrl' });
+
+            const rawData = await GoogleSheetsService.readSheet(sheetUrl);
+            res.json({
+                success: true,
+                headers: rawData.length > 0 ? Object.keys(rawData[0]) : [],
+                preview: rawData.slice(0, 3),
+                total: rawData.length,
             });
         } catch (error) {
             next(error);
