@@ -780,7 +780,7 @@ class RegistrationService {
             snapshot_phone: oldData.phone_number || null,
             // Giá thuê mặc định 0, sẽ cập nhật khi gán phòng
             rent_price: 0,
-            deposit_amount: 0,
+            deposit_amount: 500000,
             created_by: adminId,
           });
         }

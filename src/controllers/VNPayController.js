@@ -1,30 +1,57 @@
-const VNPayService  = require("../services/VNPayService");
-const InvoiceDAO    = require("../dao/InvoiceDAO");
+const VNPayService       = require("../services/VNPayService");
+const InvoiceDAO         = require("../dao/InvoiceDAO");
 const StudentContractDAO = require("../dao/StudentContractDAO");
-const LogSystemDAO  = require("../dao/LogSystemDAO");
 
 class VNPayController {
+
+  /** Parse txnRef "invoice_<uuid>_<ts>" hoặc "deposit_<uuid>_<ts>" */
+  _parseTxnRef(txnRef) {
+    const first = txnRef.indexOf("_");
+    const last  = txnRef.lastIndexOf("_");
+    return {
+      type: txnRef.substring(0, first),
+      id:   txnRef.substring(first + 1, last),
+    };
+  }
+
   /**
-   * POST /api/vnpay/create-payment
-   * Tạo URL thanh toán VNPay cho hóa đơn hoặc tiền cọc hợp đồng
-   * Body: { type: "invoice"|"deposit", id, amount, orderInfo }
+   * Cập nhật DB sau khi thanh toán thành công.
+   * Idempotent — gọi nhiều lần không sao.
    */
+  async _updatePayment(txnRef, transactionNo) {
+    const { type, id } = this._parseTxnRef(txnRef);
+
+    if (type === "invoice") {
+      const invoice = await InvoiceDAO.findById(id);
+      if (!invoice) return { rsp: "01", msg: "Order not found" };
+      if (invoice.status === "Đã thanh toán") return { rsp: "02", msg: "Order already confirmed" };
+      await InvoiceDAO.markAsPaid(id, "VNPay");
+      if (transactionNo) await InvoiceDAO.update(id, { payment_reference: transactionNo });
+
+    } else if (type === "deposit") {
+      const contract = await StudentContractDAO.findById(id);
+      if (!contract) return { rsp: "01", msg: "Order not found" };
+      if (contract.deposit_paid) return { rsp: "02", msg: "Order already confirmed" };
+      await StudentContractDAO.update(id, { deposit_paid: true });
+    }
+
+    console.log(`[VNPay] ✅ Updated DB: ${txnRef}`);
+    return { rsp: "00", msg: "Success" };
+  }
+
+  /** POST /api/vnpay/create-payment */
   async createPayment(req, res, next) {
     try {
       const { type, id, amount, orderInfo } = req.body;
-
-      if (!type || !id || !amount) {
+      if (!type || !id || !amount)
         return res.status(400).json({ success: false, message: "Thiếu thông tin thanh toán" });
-      }
 
       const ipAddr =
         req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
         req.socket?.remoteAddress ||
         "127.0.0.1";
 
-      // txnRef = type_id để phân biệt khi IPN về
       const txnRef = `${type}_${id}_${Date.now()}`;
-
       const paymentUrl = VNPayService.createPaymentUrl({
         amount:    Number(amount),
         txnRef,
@@ -39,84 +66,49 @@ class VNPayController {
     }
   }
 
-  /**
-   * GET /api/vnpay/ipn
-   * Server-to-server callback từ VNPay — cập nhật DB
-   */
+  /** GET /api/vnpay/ipn — VNPay gọi server-to-server */
   async ipn(req, res) {
     try {
       const { valid, params } = VNPayService.verifySignature(req.query);
+      if (!valid) return res.status(200).json({ RspCode: "97", Message: "Fail checksum" });
 
-      if (!valid) {
-        return res.status(200).json({ RspCode: "97", Message: "Fail checksum" });
+      if (params["vnp_ResponseCode"] === "00") {
+        const { rsp, msg } = await this._updatePayment(
+          params["vnp_TxnRef"],
+          params["vnp_TransactionNo"]
+        );
+        return res.status(200).json({ RspCode: rsp, Message: msg });
       }
 
-      const responseCode = params["vnp_ResponseCode"];
-      const txnRef       = params["vnp_TxnRef"]; // type_id_timestamp
-      const transactionNo = params["vnp_TransactionNo"];
-
-      // Parse txnRef: "invoice_<id>_<timestamp>" hoặc "deposit_<id>_<timestamp>"
-      // id có thể là UUID (chứa dấu -) nên dùng indexOf để tách đúng
-      const firstUnderscore  = txnRef.indexOf("_");
-      const lastUnderscore   = txnRef.lastIndexOf("_");
-      const type = txnRef.substring(0, firstUnderscore);           // "invoice" | "deposit"
-      const id   = txnRef.substring(firstUnderscore + 1, lastUnderscore); // UUID
-
-      if (responseCode === "00") {
-        if (type === "invoice") {
-          const invoice = await InvoiceDAO.findById(id);
-          if (!invoice) return res.status(200).json({ RspCode: "01", Message: "Order not found" });
-          if (invoice.status === "Đã thanh toán") {
-            return res.status(200).json({ RspCode: "02", Message: "Order already confirmed" });
-          }
-          await InvoiceDAO.markAsPaid(id, "VNPay");
-          await InvoiceDAO.update(id, { payment_reference: transactionNo });
-
-        } else if (type === "deposit") {
-          const contract = await StudentContractDAO.findById(id);
-          if (!contract) return res.status(200).json({ RspCode: "01", Message: "Order not found" });
-          if (contract.deposit_paid) {
-            return res.status(200).json({ RspCode: "02", Message: "Order already confirmed" });
-          }
-          await StudentContractDAO.update(id, {
-            deposit_paid: true,
-            updated_at: new Date(),
-          });
-        }
-
-        console.log(`[VNPay IPN] ✅ Thanh toán thành công: ${txnRef}`);
-        return res.status(200).json({ RspCode: "00", Message: "Confirm Success" });
-      }
-
-      // Giao dịch không thành công — không cập nhật DB
-      console.log(`[VNPay IPN] ❌ Giao dịch thất bại (${responseCode}): ${txnRef}`);
       return res.status(200).json({ RspCode: "00", Message: "Confirm Success" });
-
     } catch (error) {
       console.error("[VNPay IPN] Error:", error.message);
       return res.status(200).json({ RspCode: "99", Message: "Unknown error" });
     }
   }
 
-  /**
-   * GET /api/vnpay/return
-   * Browser redirect sau khi thanh toán — chỉ verify rồi redirect frontend
-   */
+  /** GET /api/vnpay/return — browser redirect về sau thanh toán */
   async returnUrl(req, res) {
     try {
       const { valid, params } = VNPayService.verifySignature(req.query);
       const code = valid ? (params["vnp_ResponseCode"] || "99") : "97";
 
-      // Redirect về frontend với đầy đủ thông tin
+      if (valid && code === "00") {
+        await this._updatePayment(
+          params["vnp_TxnRef"],
+          params["vnp_TransactionNo"]
+        ).catch(err => console.error("[VNPay Return] DB update error:", err.message));
+      }
+
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:2807";
       const query = new URLSearchParams({
         code,
-        txnRef:        params["vnp_TxnRef"]        || "",
-        amount:        params["vnp_Amount"]         || "",
-        bankCode:      params["vnp_BankCode"]       || "",
-        transactionNo: params["vnp_TransactionNo"]  || "",
-        orderInfo:     params["vnp_OrderInfo"]      || "",
-        payDate:       params["vnp_PayDate"]        || "",
+        txnRef:        params["vnp_TxnRef"]       || "",
+        amount:        params["vnp_Amount"]        || "",
+        bankCode:      params["vnp_BankCode"]      || "",
+        transactionNo: params["vnp_TransactionNo"] || "",
+        orderInfo:     params["vnp_OrderInfo"]     || "",
+        payDate:       params["vnp_PayDate"]       || "",
       });
 
       res.redirect(`${frontendUrl}/payment/result?${query.toString()}`);
@@ -127,4 +119,11 @@ class VNPayController {
   }
 }
 
-module.exports = new VNPayController();
+const controller = new VNPayController();
+
+// Bind tất cả methods để giữ đúng `this` context khi Express gọi
+module.exports = {
+  createPayment: controller.createPayment.bind(controller),
+  ipn:           controller.ipn.bind(controller),
+  returnUrl:     controller.returnUrl.bind(controller),
+};
