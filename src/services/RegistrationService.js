@@ -733,8 +733,8 @@ class RegistrationService {
         let existingUser = email ? await UserDAO.findByEmail(email) : null;
 
         if (!existingUser) {
-          // Tạo tài khoản sinh viên với mật khẩu mặc định là mã SV hoặc '123456'
-          const defaultPwd = oldData.student_id || "123456";
+          // Tạo tài khoản sinh viên với mật khẩu mặc định là số CCCD (giống fake-student-contracts.js)
+          const defaultPwd = oldData.cccd || oldData.student_id || "123456";
           const hashed = await bcrypt.hash(defaultPwd, 10);
           const newUserId = `user-${Date.now()}`;
           existingUser = await UserDAO.create({
