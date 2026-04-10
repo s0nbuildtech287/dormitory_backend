@@ -55,10 +55,12 @@ class VNPayController {
       const txnRef       = params["vnp_TxnRef"]; // type_id_timestamp
       const transactionNo = params["vnp_TransactionNo"];
 
-      // Parse txnRef: "invoice_abc123_1234567890" hoặc "deposit_xyz_..."
-      const parts = txnRef.split("_");
-      const type  = parts[0]; // "invoice" | "deposit"
-      const id    = parts[1]; // invoice_id hoặc contract_id
+      // Parse txnRef: "invoice_<id>_<timestamp>" hoặc "deposit_<id>_<timestamp>"
+      // id có thể là UUID (chứa dấu -) nên dùng indexOf để tách đúng
+      const firstUnderscore  = txnRef.indexOf("_");
+      const lastUnderscore   = txnRef.lastIndexOf("_");
+      const type = txnRef.substring(0, firstUnderscore);           // "invoice" | "deposit"
+      const id   = txnRef.substring(firstUnderscore + 1, lastUnderscore); // UUID
 
       if (responseCode === "00") {
         if (type === "invoice") {
