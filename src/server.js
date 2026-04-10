@@ -66,6 +66,7 @@ const disciplinaryRoutes = require("./routers/disciplinaryRoutes");
 // Routes dành riêng cho sinh viên (profile, contracts, invoices, notifications, feedbacks, disciplinary)
 const studentRoutes = require("./routers/studentRoutes");
 const emailRoutes = require("./routers/emailRoutes");
+const vnpayRoutes = require("./routers/vnpayRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/registrations", registrationRoutes);
@@ -79,6 +80,7 @@ app.use("/api/assets", assetRoutes);
 app.use("/api/disciplinary", disciplinaryRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/email", emailRoutes);
+app.use("/api/vnpay", vnpayRoutes);
 
 // 404 handler (must come after all routes)
 const { errorHandler, notFound } = require("./middlewares/errorHandler");
