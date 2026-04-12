@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const RegistrationController = require('../controllers/RegistrationController');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
@@ -34,7 +34,7 @@ router.get('/scoring-weights', requireAdmin, RegistrationController.getScoringWe
 // Update scoring weights
 router.put('/scoring-weights', requireAdmin, RegistrationController.updateScoringWeights);
 
-// Recalculate AI scores for all registrations (when settings change)
+// Recalculate scores for all registrations (when settings change)
 router.post('/recalculate-scores', requireAdmin, RegistrationController.recalculateScores);
 
 // Get registration by ID

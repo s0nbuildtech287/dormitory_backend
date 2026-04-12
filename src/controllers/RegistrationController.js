@@ -1,4 +1,4 @@
-const RegistrationService = require('../services/RegistrationService');
+﻿const RegistrationService = require('../services/RegistrationService');
 const upload = require('../middlewares/upload');
 const GoogleSheetsService = require('../services/GoogleSheetsService');
 const { SERVICE_ACCOUNT_EMAILS } = GoogleSheetsService;
@@ -43,7 +43,7 @@ class RegistrationController {
     }
 
     /**
-     * Create new registration with validation and AI scoring
+     * Create new registration with validation and scoring
      */
     async create(req, res, next) {
         try {
@@ -229,7 +229,7 @@ class RegistrationController {
     }
 
     /**
-     * Recalculate AI scores for all registrations
+     * Recalculate scores for all registrations
      * Used when admin updates scoring weights/settings
      */
     async recalculateScores(req, res, next) {
