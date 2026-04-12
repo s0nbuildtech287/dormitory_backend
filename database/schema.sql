@@ -70,7 +70,7 @@ DROP TYPE IF EXISTS disciplinary_level CASCADE;
 CREATE TYPE user_role AS ENUM ('ADMIN', 'STUDENT');  -- ADMIN làm tất cả, STUDENT chỉ xem
 CREATE TYPE gender_type AS ENUM ('Nam', 'Nữ');
 CREATE TYPE registration_status AS ENUM ('Chờ duyệt', 'Chấp nhận', 'Từ chối');
-CREATE TYPE ai_suggestion_type AS ENUM ('Nên duyệt', 'Cân nhắc', 'Không ưu tiên');
+CREATE TYPE ai_suggestion_type AS ENUM ('Nên duyệt', 'Cân nhắc', 'Không ưu tiên'); -- Gợi ý xét duyệt từ hệ thống tính điểm
 
 -- 3.2. ENUMs cho quản lý phòng và hợp đồng
 CREATE TYPE room_status AS ENUM ('Active', 'Inactive', 'Maintenance');
@@ -191,7 +191,7 @@ CREATE INDEX idx_settings_active ON settings(is_active) WHERE is_active = TRUE;
 -- BƯỚC 5: TẠO BẢNG REGISTER_FORMS (Đơn đăng ký)
 -- ============================================================================
 -- Mục đích: Quản lý đơn đăng ký ở KTX của sinh viên
--- Tối ưu: Giữ nguyên cấu trúc hiện tại với AI scoring
+-- Tối ưu: Giữ nguyên cấu trúc hiện tại với hệ thống tính điểm xét duyệt
 
 CREATE TABLE register_forms (
     id VARCHAR(50) PRIMARY KEY,
@@ -211,9 +211,9 @@ CREATE TABLE register_forms (
     distance INTEGER,                         -- Khoảng cách nhà-trường (km)
     priority_reasons TEXT,                    -- Lý do ưu tiên
     status registration_status DEFAULT 'Chờ duyệt',
-    ai_suggestion ai_suggestion_type,
-    ai_score INTEGER,
-    ai_reasoning JSONB,                       -- Chi tiết chấm điểm AI
+    ai_suggestion ai_suggestion_type,        -- Gợi ý xét duyệt: Nên duyệt / Cân nhắc / Không ưu tiên
+    ai_score INTEGER,                         -- Điểm xét duyệt (0-100)
+    ai_reasoning JSONB,                       -- Chi tiết tính điểm xét duyệt
     evidence_images JSONB,                    -- Ảnh minh chứng
     note TEXT,                                -- Ghi chú admin
     reviewed_by VARCHAR(50),
