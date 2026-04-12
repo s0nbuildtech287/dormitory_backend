@@ -1,4 +1,4 @@
-const RegisterFormDAO = require("../dao/RegisterFormDAO");
+﻿const RegisterFormDAO = require("../dao/RegisterFormDAO");
 const LogSystemDAO = require("../dao/LogSystemDAO");
 const StudentContractDAO = require("../dao/StudentContractDAO");
 const UserDAO = require("../dao/UserDAO");
@@ -241,7 +241,7 @@ class RegistrationService {
    * @returns {number} Basket number (1, 2, or 3)
    */
   determineBasket(priorityReasons, year) {
-    // Rổ 1: Chính sách - chỉ khi priority_reasons chứa keyword ưu tiên thực sự
+    // Nhóm 1: Chính sách - chỉ khi priority_reasons chứa keyword ưu tiên thực sự
     // Không dùng check rỗng/không rỗng vì Google Sheets có thể trả về
     // các giá trị như "Không có", "Không thuộc diện ưu tiên", v.v.
     if (priorityReasons && priorityReasons.trim() !== "") {
@@ -266,21 +266,21 @@ class RegistrationService {
       }
     }
 
-    // Rổ 2: Tân sinh viên (năm 1, không có chính sách)
+    // Nhóm 2: Tân sinh viên (năm 1, không có chính sách)
     if (year === 1) {
       return 2;
     }
 
-    // Rổ 3: Khóa cũ (năm 2, 3, 4, không có chính sách)
+    // Nhóm 3: Khóa cũ (năm 2, 3, 4, không có chính sách)
     return 3;
   }
 
   /**
    * Get basket-specific scoring weights
    * Each basket has different priorities:
-   * - Rổ 1 (Chính sách): Priority > Year > GPA
-   * - Rổ 2 (Tân SV): Year > Priority, GPA ít quan trọng
-   * - Rổ 3 (Khóa cũ): GPA > Year > Priority
+   * - Nhóm 1 (Chính sách): Priority > Year > GPA
+   * - Nhóm 2 (Tân SV): Year > Priority, GPA ít quan trọng
+   * - Nhóm 3 (Khóa cũ): GPA > Year > Priority
    * @param {number} basket - Basket number (1, 2, or 3)
    * @returns {object} Weights { w1_priority, w2_year, w3_gpa }
    */
@@ -339,9 +339,9 @@ class RegistrationService {
    * @returns {string} AI suggestion
    */
   determineAISuggestion(score, basket) {
-    // Rổ 1 (Chính sách): Nới lỏng tiêu chuẩn vì ưu tiên hoàn cảnh
-    // Rổ 2 (Tân SV): Nới lỏng vì chưa có điểm GPA
-    // Rổ 3 (Khóa cũ): Chặt chẽ hơn vì có GPA
+    // Nhóm 1 (Chính sách): Nới lỏng tiêu chuẩn vì ưu tiên hoàn cảnh
+    // Nhóm 2 (Tân SV): Nới lỏng vì chưa có điểm GPA
+    // Nhóm 3 (Khóa cũ): Chặt chẽ hơn vì có GPA
     const thresholds = {
       1: { high: 70, medium: 50 }, // Chính sách: Dễ duyệt hơn
       2: { high: 75, medium: 55 }, // Tân SV: Dễ duyệt
@@ -368,10 +368,10 @@ class RegistrationService {
       const registrations = await RegisterFormDAO.searchAndFilter(filters);
 
       // Sort by Basket first, then by AI Score (which already includes basket bonus)
-      // This ensures: Rổ 1 (Chính sách) > Rổ 2 (Tân SV) > Rổ 3 (Khóa cũ)
+      // This ensures: Nhóm 1 (Chính sách) > Nhóm 2 (Tân SV) > Nhóm 3 (Khóa cũ)
       registrations.sort((a, b) => {
         // Extract basket from ai_reasoning JSON
-        let aBasket = 3; // Default to Rổ 3 if can't determine
+        let aBasket = 3; // Default to Nhóm 3 if can't determine
         let bBasket = 3;
 
         try {
@@ -398,7 +398,7 @@ class RegistrationService {
 
         // 1. First: Sort by Basket (lower basket number = higher priority)
         if (aBasket !== bBasket) {
-          return aBasket - bBasket; // Rổ 1 < Rổ 2 < Rổ 3
+          return aBasket - bBasket; // Nhóm 1 < Nhóm 2 < Nhóm 3
         }
 
         // 2. Within same basket: Sort by AI Score (higher is better)
@@ -432,12 +432,12 @@ class RegistrationService {
 
         // Calculate slots per basket
         const slotsPerBasket = {
-          1: Math.round((quotas.policy_priority / 100) * totalSlots), // Rổ 1: Chính sách
-          2: Math.round((quotas.freshmen / 100) * totalSlots), // Rổ 2: Tân SV
-          3: Math.round((quotas.seniors / 100) * totalSlots), // Rổ 3: Khóa cũ
+          1: Math.round((quotas.policy_priority / 100) * totalSlots), // Nhóm 1: Chính sách
+          2: Math.round((quotas.freshmen / 100) * totalSlots), // Nhóm 2: Tân SV
+          3: Math.round((quotas.seniors / 100) * totalSlots), // Nhóm 3: Khóa cũ
         };
 
-        console.log(`📊 Slot allocation: Rổ 1=${slotsPerBasket[1]}, Rổ 2=${slotsPerBasket[2]}, Rổ 3=${slotsPerBasket[3]} (Total: ${totalSlots})`);
+        console.log(`📊 Slot allocation: Nhóm 1=${slotsPerBasket[1]}, Nhóm 2=${slotsPerBasket[2]}, Nhóm 3=${slotsPerBasket[3]} (Total: ${totalSlots})`);
 
         // Count pending registrations per basket
         const basketCounts = { 1: 0, 2: 0, 3: 0 };
@@ -468,7 +468,7 @@ class RegistrationService {
           }
         });
 
-        console.log(`📊 Registration counts: Rổ 1=${basketCounts[1]}, Rổ 2=${basketCounts[2]}, Rổ 3=${basketCounts[3]}`);
+        console.log(`📊 Registration counts: Nhóm 1=${basketCounts[1]}, Nhóm 2=${basketCounts[2]}, Nhóm 3=${basketCounts[3]}`);
       } catch (error) {
         console.warn("⚠️ Could not check slot capacity:", error.message);
         // If error, don't mark any as full
@@ -936,10 +936,10 @@ class RegistrationService {
 
       const basket = this.determineBasket(priorityRaw, year);
       const basketName = basket === 1 ? "Chính sách" : basket === 2 ? "Tân sinh viên" : "Khóa cũ";
-      console.log(`    ➜ Basket: Rổ ${basket} (${basketName})`);
+      console.log(`    ➜ Basket: Nhóm ${basket} (${basketName})`);
 
       const weights = await this.getBasketWeights(basket);
-      console.log(`    ⚖️  Weights (Rổ ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
+      console.log(`    ⚖️  Weights (Nhóm ${basket}): Priority=${weights.w1_priority}, Year=${weights.w2_year}, GPA=${weights.w3_gpa}`);
 
       const scoreMappings = await this.getScoreMappings();
 
@@ -973,7 +973,7 @@ class RegistrationService {
         });
         aiSuggestion = this.determineAISuggestion(aiScore, basket);
         aiReasoning = JSON.stringify({
-          description: "Hệ thống tính điểm theo Rổ (mỗi rổ có trọng số riêng)",
+          description: "Hệ thống tính điểm theo Nhóm (mỗi nhóm có trọng số riêng)",
           basket,
           basket_name: basketName,
           priority_score: priorityScore,
@@ -983,7 +983,7 @@ class RegistrationService {
           final_score: aiScore,
           formula: `(${priorityScore} × ${weights.w1_priority}) + (${yearScore} × ${weights.w2_year}) + (${gpaScoreResult.score} × ${weights.w3_gpa}) = ${aiScore}`,
         });
-        console.log(`  ✨ AI Score: ${aiScore} -> ${aiSuggestion} (Rổ ${basket})`);
+        console.log(`  ✨ AI Score: ${aiScore} -> ${aiSuggestion} (Nhóm ${basket})`);
       }
     } else {
       console.log("  ⚠️  Thiếu thông tin GPA hoặc Năm học, không tính AI Score");
@@ -1280,7 +1280,7 @@ class RegistrationService {
             aiSuggestion = this.determineAISuggestion(aiScore, basket);
 
             aiReasoning = JSON.stringify({
-              description: "Hệ thống tính điểm theo Rổ (mỗi rổ có trọng số riêng)",
+              description: "Hệ thống tính điểm theo Nhóm (mỗi nhóm có trọng số riêng)",
               basket: basket,
               basket_name: basketName,
               priority_score: priorityScore,
