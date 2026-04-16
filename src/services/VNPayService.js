@@ -8,7 +8,6 @@ class VNPayService {
     this.returnUrl  = process.env.VNPAY_RETURN_URL;
   }
 
-  /** Sắp xếp object theo key tăng dần (yêu cầu của VNPay) */
   sortObject(obj) {
     return Object.keys(obj)
       .sort()
@@ -18,32 +17,20 @@ class VNPayService {
       }, {});
   }
 
-  /**
-   * Encode params theo chuẩn VNPay: encodeURIComponent + space thành +
-   * VNPay ký và verify trên chuỗi này
-   */
-  encodeParams(params) {
-    return Object.entries(params).reduce((o, [k, v]) => {
-      o[k] = encodeURIComponent(v).replace(/%20/g, "+");
-      return o;
-    }, {});
-  }
-
-  /** Loại bỏ dấu tiếng Việt — VNPay chỉ nhận ASCII cho vnp_OrderInfo */
   sanitizeOrderInfo(str) {
     return (str || "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d").replace(/Đ/g, "D")
+      .replace(/\u0111/g, "d").replace(/\u0110/g, "D")
       .replace(/[^a-zA-Z0-9 _\-.]/g, "")
       .trim()
       .substring(0, 255);
   }
 
-  /** Tạo HMAC-SHA512 từ encoded signData */
-  sign(encodedParams) {
-    const signData = Object.entries(encodedParams)
-      .map(([k, v]) => `${k}=${v}`)
+  // Ky HMAC-SHA512 theo chuan VNPay: encode value, space -> +
+  sign(rawParams) {
+    const signData = Object.entries(rawParams)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v).replace(/%20/g, "+")}`)
       .join("&");
     return crypto
       .createHmac("sha512", this.hashSecret)
@@ -51,9 +38,6 @@ class VNPayService {
       .digest("hex");
   }
 
-  /**
-   * Tạo URL thanh toán VNPay
-   */
   createPaymentUrl({ amount, txnRef, orderInfo, orderType = "other", ipAddr, bankCode, locale = "vn" }) {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
@@ -79,21 +63,22 @@ class VNPayService {
     if (bankCode) params.vnp_BankCode = bankCode;
 
     params = this.sortObject(params);
-    const encoded = this.encodeParams(params);
-    const secureHash = this.sign(encoded);
 
-    // URL = encoded query string + hash (không encode hash)
-    const queryString = Object.entries(encoded)
-      .map(([k, v]) => `${k}=${v}`)
+    const signData = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&");
+    console.log("[VNPay create] signData:", signData);
+    console.log("[VNPay create] hashSecret:", this.hashSecret);
+
+    const secureHash = this.sign(params);
+    console.log("[VNPay create] secureHash:", secureHash);
+
+    const queryString = Object.entries(params)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v).replace(/%20/g, "+")}`)
       .join("&");
 
     return `${this.vnpUrl}?${queryString}&vnp_SecureHash=${secureHash}`;
   }
 
-  /**
-   * Verify chữ ký từ VNPay callback (IPN / ReturnURL)
-   * req.query đã được Express decode — cần encode lại để verify đúng
-   */
+  // Verify chu ky tu VNPay callback — req.query da duoc Express decode
   verifySignature(vnpParams) {
     const params = { ...vnpParams };
     const receivedHash = params["vnp_SecureHash"];
@@ -102,8 +87,14 @@ class VNPayService {
     delete params["vnp_SecureHashType"];
 
     const sorted = this.sortObject(params);
-    const encoded = this.encodeParams(sorted);
-    const expectedHash = this.sign(encoded);
+
+    const signData = Object.entries(sorted).map(([k, v]) => `${k}=${v}`).join("&");
+    console.log("[VNPay verify] signData:", signData);
+    console.log("[VNPay verify] receivedHash:", receivedHash);
+
+    const expectedHash = this.sign(sorted);
+    console.log("[VNPay verify] expectedHash:", expectedHash);
+    console.log("[VNPay verify] match:", receivedHash === expectedHash);
 
     return {
       valid: receivedHash === expectedHash,
