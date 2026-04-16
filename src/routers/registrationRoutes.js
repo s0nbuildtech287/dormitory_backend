@@ -49,6 +49,9 @@ router.post('/:id/approve', requireAdmin, RegistrationController.approve);
 // Reject registration
 router.post('/:id/reject', requireAdmin, RegistrationController.reject);
 
+// Validate images (Vision API)
+router.post('/:id/validate-images', requireAdmin, RegistrationController.validateImages);
+
 // Delete registration
 router.delete('/:id', requireAdmin, RegistrationController.delete);
 

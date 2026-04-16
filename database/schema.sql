@@ -214,7 +214,10 @@ CREATE TABLE register_forms (
     ai_suggestion ai_suggestion_type,        -- Gợi ý xét duyệt: Nên duyệt / Cân nhắc / Không ưu tiên
     ai_score INTEGER,                         -- Điểm xét duyệt (0-100)
     ai_reasoning JSONB,                       -- Chi tiết tính điểm xét duyệt
-    evidence_images JSONB,                    -- Ảnh minh chứng
+    evidence_images JSONB,                    -- Ảnh minh chứng (mảng URL)
+    vision_status VARCHAR(20) DEFAULT 'PENDING', -- Trạng thái xác thực ảnh: PENDING/VALID/SUSPECT/INVALID/ERROR
+    vision_score DECIMAL(4,3),               -- Điểm tin cậy tổng hợp (0.0 - 1.0)
+    vision_reasons JSONB,                    -- Mảng lý do phân loại ảnh
     note TEXT,                                -- Ghi chú admin
     reviewed_by VARCHAR(50),
     reviewed_at TIMESTAMP,

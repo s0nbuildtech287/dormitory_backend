@@ -1,6 +1,7 @@
 ﻿const RegistrationService = require('../services/RegistrationService');
 const upload = require('../middlewares/upload');
 const GoogleSheetsService = require('../services/GoogleSheetsService');
+const ImageValidatorService = require('../services/ImageValidatorService');
 const { SERVICE_ACCOUNT_EMAILS } = GoogleSheetsService;
 
 class RegistrationController {
@@ -356,6 +357,40 @@ class RegistrationController {
             res.json({
                 success: true,
                 data: SERVICE_ACCOUNT_EMAILS
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/registrations/:id/validate-images
+     * Kích hoạt xác thực lại ảnh minh chứng cho một hồ sơ
+     */
+    async validateImages(req, res, next) {
+        try {
+            const { id } = req.params;
+            const adminId = req.user?.userId || 'system';
+
+            // Reset về PENDING trước
+            const RegisterFormDAO = require('../dao/RegisterFormDAO');
+            await RegisterFormDAO.update(id, { vision_status: 'PENDING' });
+
+            // Chạy validation (await để trả kết quả ngay)
+            const result = await ImageValidatorService.validateRegistrationImages(id, adminId);
+
+            if (!result) {
+                return res.json({
+                    success: true,
+                    message: 'Hồ sơ không có ảnh minh chứng hoặc Vision API đang tắt',
+                    data: null,
+                });
+            }
+
+            res.json({
+                success: true,
+                message: `Xác thực hoàn tất: ${result.vision_status}`,
+                data: result,
             });
         } catch (error) {
             next(error);

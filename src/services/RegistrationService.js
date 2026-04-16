@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const xlsx = require("xlsx");
 const { emitAdminAlert } = require("../socket.js");
 const GoogleSheetsService = require("./GoogleSheetsService");
+const ImageValidatorService = require("./ImageValidatorService");
 
 class RegistrationService {
   /**
@@ -1181,6 +1182,16 @@ class RegistrationService {
       console.log(`\n✅ HOÀN TẤT: Import ${registrations.length} hồ sơ từ Sheets thành công!`);
       if (errors.length > 0) console.log(`❌ Có ${errors.length} lỗi:`, errors);
 
+      // ===== TRIGGER VISION VALIDATION ASYNC =====
+      const idsToValidate = registrations.map((r) => r.id).filter(Boolean);
+      if (idsToValidate.length > 0) {
+        console.log(`🔍 Bắt đầu xác thực ảnh async cho ${idsToValidate.length} hồ sơ...`);
+        // Không await - chạy nền, không block response
+        ImageValidatorService.validateBatch(idsToValidate, adminId).catch((err) =>
+          console.error('❌ validateBatch error:', err.message)
+        );
+      }
+
       return {
         success: registrations.length,
         failed: errors.length,
@@ -1188,6 +1199,7 @@ class RegistrationService {
         errors,
         warnings,
         source: "google_sheets",
+        visionValidation: idsToValidate.length > 0 ? "processing" : "skipped",
       };
     } catch (error) {
       console.error("❌ LỖI NGHIÊM TRỌNG (Sheets):", error.message);
