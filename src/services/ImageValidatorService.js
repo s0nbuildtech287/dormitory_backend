@@ -66,10 +66,22 @@ async function validateRegistrationImages(registrationId, adminId = 'system') {
       let result;
 
       try {
-        const { buffer } = await DriveService.downloadImage(url);
-        result = await VisionService.validateImageBuffer(buffer);
-        result.url = url;
-        result.fileId = fileId;
+        const downloaded = await DriveService.downloadImage(url);
+
+        // Định dạng không hỗ trợ → đánh SUSPECT ngay
+        if (downloaded.unsupported) {
+          result = {
+            url,
+            fileId,
+            status: 'SUSPECT',
+            vision_score: 0.1,
+            vision_reasons: [downloaded.reason],
+          };
+        } else {
+          result = await VisionService.validateImageBuffer(downloaded.buffer);
+          result.url = url;
+          result.fileId = fileId;
+        }
       } catch (err) {
         console.warn(`⚠️  Lỗi xử lý ảnh ${url}: ${err.message}`);
         result = {

@@ -94,6 +94,28 @@ async function downloadImage(driveUrl) {
     throw new Error(`IMAGE_TOO_LARGE: File ${metadata.name} vượt quá 20MB (${(fileSize / 1024 / 1024).toFixed(1)}MB)`);
   }
 
+  // Chỉ chấp nhận ảnh và PDF — định dạng khác → trả về SUSPECT thay vì lỗi
+  const ALLOWED_MIME = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+    'image/bmp', 'image/tiff', 'image/gif', 'application/pdf',
+  ];
+  const mime = (metadata.mimeType || '').toLowerCase();
+  const isAllowed = ALLOWED_MIME.some(m => mime.includes(m.split('/')[1]));
+  const isSvgOrVector = mime.includes('svg') || mime.includes('vector');
+
+  if (!isAllowed || isSvgOrVector) {
+    // Không throw — trả về object đặc biệt để ImageValidatorService xử lý thành SUSPECT
+    return {
+      buffer: null,
+      mimeType: metadata.mimeType,
+      fileId,
+      unsupported: true,
+      reason: isSvgOrVector
+        ? `Định dạng SVG/vector không hỗ trợ — có thể là ảnh giả`
+        : `Định dạng "${metadata.mimeType}" không phải ảnh thực tế`,
+    };
+  }
+
   // Tải file về
   const response = await drive.files.get(
     { fileId, alt: 'media' },
