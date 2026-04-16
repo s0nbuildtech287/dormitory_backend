@@ -65,11 +65,20 @@ const EXPECTED_KEYWORDS = [
 
 // Nhãn Vision API cho thấy ảnh là giấy tờ hợp lệ
 const VALID_LABELS = [
-  'document', 'identity document', 'card', 'text', 'paper',
-  'certificate', 'receipt', 'font', 'number', 'brand',
-  'passport', 'license', 'form', 'invoice',
-  'official document', 'government', 'id card', 'driving license',
-  'paper document', 'handwriting', 'writing', 'letter',
+  // Giấy tờ cơ bản
+  'document', 'paper document', 'official document', 'paper', 'text',
+  // Thẻ / chứng minh
+  'identity document', 'id card', 'card', 'passport', 'driving license',
+  // Chứng nhận / giấy tờ hành chính
+  'certificate', 'license', 'form', 'receipt', 'invoice', 'letter',
+  // Chữ viết / in
+  'font', 'handwriting', 'writing', 'number', 'brand',
+  // Chính phủ / hành chính
+  'government', 'government document', 'legal document',
+  // Scan / chụp tài liệu
+  'scan', 'photocopy', 'printed',
+  // Phong bì / thư từ hành chính
+  'envelope', 'mail',
 ];
 
 // Nhãn Vision API cho thấy ảnh KHÔNG phải giấy tờ
@@ -122,10 +131,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // CORE: GỌI VISION API VỚI RETRY
 // ============================================================
 
-async function callVisionAPI(imageBuffer) {
+async function callVisionAPI(imageSource) {
   const client = getVisionClient();
+
+  // imageSource có thể là Buffer hoặc URL string
+  const image = typeof imageSource === 'string'
+    ? { source: { imageUri: imageSource } }
+    : { content: imageSource.toString('base64') };
+
   const request = {
-    image: { content: imageBuffer.toString('base64') },
+    image,
     features: [
       { type: 'TEXT_DETECTION' },
       { type: 'LABEL_DETECTION', maxResults: 20 },
