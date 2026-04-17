@@ -132,19 +132,25 @@ class RoomDAO extends BaseDAO {
      * Get room statistics
      */
     async getStatistics() {
+        // Trả về 1 row tổng hợp toàn bộ
         const query = `
             SELECT 
-                building,
-                gender_type,
                 COUNT(*) as total_rooms,
                 SUM(capacity) as total_capacity,
                 SUM(current_occupancy) as total_occupancy,
-                ROUND(SUM(current_occupancy) / SUM(capacity) * 100, 2) as occupancy_rate
+                COUNT(CASE WHEN current_occupancy > 0 THEN 1 END) as occupied_rooms,
+                COUNT(CASE WHEN current_occupancy = 0 THEN 1 END) as empty_rooms,
+                COUNT(CASE WHEN current_occupancy < capacity THEN 1 END) as available_rooms,
+                ROUND(
+                    CASE WHEN SUM(capacity) > 0 
+                    THEN SUM(current_occupancy)::numeric / SUM(capacity) * 100 
+                    ELSE 0 END, 1
+                ) as occupancy_rate
             FROM ${this.tableName}
             WHERE status = 'Active'
-            GROUP BY building, gender_type
         `;
-        return this.executeQuery(query);
+        const result = await this.executeQuery(query);
+        return result[0] || {};
     }
 
     /**

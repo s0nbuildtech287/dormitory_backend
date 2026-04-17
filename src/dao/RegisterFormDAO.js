@@ -77,7 +77,6 @@ class RegisterFormDAO extends BaseDAO {
             SELECT 
                 status,
                 COUNT(*) as count,
-                ai_suggestion,
                 COUNT(CASE WHEN ai_suggestion = 'Nên duyệt' THEN 1 END) as recommended_count,
                 COUNT(CASE WHEN ai_suggestion = 'Cân nhắc' THEN 1 END) as consider_count,
                 COUNT(CASE WHEN ai_suggestion = 'Không ưu tiên' THEN 1 END) as low_priority_count
