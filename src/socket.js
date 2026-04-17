@@ -54,10 +54,14 @@ function initSocket(httpServer) {
             socket.join("students");
         }
 
-        console.log(`[WS] Connected: ${userId} (${role})`);
+        const adminRoom = io.sockets.adapter.rooms.get("admins");
+        const studentRoom = io.sockets.adapter.rooms.get("students");
+        const adminCount = adminRoom ? adminRoom.size : 0;
+        const studentCount = studentRoom ? studentRoom.size : 0;
+        console.log(`[WS] Connected: ${userId} (${role}) | online: ${adminCount} admin, ${studentCount} student`);
 
         socket.on("disconnect", () => {
-            console.log(`[WS] Disconnected: ${userId}`);
+            console.log(`[WS] Disconnected: ${userId} (${role})`);
         });
     });
 
@@ -111,8 +115,40 @@ function emitNotification(notification) {
  * @param {Object} data
  */
 function emitAdminAlert(type, data) {
-    if (!io) return;
+    if (!io) {
+        console.warn('[WS] emitAdminAlert: io chưa khởi tạo, bỏ qua emit');
+        return;
+    }
+    const adminRoom = io.sockets.adapter.rooms.get('admins');
+    console.log(`[WS] emitAdminAlert type=${type} | admins online: ${adminRoom ? adminRoom.size : 0}`);
     io.to("admins").emit("admin_alert", { type, data, timestamp: new Date().toISOString() });
 }
 
-module.exports = { initSocket, getIO, emitNotification, emitAdminAlert };
+/**
+ * Gửi cảnh báo phản ánh nghiêm trọng đến tất cả admin đang online
+ * Emit khi priority = 'High' hoặc (sentiment = 'Negative' && sentiment_score >= 0.8)
+ * @param {Object} payload - { feedbackId, summary, sentiment, priority, emotion }
+ */
+function emitHighPriorityAlert(payload) {
+    if (!io) return;
+
+    const { feedbackId, summary, sentiment, priority, emotion } = payload;
+    const eventPayload = {
+        feedbackId,
+        summary,
+        sentiment,
+        priority,
+        emotion,
+        timestamp: new Date().toISOString(),
+    };
+
+    // Kiểm tra có admin nào đang online không (Requirement 8.4)
+    const adminRoom = io.sockets.adapter.rooms.get("admins");
+    if (!adminRoom || adminRoom.size === 0) {
+        console.log(`[WS] high_priority_feedback emitted but no admin online — feedbackId: ${feedbackId}`);
+    }
+
+    io.to("admins").emit("high_priority_feedback", eventPayload);
+}
+
+module.exports = { initSocket, getIO, emitNotification, emitAdminAlert, emitHighPriorityAlert };

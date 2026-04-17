@@ -1,6 +1,17 @@
 const FeedbackDAO = require('../dao/FeedbackDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
 const { emitAdminAlert } = require('../socket.js');
+const { analyzeFeedback } = require('./openaiService');
+
+/**
+ * Kiểm tra ngưỡng cảnh báo AI
+ * @param {{ priority: string, sentiment: string, sentiment_score: number }} result
+ * @returns {boolean}
+ */
+function shouldAlert(result) {
+    return result.priority === 'High' ||
+           (result.sentiment === 'Negative' && result.sentiment_score >= 0.8);
+}
 
 class FeedbackService {
     /**
@@ -59,6 +70,23 @@ class FeedbackService {
                 id:       feedbackId,
                 category: data.category || 'Khác',
                 content:  (data.content || '').substring(0, 100),
+            });
+
+            // Fire-and-forget AI analysis — không await, không block response sinh viên
+            setImmediate(() => {
+                analyzeFeedback(feedbackId, data.content)
+                    .then(result => {
+                        if (result) {
+                            FeedbackDAO.updateAIResult(feedbackId, result);
+                            // Kiểm tra emitHighPriorityAlert tại runtime (có thể được thêm sau)
+                            const socketModule = require('../socket.js');
+                            const alertFn = socketModule.emitHighPriorityAlert;
+                            if (shouldAlert(result) && typeof alertFn === 'function') {
+                                alertFn({ feedbackId, ...result });
+                            }
+                        }
+                    })
+                    .catch(err => console.error('[AI] analyzeFeedback error:', err.message));
             });
 
             return feedback;
@@ -126,6 +154,17 @@ class FeedbackService {
             return await FeedbackDAO.getPendingCount();
         } catch (error) {
             throw new Error(`Get pending count failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get AI statistics: sentiment distribution, top emotions, high priority unresolved
+     */
+    async getAIStatistics() {
+        try {
+            return await FeedbackDAO.getAIStatistics();
+        } catch (error) {
+            throw new Error(`Get AI statistics failed: ${error.message}`);
         }
     }
 

@@ -1,5 +1,7 @@
 // src/controllers/AiController.js
 const openaiService = require('../services/openaiService');
+const FeedbackDAO = require('../dao/FeedbackDAO');
+const { analyzeFeedback } = openaiService;
 
 const SYSTEM_PROMPT = `Bạn là trợ lý ảo của Ký túc xá Đại học Thủy Lợi, tên là "Trợ lý KTX TLU". Nhiệm vụ của bạn là hỗ trợ sinh viên giải đáp thắc mắc về mọi vấn đề liên quan đến ký túc xá.
 
@@ -110,4 +112,50 @@ async function chat(req, res) {
   }
 }
 
-module.exports = { getModels, chat };
+/**
+ * POST /api/ai/analyze-feedback
+ * Body: { feedbackId }
+ * Auth: ADMIN only
+ * Re-analyze a feedback with AI and overwrite previous AI result
+ */
+async function analyzeFeedbackEndpoint(req, res) {
+  try {
+    const { feedbackId } = req.body;
+
+    if (!feedbackId) {
+      return res.status(400).json({
+        success: false,
+        message: 'feedbackId là bắt buộc',
+      });
+    }
+
+    const feedback = await FeedbackDAO.findById(feedbackId);
+    if (!feedback) {
+      return res.status(404).json({
+        success: false,
+        message: `Không tìm thấy phản ánh với id: ${feedbackId}`,
+      });
+    }
+
+    const result = await analyzeFeedback(feedbackId, feedback.content);
+    if (!result) {
+      return res.status(500).json({
+        success: false,
+        message: 'Phân tích AI thất bại, vui lòng thử lại sau',
+      });
+    }
+
+    await FeedbackDAO.updateAIResult(feedbackId, result);
+
+    return res.json({
+      success: true,
+      message: 'Phân tích AI thành công',
+      data: result,
+    });
+  } catch (err) {
+    console.error('[AI] analyzeFeedbackEndpoint:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+module.exports = { getModels, chat, analyzeFeedbackEndpoint };

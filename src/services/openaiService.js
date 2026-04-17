@@ -50,7 +50,6 @@ async function getAvailableModels() {
     console.log('[MODELS] OpenAI tra ve ' + all.length + ' models tong');
 
     const filtered = all.filter((m) => isChatModel(m.id));
-    console.log('[MODELS] Sau filter chat models: ' + filtered.length + ' -', filtered.map((m) => m.id).join(', '));
 
     const models = filtered
       .sort((a, b) => (b.created || 0) - (a.created || 0))
@@ -159,4 +158,101 @@ async function createChatCompletion(messages, model, userId) {
   };
 }
 
-module.exports = { getAvailableModels, getDefaultModel, isValidModel, createChatCompletion };
+// ── Sentiment Analysis ────────────────────────────────────────────────────────
+const VALID_SENTIMENTS = ['Positive', 'Neutral', 'Negative'];
+const VALID_PRIORITIES = ['High', 'Medium', 'Low'];
+
+const ANALYZE_FEEDBACK_PROMPT = `Bạn là hệ thống phân tích cảm xúc phản ánh của sinh viên ký túc xá.
+Hãy phân tích nội dung phản ánh sau và trả về JSON với đúng cấu trúc sau:
+{
+  "sentiment": "Positive" | "Neutral" | "Negative",
+  "sentiment_score": <số thực 0.0 đến 1.0, mức độ tin cậy>,
+  "priority": "High" | "Medium" | "Low",
+  "suggested_category": "<danh mục gợi ý bằng tiếng Việt>",
+  "summary": "<tóm tắt 1 câu ngắn gọn bằng tiếng Việt>",
+  "keywords": ["<từ khóa 1>", "<từ khóa 2>", ...],
+  "emotion": "<cảm xúc cụ thể bằng tiếng Việt, ví dụ: tức giận, lo lắng, hài lòng>"
+}
+
+Quy tắc xác định priority:
+- High: phản ánh khẩn cấp, ảnh hưởng sức khỏe/an toàn, hoặc sentiment Negative với điểm cao
+- Medium: phản ánh cần xử lý trong thời gian hợp lý
+- Low: phản ánh thông thường, góp ý nhỏ
+
+Chỉ trả về JSON, không có text thêm.`;
+
+/**
+ * Phân tích cảm xúc phản ánh bằng OpenAI
+ * @param {string} feedbackId
+ * @param {string} content - Nội dung phản ánh
+ * @returns {Promise<AI_Result|null>} null nếu lỗi
+ */
+async function analyzeFeedback(feedbackId, content) {
+  try {
+    const response = await openai.chat.completions.create(
+      {
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: ANALYZE_FEEDBACK_PROMPT },
+          { role: 'user', content: `Nội dung phản ánh:\n${content}` },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_completion_tokens: 500,
+      },
+      { signal: AbortSignal.timeout(30000) }
+    );
+
+    const raw = response.choices[0]?.message?.content;
+    if (!raw) {
+      console.warn(`[AI SENTIMENT] feedbackId=${feedbackId}: Không có content trong response`);
+      return null;
+    }
+
+    let result;
+    try {
+      result = JSON.parse(raw);
+    } catch (parseErr) {
+      console.warn(`[AI SENTIMENT] feedbackId=${feedbackId}: JSON parse lỗi - ${parseErr.message}`);
+      return null;
+    }
+
+    // Validate sentiment
+    if (!VALID_SENTIMENTS.includes(result.sentiment)) {
+      console.warn(`[AI SENTIMENT] feedbackId=${feedbackId}: sentiment không hợp lệ - "${result.sentiment}"`);
+      return null;
+    }
+
+    // Validate priority (nếu thiếu thì dùng Medium)
+    if (!VALID_PRIORITIES.includes(result.priority)) {
+      result.priority = 'Medium';
+    }
+
+    // Validate sentiment_score
+    if (typeof result.sentiment_score !== 'number' || result.sentiment_score < 0 || result.sentiment_score > 1) {
+      result.sentiment_score = 0.5;
+    }
+
+    // Đảm bảo keywords là mảng
+    if (!Array.isArray(result.keywords)) {
+      result.keywords = [];
+    }
+
+    console.log(`[AI SENTIMENT] feedbackId=${feedbackId}: ${result.sentiment} (score=${result.sentiment_score}, priority=${result.priority})`);
+
+    return {
+      sentiment: result.sentiment,
+      sentiment_score: result.sentiment_score,
+      priority: result.priority,
+      suggested_category: result.suggested_category || '',
+      summary: result.summary || '',
+      keywords: result.keywords,
+      emotion: result.emotion || '',
+    };
+  } catch (err) {
+    console.error(`[AI SENTIMENT] feedbackId=${feedbackId}: Lỗi - ${err.message}`);
+    return null;
+  }
+}
+
+module.exports = { getAvailableModels, getDefaultModel, isValidModel, createChatCompletion, analyzeFeedback };

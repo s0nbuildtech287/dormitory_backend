@@ -64,6 +64,11 @@ class FeedbackDAO extends BaseDAO {
             values.push(filters.sentiment);
         }
 
+        if (filters.priority) {
+            query += ` AND f.priority = $${p++}`;
+            values.push(filters.priority);
+        }
+
         if (filters.searchTerm) {
             query += ` AND (f.content ILIKE $${p} OR u.full_name ILIKE $${p} OR rf.student_id ILIKE $${p})`;
             values.push(`%${filters.searchTerm}%`);
@@ -95,6 +100,72 @@ class FeedbackDAO extends BaseDAO {
         }
 
         return this.update(feedbackId, data);
+    }
+
+    /**
+     * Update AI analysis result for a feedback
+     * @param {string} feedbackId - The feedback ID
+     * @param {Object} aiResult - AI analysis result
+     */
+    async updateAIResult(feedbackId, aiResult) {
+        const query = `
+            UPDATE ${this.tableName}
+            SET
+                sentiment = $1,
+                sentiment_score = $2,
+                priority = $3,
+                ai_summary = $4,
+                keywords = $5,
+                emotion = $6,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $7
+        `;
+        const values = [
+            aiResult.sentiment,
+            aiResult.sentiment_score,
+            aiResult.priority,
+            aiResult.ai_summary ?? aiResult.summary ?? null,
+            aiResult.keywords,
+            aiResult.emotion,
+            feedbackId,
+        ];
+        const result = await this.executeQuery(query, values);
+        return result;
+    }
+
+    /**
+     * Get AI-related statistics
+     * @returns {{ sentimentDistribution, topEmotions, highPriorityUnresolved }}
+     */
+    async getAIStatistics() {
+        const [sentimentDistribution, topEmotions, highPriorityUnresolved] = await Promise.all([
+            this.executeQuery(
+                `SELECT sentiment, COUNT(*) as count
+                 FROM ${this.tableName}
+                 WHERE sentiment IS NOT NULL
+                 GROUP BY sentiment`,
+                []
+            ),
+            this.executeQuery(
+                `SELECT emotion, COUNT(*) as count
+                 FROM ${this.tableName}
+                 WHERE emotion IS NOT NULL
+                 GROUP BY emotion
+                 ORDER BY count DESC
+                 LIMIT 5`,
+                []
+            ),
+            this.executeQuery(
+                `SELECT *
+                 FROM ${this.tableName}
+                 WHERE priority = 'High' AND status = 'New'
+                 ORDER BY created_at DESC
+                 LIMIT 10`,
+                []
+            ),
+        ]);
+
+        return { sentimentDistribution, topEmotions, highPriorityUnresolved };
     }
 
     /**

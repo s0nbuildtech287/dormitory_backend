@@ -12,6 +12,9 @@ router.get('/', FeedbackController.getAll);
 // Get statistics
 router.get('/statistics', requireAdmin, FeedbackController.getStatistics);
 
+// Get AI statistics
+router.get('/ai-statistics', requireAdmin, FeedbackController.getAIStatistics);
+
 // Get pending count
 router.get('/pending-count', requireAdmin, FeedbackController.getPendingCount);
 

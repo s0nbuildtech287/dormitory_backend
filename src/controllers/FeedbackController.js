@@ -10,6 +10,7 @@ class FeedbackController {
                 status: req.query.status,
                 category: req.query.category,
                 sentiment: req.query.sentiment,
+                priority: req.query.priority,
                 searchTerm: req.query.search,
                 limit: req.query.limit ? parseInt(req.query.limit) : null
             };
@@ -162,6 +163,21 @@ class FeedbackController {
             res.json({
                 success: true,
                 data: { count }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Get AI statistics (sentiment distribution, top emotions, high priority unresolved)
+     */
+    async getAIStatistics(req, res, next) {
+        try {
+            const statistics = await FeedbackService.getAIStatistics();
+            res.json({
+                success: true,
+                data: statistics
             });
         } catch (error) {
             next(error);

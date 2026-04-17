@@ -432,6 +432,11 @@ CREATE TABLE feedbacks (
     content TEXT NOT NULL,
     images JSONB,                             -- Tối ưu: Hình ảnh minh chứng
     sentiment feedback_sentiment,
+    sentiment_score FLOAT,
+    priority VARCHAR(10) DEFAULT 'Medium',
+    ai_summary TEXT,
+    keywords TEXT[],
+    emotion VARCHAR(50),
     status feedback_status DEFAULT 'New',
     admin_response TEXT,
     resolved_by VARCHAR(50),
@@ -447,6 +452,7 @@ CREATE INDEX idx_feedbacks_user_id ON feedbacks(user_id);
 CREATE INDEX idx_feedbacks_status ON feedbacks(status);
 CREATE INDEX idx_feedbacks_created_at ON feedbacks(created_at);
 CREATE INDEX idx_feedbacks_category ON feedbacks(category);
+CREATE INDEX idx_feedbacks_priority ON feedbacks(priority);
 
 -- ============================================================================
 -- BƯỚC 11: TẠO BẢNG ASSETS TỐI ƯU (GỘP CATEGORY)

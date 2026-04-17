@@ -16,6 +16,7 @@
  */
 
 const StudentDAO = require('../dao/StudentDAO');
+const FeedbackService = require('../services/FeedbackService');
 const db = require('../config/database');
 
 class StudentController {
@@ -148,7 +149,7 @@ class StudentController {
                 return res.status(400).json({ success: false, message: 'Nội dung phản hồi không được để trống' });
             }
 
-            const feedback = await StudentDAO.createFeedback(req.body, userId);
+            const feedback = await FeedbackService.createFeedback(req.body, userId, req);
             res.status(201).json({ success: true, message: 'Gửi phản hồi thành công', data: feedback });
         } catch (error) {
             next(error);
