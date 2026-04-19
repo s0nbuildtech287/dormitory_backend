@@ -42,6 +42,7 @@ router.get('/notifications', StudentController.getNotifications);
 // ── Phản hồi ───────────────────────────────────────────────────────────────
 router.get('/feedbacks', StudentController.getFeedbacks);
 router.post('/feedbacks', StudentController.createFeedback);
+router.delete('/feedbacks/:id', StudentController.deleteFeedback);
 
 // ── Kỷ luật ────────────────────────────────────────────────────────────────
 router.get('/disciplinary', StudentController.getDisciplinaryRecords);

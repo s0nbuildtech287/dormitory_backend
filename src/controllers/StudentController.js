@@ -156,6 +156,19 @@ class StudentController {
         }
     }
 
+    async deleteFeedback(req, res, next) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return res.status(401).json({ success: false, message: 'Không xác thực được người dùng' });
+            }
+            await FeedbackService.deleteFeedback(req.params.id, userId, req);
+            res.json({ success: true, message: 'Xóa phản ánh thành công' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // KỶ LUẬT
     // ─────────────────────────────────────────────────────────────────────────
