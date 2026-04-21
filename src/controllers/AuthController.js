@@ -146,6 +146,61 @@ class AuthController {
     }
 
     /**
+     * Forgot password - send OTP to email
+     */
+    async forgotPassword(req, res, next) {
+        try {
+            const { email } = req.body;
+            if (!email) return res.status(400).json({ success: false, message: 'Email là bắt buộc!' });
+
+            const UserDAO = require('../dao/UserDAO');
+            const user = await UserDAO.findByEmail(email);
+            if (!user) return res.status(404).json({ success: false, message: 'Email không tồn tại trong hệ thống!' });
+
+            const otpStore = require('../untils/otpStore');
+            const EmailService = require('../services/EmailService');
+
+            const code = otpStore.set(email);
+            await EmailService.sendOtp(email, code);
+
+            res.json({ success: true, message: `Mã OTP đã được gửi đến ${email}` });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Reset password - verify OTP then update password
+     */
+    async resetPassword(req, res, next) {
+        try {
+            const { email, code, newPassword } = req.body;
+            if (!email || !code || !newPassword) {
+                return res.status(400).json({ success: false, message: 'Email, mã OTP và mật khẩu mới là bắt buộc!' });
+            }
+
+            const otpStore = require('../untils/otpStore');
+            const isValid = otpStore.verify(email, code);
+            if (!isValid) return res.status(400).json({ success: false, message: 'Mã OTP không đúng hoặc đã hết hạn!' });
+
+            const UserDAO = require('../dao/UserDAO');
+            const bcrypt = require('bcryptjs');
+            const user = await UserDAO.findByEmail(email);
+            if (!user) return res.status(404).json({ success: false, message: 'Người dùng không tồn tại!' });
+
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            await UserDAO.update(user.id, { password: hashedPassword });
+
+            const LogSystemDAO = require('../dao/LogSystemDAO');
+            await LogSystemDAO.log(user.id, 'RESET_PASSWORD', 'users', user.id, null, { action: 'password_reset' }, req);
+
+            res.json({ success: true, message: 'Đặt lại mật khẩu thành công!' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Change password
      */
     async changePassword(req, res, next) {
