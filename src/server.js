@@ -68,6 +68,7 @@ const studentRoutes = require("./routers/studentRoutes");
 const emailRoutes = require("./routers/emailRoutes");
 const vnpayRoutes = require("./routers/vnpayRoutes");
 const aiRoutes = require("./routers/aiRoutes");
+const newsRoutes = require("./routers/newsRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/registrations", registrationRoutes);
@@ -83,6 +84,7 @@ app.use("/api/student", studentRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/vnpay", vnpayRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/news", newsRoutes);
 
 // 404 handler (must come after all routes)
 const { errorHandler, notFound } = require("./middlewares/errorHandler");
