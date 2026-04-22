@@ -76,6 +76,42 @@ async function scrapeOnePage(url, category, tag) {
 
     // TLU dùng Flatsome WordPress theme
     // Cấu trúc: .post-item > .box > .box-image (img) + .box-text (h5 > a, p)
+
+    /**
+     * Extract ngày từ text mô tả — TLU nhúng ngày trực tiếp trong description
+     * VD: "Chiều ngày 20/4/2026...", "Ngày 19/4/2026...", "Sáng 17/4/2026..."
+     */
+    const extractDateFromText = (text) => {
+      if (!text) return null;
+      const currentYear = new Date().getFullYear();
+
+      // Pattern 1: DD/MM/YYYY hoặc D/M/YYYY  (đầy đủ năm)
+      const m1 = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m1) {
+        const [, d, mo, y] = m1;
+        return `${d.padStart(2,"0")}/${mo.padStart(2,"0")}/${y}`;
+      }
+      // Pattern 2: DD-MM-YYYY
+      const m2 = text.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
+      if (m2) {
+        const [, d, mo, y] = m2;
+        return `${d.padStart(2,"0")}/${mo.padStart(2,"0")}/${y}`;
+      }
+      // Pattern 3: DD/MM không có năm → gán năm hiện tại
+      const m3 = text.match(/(\d{1,2})\/(\d{1,2})(?!\/\d)/);
+      if (m3) {
+        const [, d, mo] = m3;
+        return `${d.padStart(2,"0")}/${mo.padStart(2,"0")}/${currentYear}`;
+      }
+      // Pattern 4: DD-M không có năm  VD: "19-4"
+      const m4 = text.match(/\b(\d{1,2})-(\d{1,2})\b/);
+      if (m4) {
+        const [, d, mo] = m4;
+        return `${d.padStart(2,"0")}/${mo.padStart(2,"0")}/${currentYear}`;
+      }
+      return null;
+    };
+
     $(".post-item").each((i, el) => {
       const $item = $(el);
 
@@ -96,6 +132,9 @@ async function scrapeOnePage(url, category, tag) {
       const description = $item.find("p").first().text().trim().substring(0, 200)
         || "Xem chi tiết bài viết tại trang TLU.";
 
+      // Ngày đăng — extract từ text mô tả bằng regex
+      const publishedAt = extractDateFromText(description);
+
       articles.push({
         title,
         url: link,
@@ -103,7 +142,7 @@ async function scrapeOnePage(url, category, tag) {
         thumbnail,
         category,
         tag,
-        publishedAt: null,
+        publishedAt,
       });
     });
 
@@ -124,7 +163,8 @@ async function scrapeOnePage(url, category, tag) {
         const description = $parent.next("p, div").text().trim().substring(0, 200)
           || "Xem chi tiết bài viết tại trang TLU.";
 
-        articles.push({ title, url: link, description, thumbnail, category, tag, publishedAt: null });
+        const publishedAt = extractDateFromText(description);
+        articles.push({ title, url: link, description, thumbnail, category, tag, publishedAt });
       });
     }
 
