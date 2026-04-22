@@ -56,44 +56,77 @@ async function scrapeOnePage(url, category, tag) {
     const $ = cheerio.load(response.data);
     const articles = [];
 
-    // TLU dùng WordPress — mỗi bài trong <article> hoặc tiêu đề trong <h2>/<h3>/<h5> có <a>
-    // Phân tích: tiêu đề nằm trong h2, h3, h4, h5 > a; mô tả là paragraph kế tiếp
-    $("h2 a, h3 a, h4 a, h5 a").each((i, el) => {
-      const $el = $(el);
-      const title = $el.text().trim();
-      const link = $el.attr("href");
+    /**
+     * Lấy URL ảnh từ thẻ img — ưu tiên data-src (lazy load) trước src
+     * TLU dùng Flatsome theme với lazy loading
+     */
+    const getImgSrc = ($img) => {
+      const src =
+        $img.attr("data-src") ||
+        $img.attr("data-lazy-src") ||
+        $img.attr("data-original") ||
+        $img.attr("src") ||
+        "";
+      // Nếu là URL tương đối → chuyển thành tuyệt đối
+      if (src && src.startsWith("/")) return "https://tlu.edu.vn" + src;
+      // Bỏ qua placeholder base64 hoặc ảnh svg/gif 1x1
+      if (src.startsWith("data:") || src.includes("placeholder")) return "";
+      return src;
+    };
 
-      // Bỏ qua link menu/navbar (không phải bài tin)
+    // TLU dùng Flatsome WordPress theme
+    // Cấu trúc: .post-item > .box > .box-image (img) + .box-text (h5 > a, p)
+    $(".post-item").each((i, el) => {
+      const $item = $(el);
+
+      // Tiêu đề + link
+      const $titleLink = $item.find(".post-title a, h5 a, h4 a, h3 a, h2 a").first();
+      const title = $titleLink.text().trim();
+      const link = $titleLink.attr("href");
+
       if (!title || !link) return;
-      if (title.length < 10) return; // Bỏ tiêu đề quá ngắn (menu items)
-      if (!link.startsWith("https://tlu.edu.vn/")) return; // Chỉ lấy link nội bộ TLU
+      if (title.length < 10) return;
+      if (!link.startsWith("https://tlu.edu.vn/")) return;
 
-      // Lấy mô tả từ phần tử kế tiếp
-      const $parent = $el.closest("h2, h3, h4, h5");
-      let description = "";
-      const $next = $parent.next("p, div");
-      if ($next.length) {
-        description = $next.text().trim().substring(0, 200);
-      }
+      // Thumbnail — lấy từ .box-image img với ưu tiên data-src
+      const $img = $item.find(".box-image img, .post-image img, .featured-image img, img").first();
+      const thumbnail = $img.length ? getImgSrc($img) : "";
 
-      // Lấy ảnh thumbnail nếu có (trong cùng article wrapper)
-      const $article = $parent.closest("article, .post, .item, li, div[class*='post'], div[class*='item']");
-      let thumbnail = "";
-      if ($article.length) {
-        const $img = $article.find("img").first();
-        thumbnail = $img.attr("src") || $img.attr("data-src") || "";
-      }
+      // Mô tả ngắn
+      const description = $item.find("p").first().text().trim().substring(0, 200)
+        || "Xem chi tiết bài viết tại trang TLU.";
 
       articles.push({
         title,
         url: link,
-        description: description || "Xem chi tiết bài viết tại trang TLU.",
+        description,
         thumbnail,
         category,
         tag,
-        publishedAt: null, // TLU không luôn có date trong listing
+        publishedAt: null,
       });
     });
+
+    // Fallback: nếu không tìm được gì qua .post-item → dùng h5 a
+    if (articles.length === 0) {
+      $("h2 a, h3 a, h4 a, h5 a").each((i, el) => {
+        const $el = $(el);
+        const title = $el.text().trim();
+        const link = $el.attr("href");
+
+        if (!title || !link || title.length < 10) return;
+        if (!link.startsWith("https://tlu.edu.vn/")) return;
+
+        const $parent = $el.closest("h2, h3, h4, h5");
+        const $wrapper = $parent.closest("li, article, div");
+        const $img = $wrapper.find("img").first();
+        const thumbnail = $img.length ? getImgSrc($img) : "";
+        const description = $parent.next("p, div").text().trim().substring(0, 200)
+          || "Xem chi tiết bài viết tại trang TLU.";
+
+        articles.push({ title, url: link, description, thumbnail, category, tag, publishedAt: null });
+      });
+    }
 
     return articles;
   } catch (err) {
