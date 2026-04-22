@@ -1,6 +1,12 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
+const DEFAULT_NEWS_THUMBNAIL =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Default news thumbnail"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/></linearGradient></defs><rect width="400" height="300" fill="url(#bg)"/><rect x="88" y="52" width="224" height="196" rx="16" fill="#ffffff" stroke="#93c5fd" stroke-width="4"/><rect x="116" y="92" width="110" height="12" rx="6" fill="#2563eb"/><rect x="116" y="116" width="168" height="10" rx="5" fill="#cbd5e1"/><rect x="116" y="136" width="168" height="10" rx="5" fill="#cbd5e1"/><rect x="116" y="156" width="120" height="10" rx="5" fill="#cbd5e1"/><rect x="116" y="182" width="54" height="44" rx="8" fill="#dbeafe"/><rect x="178" y="182" width="106" height="10" rx="5" fill="#cbd5e1"/><rect x="178" y="200" width="90" height="10" rx="5" fill="#cbd5e1"/><rect x="178" y="218" width="66" height="10" rx="5" fill="#cbd5e1"/></svg>`
+  );
+
 // ──────────────────────────────────────────────────────────────
 // In-memory cache — không cần database
 // ──────────────────────────────────────────────────────────────
@@ -68,10 +74,20 @@ async function scrapeOnePage(url, category, tag) {
         $img.attr("src") ||
         "";
       // Nếu là URL tương đối → chuyển thành tuyệt đối
-      if (src && src.startsWith("/")) return "https://tlu.edu.vn" + src;
+      const resolvedSrc = src && src.startsWith("/") ? `https://tlu.edu.vn${src}` : src;
+      const normalized = resolvedSrc.toLowerCase();
       // Bỏ qua placeholder base64 hoặc ảnh svg/gif 1x1
-      if (src.startsWith("data:") || src.includes("placeholder")) return "";
-      return src;
+      if (
+        resolvedSrc.startsWith("data:") ||
+        normalized.includes("placeholder") ||
+        normalized.includes("no-image") ||
+        normalized.includes("noimage") ||
+        normalized.includes("image-not-available") ||
+        normalized.includes("not-available")
+      ) {
+        return "";
+      }
+      return resolvedSrc;
     };
 
     // TLU dùng Flatsome WordPress theme
@@ -126,7 +142,7 @@ async function scrapeOnePage(url, category, tag) {
 
       // Thumbnail — lấy từ .box-image img với ưu tiên data-src
       const $img = $item.find(".box-image img, .post-image img, .featured-image img, img").first();
-      const thumbnail = $img.length ? getImgSrc($img) : "";
+      const thumbnail = ($img.length ? getImgSrc($img) : "") || DEFAULT_NEWS_THUMBNAIL;
 
       // Mô tả ngắn
       const description = $item.find("p").first().text().trim().substring(0, 200)
@@ -159,7 +175,7 @@ async function scrapeOnePage(url, category, tag) {
         const $parent = $el.closest("h2, h3, h4, h5");
         const $wrapper = $parent.closest("li, article, div");
         const $img = $wrapper.find("img").first();
-        const thumbnail = $img.length ? getImgSrc($img) : "";
+        const thumbnail = ($img.length ? getImgSrc($img) : "") || DEFAULT_NEWS_THUMBNAIL;
         const description = $parent.next("p, div").text().trim().substring(0, 200)
           || "Xem chi tiết bài viết tại trang TLU.";
 
