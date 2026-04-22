@@ -210,14 +210,14 @@ class AuthController {
             if (!oldPassword || !newPassword) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Old and new passwords are required'
+                    message: 'Mật khẩu cũ và mật khẩu mới là bắt buộc!'
                 });
             }
 
             await AuthService.changePassword(req.user.userId, oldPassword, newPassword, req);
             res.json({
                 success: true,
-                message: 'Password changed successfully'
+                message: 'Đổi mật khẩu thành công!'
             });
         } catch (error) {
             next(error);
