@@ -1,4 +1,74 @@
 const { getNews, clearCache } = require("../services/NewsService");
+const axios = require("axios");
+const cheerio = require("cheerio");
+
+/**
+ * POST /api/news/analyze
+ * Cào nội dung bài viết TLU rồi gọi AI phân tích luôn — không nhét content vào prompt frontend
+ * Body: { url, title }
+ */
+const analyzeArticle = async (req, res) => {
+  const { url, title } = req.body;
+  if (!url || !url.startsWith("https://tlu.edu.vn/")) {
+    return res.status(400).json({ success: false, message: "URL không hợp lệ" });
+  }
+  try {
+    // 1. Cào nội dung bài viết
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "vi-VN,vi;q=0.9",
+      },
+    });
+    const $ = cheerio.load(response.data);
+    $("script, style, nav, header, footer, .sidebar, .widget, .comments, .related-posts, iframe, noscript").remove();
+
+    let content = "";
+    for (const sel of [".entry-content", ".post-content", ".article-content", "article .content", "main article"]) {
+      const text = $(sel).text().replace(/\s+/g, " ").trim();
+      if (text.length > 200) { content = text; break; }
+    }
+    if (!content) {
+      const paragraphs = [];
+      $("main p, article p, .post p").each((_, el) => {
+        const t = $(el).text().trim();
+        if (t.length > 30) paragraphs.push(t);
+      });
+      content = paragraphs.join("\n");
+    }
+
+    if (!content || content.length < 100) {
+      return res.json({ success: false, message: "Không lấy được nội dung bài viết từ trang này." });
+    }
+
+    // 2. Gọi AI phân tích — truyền toàn bộ content, không cắt
+    const { createChatCompletion } = require("../services/openaiService");
+    const messages = [
+      {
+        role: "system",
+        content:
+          "Bạn là trợ lý phân tích tin tức cho sinh viên ký túc xá Đại học Thủy Lợi. " +
+          "Hãy phân tích bài báo được cung cấp và trả lời bằng tiếng Việt, ngắn gọn, dễ đọc.",
+      },
+      {
+        role: "user",
+        content:
+          `Tiêu đề: ${title || "Bài báo TLU"}\n\nNội dung:\n${content}\n\n` +
+          `Hãy phân tích theo 3 mục:\n` +
+          `1. Tóm tắt (3-5 câu)\n` +
+          `2. Điểm nổi bật\n` +
+          `3. Ý nghĩa với sinh viên KTX (nếu có)`,
+      },
+    ];
+
+    const result = await createChatCompletion(messages, "gpt-4o-mini", "news-analyze");
+    return res.json({ success: true, analysis: result.content });
+  } catch (err) {
+    console.error("[NewsController] analyzeArticle lỗi:", err.message);
+    return res.status(500).json({ success: false, message: "Lỗi phân tích: " + err.message });
+  }
+};
 
 /**
  * GET /api/news
@@ -83,4 +153,4 @@ const refreshNewsHandler = async (req, res) => {
   }
 };
 
-module.exports = { getNewsHandler, refreshNewsHandler };
+module.exports = { getNewsHandler, refreshNewsHandler, analyzeArticle };

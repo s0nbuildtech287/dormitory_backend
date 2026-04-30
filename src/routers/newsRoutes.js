@@ -1,13 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
-const { getNewsHandler, refreshNewsHandler } = require("../controllers/NewsController");
+const { getNewsHandler, refreshNewsHandler, analyzeArticle } = require("../controllers/NewsController");
 
 // GET /api/news — lấy danh sách tin tức (có filter & phân trang)
 router.get("/", getNewsHandler);
 
 // POST /api/news/refresh — làm mới cache thủ công
 router.post("/refresh", refreshNewsHandler);
+
+// POST /api/news/analyze — cào nội dung + AI phân tích luôn, trả về kết quả
+router.post("/analyze", analyzeArticle);
 
 /**
  * GET /api/news/image-proxy?url=...
