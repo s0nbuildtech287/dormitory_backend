@@ -217,6 +217,18 @@ class InvoiceController {
     }
 
     /**
+     * Detect anomalies in electricity/water usage
+     */
+    async detectAnomalies(req, res, next) {
+        try {
+            const result = await InvoiceService.detectAnomalies();
+            res.json({ success: true, data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Get pricing settings
      */
     async getPricingSettings(req, res, next) {

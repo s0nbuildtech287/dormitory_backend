@@ -524,6 +524,40 @@ class InvoiceDAO extends BaseDAO {
         const result = await this.executeQuery(query, [JSON.stringify(value), updatedBy]);
         return result[0];
     }
+
+    /**
+     * Lấy dữ liệu điện/nước của tất cả phòng trong N tháng gần nhất
+     * để phát hiện bất thường so với trung bình 3 tháng trước
+     */
+    async getAnomalyData(monthsBack = 4) {
+        // Lấy tất cả hóa đơn trong 4 tháng gần nhất (3 tháng baseline + tháng hiện tại)
+        const query = `
+            SELECT
+                i.id,
+                i.invoice_number,
+                i.room_id,
+                r.room_number,
+                r.building,
+                i.billing_month,
+                i.electric_start,
+                i.electric_end,
+                COALESCE(i.electric_end - i.electric_start, 0) AS electric_usage,
+                i.water_start,
+                i.water_end,
+                COALESCE(i.water_end - i.water_start, 0) AS water_usage,
+                i.electric_amount,
+                i.water_amount,
+                i.total_amount,
+                i.status,
+                i.occupancy
+            FROM invoices i
+            JOIN rooms r ON r.id = i.room_id
+            WHERE i.deleted_at IS NULL
+              AND i.billing_month >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '${monthsBack} months'
+            ORDER BY i.room_id, i.billing_month DESC
+        `;
+        return this.executeQuery(query, []);
+    }
 }
 
 module.exports = new InvoiceDAO();

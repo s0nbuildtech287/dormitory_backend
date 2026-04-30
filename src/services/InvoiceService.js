@@ -413,6 +413,106 @@ class InvoiceService {
     }
 
     /**
+     * Phát hiện bất thường trong hóa đơn điện/nước
+     * So sánh tháng hiện tại với trung bình 3 tháng trước của cùng phòng
+     * Ngưỡng cảnh báo: tăng > 50% so với trung bình
+     */
+    async detectAnomalies() {
+        try {
+            const THRESHOLD = 0.5; // 50% tăng so với trung bình
+            const MIN_USAGE = 5;   // Bỏ qua nếu dùng quá ít (tránh false positive)
+
+            const rows = await InvoiceDAO.getAnomalyData(4);
+
+            // Nhóm theo phòng
+            const byRoom = {};
+            for (const row of rows) {
+                if (!byRoom[row.room_id]) byRoom[row.room_id] = [];
+                byRoom[row.room_id].push(row);
+            }
+
+            const anomalies = [];
+
+            for (const roomId of Object.keys(byRoom)) {
+                const invoices = byRoom[roomId]; // đã sort DESC theo billing_month
+                if (invoices.length < 2) continue; // cần ít nhất 2 tháng để so sánh
+
+                const latest = invoices[0];
+                const history = invoices.slice(1); // tối đa 3 tháng trước
+
+                // Tính trung bình điện/nước (lượng + tiền) của 3 tháng trước
+                const avgElectric = history.reduce((s, r) => s + parseFloat(r.electric_usage || 0), 0) / history.length;
+                const avgWater = history.reduce((s, r) => s + parseFloat(r.water_usage || 0), 0) / history.length;
+                const avgElectricAmount = history.reduce((s, r) => s + parseFloat(r.electric_amount || 0), 0) / history.length;
+                const avgWaterAmount = history.reduce((s, r) => s + parseFloat(r.water_amount || 0), 0) / history.length;
+
+                const curElectric = parseFloat(latest.electric_usage || 0);
+                const curWater = parseFloat(latest.water_usage || 0);
+                const curElectricAmount = parseFloat(latest.electric_amount || 0);
+                const curWaterAmount = parseFloat(latest.water_amount || 0);
+
+                const electricAnomaly = avgElectric > MIN_USAGE && curElectric > avgElectric * (1 + THRESHOLD);
+                const waterAnomaly = avgWater > MIN_USAGE && curWater > avgWater * (1 + THRESHOLD);
+
+                if (electricAnomaly || waterAnomaly) {
+                    // Format billing_month thành "Tháng M/YYYY"
+                    const bm = new Date(latest.billing_month);
+                    const monthLabel = `Tháng ${bm.getUTCMonth() + 1}/${bm.getUTCFullYear()}`;
+
+                    anomalies.push({
+                        invoice_id: latest.id,
+                        invoice_number: latest.invoice_number,
+                        room_id: roomId,
+                        room_number: latest.room_number,
+                        building: latest.building,
+                        billing_month: latest.billing_month,
+                        billing_month_label: monthLabel,
+                        status: latest.status,
+                        // Điện
+                        electric_anomaly: electricAnomaly,
+                        electric_usage: curElectric,
+                        electric_avg: Math.round(avgElectric * 10) / 10,
+                        electric_increase_pct: avgElectric > 0
+                            ? Math.round(((curElectric - avgElectric) / avgElectric) * 100)
+                            : null,
+                        electric_amount: Math.round(curElectricAmount),
+                        electric_amount_avg: Math.round(avgElectricAmount),
+                        electric_amount_diff: Math.round(curElectricAmount - avgElectricAmount),
+                        // Nước
+                        water_anomaly: waterAnomaly,
+                        water_usage: curWater,
+                        water_avg: Math.round(avgWater * 10) / 10,
+                        water_increase_pct: avgWater > 0
+                            ? Math.round(((curWater - avgWater) / avgWater) * 100)
+                            : null,
+                        water_amount: Math.round(curWaterAmount),
+                        water_amount_avg: Math.round(avgWaterAmount),
+                        water_amount_diff: Math.round(curWaterAmount - avgWaterAmount),
+                        // Tổng tiền
+                        total_amount: latest.total_amount,
+                        months_compared: history.length,
+                    });
+                }
+            }
+
+            // Sắp xếp: điện bất thường trước, sau đó nước, rồi theo % tăng
+            anomalies.sort((a, b) => {
+                const scoreA = (a.electric_increase_pct || 0) + (a.water_increase_pct || 0);
+                const scoreB = (b.electric_increase_pct || 0) + (b.water_increase_pct || 0);
+                return scoreB - scoreA;
+            });
+
+            return {
+                total: anomalies.length,
+                threshold_pct: Math.round(THRESHOLD * 100),
+                anomalies,
+            };
+        } catch (error) {
+            throw new Error(`Detect anomalies failed: ${error.message}`);
+        }
+    }
+
+    /**
      * Validate pricing settings structure
      */
     validatePricingSettings(pricing) {

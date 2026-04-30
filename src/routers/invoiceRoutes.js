@@ -12,6 +12,9 @@ router.get('/', InvoiceController.getAll);
 // Get invoice statistics
 router.get('/statistics', requireAdmin, InvoiceController.getStatistics);
 
+// Detect anomalies in electricity/water usage
+router.get('/anomalies', requireAdmin, InvoiceController.detectAnomalies);
+
 // Get revenue statistics (deprecated)
 router.get('/statistics/revenue', requireAdmin, InvoiceController.getRevenueStatistics);
 
