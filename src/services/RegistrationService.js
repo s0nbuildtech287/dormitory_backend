@@ -694,12 +694,17 @@ class RegistrationService {
 
       // Notify admins real-time
       emitAdminAlert("new_registration", {
-        id:           registrationId,
+        id: registrationId,
         student_name: data.student_name,
-        student_id:   data.student_id,
-        faculty:      data.faculty,
+        student_id: data.student_id,
+        faculty: data.faculty,
         ai_suggestion: aiSuggestion,
       });
+
+      // ===== TRIGGER VISION VALIDATION ASYNC (single registration) =====
+      if (registrationData.evidence_images) {
+        ImageValidatorService.validateRegistrationImages(registrationId, req?.user?.userId || "system").catch((err) => console.error("❌ validateRegistrationImages error:", err.message));
+      }
 
       return registration;
     } catch (error) {
@@ -997,7 +1002,11 @@ class RegistrationService {
     let evidenceImages = null;
     const imgRaw = row["Ảnh minh chứng"] || row["evidence_images"] || row["Ảnh"] || row["Minh chứng"] || "";
     if (imgRaw && imgRaw.toString().trim() !== "") {
-      const imgLinks = imgRaw.toString().split(/,|\n/).map((s) => s.trim()).filter(Boolean);
+      const imgLinks = imgRaw
+        .toString()
+        .split(/,|\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
       evidenceImages = JSON.stringify(imgLinks);
     }
 
@@ -1115,12 +1124,21 @@ class RegistrationService {
         console.log(`⚠️  Có ${warnings.length} cảnh báo:`, warnings);
       }
 
+      // ===== TRIGGER VISION VALIDATION ASYNC =====
+      const idsToValidate = registrations.map((r) => r.id).filter(Boolean);
+      if (idsToValidate.length > 0) {
+        console.log(`🔍 Bắt đầu xác thực ảnh async cho ${idsToValidate.length} hồ sơ...`);
+        // Không await - chạy nền, không block response
+        ImageValidatorService.validateBatch(idsToValidate, adminId).catch((err) => console.error("❌ validateBatch error:", err.message));
+      }
+
       return {
         success: registrations.length,
         failed: errors.length,
         total: rawData.length,
         errors,
         warnings,
+        visionValidation: idsToValidate.length > 0 ? "processing" : "skipped",
       };
     } catch (error) {
       console.error("❌ LỖI NGHIÊM TRỌNG:", error.message);
@@ -1169,14 +1187,7 @@ class RegistrationService {
 
       // ===== LOG =====
       if (adminId && adminId !== "system") {
-        await LogSystemDAO.log(
-          adminId,
-          "IMPORT_REGISTRATIONS_SHEETS",
-          "register_forms",
-          null, null,
-          { success: registrations.length, failed: errors.length, source: "google_sheets", sheetUrl },
-          req
-        );
+        await LogSystemDAO.log(adminId, "IMPORT_REGISTRATIONS_SHEETS", "register_forms", null, null, { success: registrations.length, failed: errors.length, source: "google_sheets", sheetUrl }, req);
       }
 
       console.log(`\n✅ HOÀN TẤT: Import ${registrations.length} hồ sơ từ Sheets thành công!`);
@@ -1187,9 +1198,7 @@ class RegistrationService {
       if (idsToValidate.length > 0) {
         console.log(`🔍 Bắt đầu xác thực ảnh async cho ${idsToValidate.length} hồ sơ...`);
         // Không await - chạy nền, không block response
-        ImageValidatorService.validateBatch(idsToValidate, adminId).catch((err) =>
-          console.error('❌ validateBatch error:', err.message)
-        );
+        ImageValidatorService.validateBatch(idsToValidate, adminId).catch((err) => console.error("❌ validateBatch error:", err.message));
       }
 
       return {
@@ -1458,15 +1467,7 @@ class RegistrationService {
 
       // Log action
       if (req && req.user) {
-        await LogSystemDAO.log(
-          req.user.userId,
-          "UPDATE_SCORING_WEIGHTS",
-          "settings",
-          "scoring_weights",
-          null,
-          scoringWeights,
-          req
-        );
+        await LogSystemDAO.log(req.user.userId, "UPDATE_SCORING_WEIGHTS", "settings", "scoring_weights", null, scoringWeights, req);
       }
 
       return result;
