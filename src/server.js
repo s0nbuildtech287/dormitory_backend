@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 // ──────────────────────────────────────────────────────────
 // Global error guards (must be first – before any require)
@@ -46,6 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from uploads directory
 app.use("/uploads", express.static("uploads"));
+app.use(express.static(path.join(__dirname, "../dist")));
 
 // Routes
 app.get("/", (req, res) => {
@@ -85,6 +87,10 @@ app.use("/api/email", emailRoutes);
 app.use("/api/vnpay", vnpayRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/news", newsRoutes);
+
+app.get(/^\/(?!api|uploads).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, "../dist/index.html"));
+});
 
 // 404 handler (must come after all routes)
 const { errorHandler, notFound } = require("./middlewares/errorHandler");
