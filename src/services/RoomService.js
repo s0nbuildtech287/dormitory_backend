@@ -2,7 +2,76 @@ const RoomDAO = require('../dao/RoomDAO');
 const StudentContractDAO = require('../dao/StudentContractDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
 
+const ROOM_CREATE_FIELDS = [
+    'room_number',
+    'building',
+    'floor',
+    'capacity',
+    'gender_type',
+    'rent_price',
+    'garbage_fee',
+    'internet_fee',
+    'parking_fee',
+    'status',
+    'maintenance_reason',
+    'area',
+    'qr_code',
+    'last_inspection_date',
+    'electric_meter_reading',
+    'water_meter_reading'
+];
+
+const ROOM_UPDATE_FIELDS = [
+    'room_number',
+    'building',
+    'floor',
+    'capacity',
+    'gender_type',
+    'rent_price',
+    'garbage_fee',
+    'internet_fee',
+    'parking_fee',
+    'status',
+    'maintenance_reason',
+    'area',
+    'qr_code',
+    'last_inspection_date',
+    'electric_meter_reading',
+    'water_meter_reading'
+];
+
+function pickAllowedFields(data, allowedFields) {
+    return Object.fromEntries(
+        Object.entries(data || {}).filter(([key, value]) => allowedFields.includes(key) && value !== undefined)
+    );
+}
+
+function normalizePositiveInteger(value, fieldName) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`${fieldName} must be a positive integer`);
+    }
+    return parsed;
+}
+
+function formatRoomNumber(building, floor, roomIndex) {
+    const roomSuffix = String(roomIndex).padStart(2, '0');
+    return `${building}${floor}${roomSuffix}`;
+}
+
 class RoomService {
+    validateCreateData(data) {
+        const requiredFields = ['room_number', 'building', 'floor', 'capacity', 'gender_type', 'rent_price'];
+        const missingFields = requiredFields.filter((field) => {
+            const value = data[field];
+            return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+        });
+
+        if (missingFields.length > 0) {
+            throw new Error(`Missing required room fields: ${missingFields.join(', ')}`);
+        }
+    }
+
     /**
      * Get all rooms with filters
      */
@@ -55,12 +124,15 @@ class RoomService {
      */
     async createRoom(data, adminId, req = null) {
         try {
+            const sanitizedData = pickAllowedFields(data, ROOM_CREATE_FIELDS);
+            this.validateCreateData(sanitizedData);
+
             const roomId = `room-${Date.now()}`;
             const room = await RoomDAO.create({
                 id: roomId,
-                ...data,
+                ...sanitizedData,
                 current_occupancy: 0,
-                status: 'Active'
+                status: sanitizedData.status || 'Active'
             });
 
             // Log action
@@ -90,7 +162,12 @@ class RoomService {
                 throw new Error('Room not found');
             }
 
-            await RoomDAO.update(id, data);
+            const sanitizedData = pickAllowedFields(data, ROOM_UPDATE_FIELDS);
+            if (Object.keys(sanitizedData).length === 0) {
+                throw new Error('No valid room fields provided for update');
+            }
+
+            await RoomDAO.update(id, sanitizedData);
 
             // Log action
             await LogSystemDAO.log(
@@ -99,7 +176,7 @@ class RoomService {
                 'rooms',
                 id,
                 oldData,
-                data,
+                sanitizedData,
                 req
             );
 
@@ -161,6 +238,141 @@ class RoomService {
             return await RoomDAO.getStatistics();
         } catch (error) {
             throw new Error(`Get statistics failed: ${error.message}`);
+        }
+    }
+
+    async getStructureMetadata() {
+        try {
+            return await RoomDAO.getStructureMetadata();
+        } catch (error) {
+            throw new Error(`Get room structure metadata failed: ${error.message}`);
+        }
+    }
+
+    buildDefaultRoomPayload(baseData, roomNumber, floor) {
+        const sanitizedData = pickAllowedFields(baseData, ROOM_CREATE_FIELDS);
+        return {
+            id: `room-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            room_number: roomNumber,
+            building: sanitizedData.building,
+            floor,
+            capacity: sanitizedData.capacity,
+            gender_type: sanitizedData.gender_type,
+            rent_price: sanitizedData.rent_price,
+            garbage_fee: sanitizedData.garbage_fee ?? 0,
+            internet_fee: sanitizedData.internet_fee ?? 0,
+            parking_fee: sanitizedData.parking_fee ?? 0,
+            electric_meter_reading: sanitizedData.electric_meter_reading ?? 0,
+            water_meter_reading: sanitizedData.water_meter_reading ?? 0,
+            status: sanitizedData.status || 'Active',
+            maintenance_reason: sanitizedData.maintenance_reason ?? null,
+            area: sanitizedData.area ?? null,
+            qr_code: sanitizedData.qr_code ?? null,
+            last_inspection_date: sanitizedData.last_inspection_date ?? null,
+            current_occupancy: 0
+        };
+    }
+
+    async createFloorRooms(data, adminId, req = null) {
+        try {
+            const roomsCount = normalizePositiveInteger(data.rooms_count, 'rooms_count');
+            const floor = normalizePositiveInteger(data.floor, 'floor');
+            const roomStartNumber = normalizePositiveInteger(data.room_start_number, 'room_start_number');
+
+            const sanitizedData = pickAllowedFields(data, ROOM_CREATE_FIELDS);
+            sanitizedData.floor = floor;
+            this.validateCreateData({
+                ...sanitizedData,
+                room_number: 'TEMP'
+            });
+
+            const roomsToCreate = [];
+            for (let index = 0; index < roomsCount; index++) {
+                const roomNumber = formatRoomNumber(sanitizedData.building, floor, roomStartNumber + index);
+                roomsToCreate.push(this.buildDefaultRoomPayload(sanitizedData, roomNumber, floor));
+            }
+
+            const duplicateNumbers = roomsToCreate
+                .map((room) => room.room_number)
+                .filter((roomNumber, index, allNumbers) => allNumbers.indexOf(roomNumber) !== index);
+            if (duplicateNumbers.length > 0) {
+                throw new Error(`Duplicate room numbers in request: ${duplicateNumbers.join(', ')}`);
+            }
+
+            const existingRoomNumbers = await RoomDAO.findExistingRoomNumbers(roomsToCreate.map((room) => room.room_number));
+            if (existingRoomNumbers.length > 0) {
+                throw new Error(`Room numbers already exist: ${existingRoomNumbers.join(', ')}`);
+            }
+
+            const createdRooms = await RoomDAO.createMany(roomsToCreate);
+            await LogSystemDAO.log(
+                adminId,
+                'CREATE_FLOOR_ROOMS',
+                'rooms',
+                null,
+                null,
+                {
+                    building: sanitizedData.building,
+                    floor,
+                    rooms_count: roomsCount,
+                    room_numbers: createdRooms.map((room) => room.room_number)
+                },
+                req
+            );
+
+            return createdRooms;
+        } catch (error) {
+            throw new Error(`Create floor rooms failed: ${error.message}`);
+        }
+    }
+
+    async createBuildingRooms(data, adminId, req = null) {
+        try {
+            const floorsCount = normalizePositiveInteger(data.floors_count, 'floors_count');
+            const roomsPerFloor = normalizePositiveInteger(data.rooms_per_floor, 'rooms_per_floor');
+            const startFloor = data.start_floor === undefined ? 1 : normalizePositiveInteger(data.start_floor, 'start_floor');
+            const roomStartNumber = data.room_start_number === undefined ? 1 : normalizePositiveInteger(data.room_start_number, 'room_start_number');
+
+            const sanitizedData = pickAllowedFields(data, ROOM_CREATE_FIELDS);
+            this.validateCreateData({
+                ...sanitizedData,
+                floor: startFloor,
+                room_number: 'TEMP'
+            });
+
+            const roomsToCreate = [];
+            for (let floorOffset = 0; floorOffset < floorsCount; floorOffset++) {
+                const floor = startFloor + floorOffset;
+                for (let roomIndex = 0; roomIndex < roomsPerFloor; roomIndex++) {
+                    const roomNumber = formatRoomNumber(sanitizedData.building, floor, roomStartNumber + roomIndex);
+                    roomsToCreate.push(this.buildDefaultRoomPayload(sanitizedData, roomNumber, floor));
+                }
+            }
+
+            const existingRoomNumbers = await RoomDAO.findExistingRoomNumbers(roomsToCreate.map((room) => room.room_number));
+            if (existingRoomNumbers.length > 0) {
+                throw new Error(`Room numbers already exist: ${existingRoomNumbers.join(', ')}`);
+            }
+
+            const createdRooms = await RoomDAO.createMany(roomsToCreate);
+            await LogSystemDAO.log(
+                adminId,
+                'CREATE_BUILDING_ROOMS',
+                'rooms',
+                null,
+                null,
+                {
+                    building: sanitizedData.building,
+                    floors_count: floorsCount,
+                    rooms_per_floor: roomsPerFloor,
+                    room_numbers: createdRooms.map((room) => room.room_number)
+                },
+                req
+            );
+
+            return createdRooms;
+        } catch (error) {
+            throw new Error(`Create building rooms failed: ${error.message}`);
         }
     }
 

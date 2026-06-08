@@ -1,4 +1,5 @@
 const BaseDAO = require('./BaseDAO');
+const db = require('../config/database');
 
 class RoomDAO extends BaseDAO {
     constructor() {
@@ -10,6 +11,78 @@ class RoomDAO extends BaseDAO {
      */
     async findByBuilding(building) {
         return this.findAll({ building }, ['floor ASC', 'room_number ASC']);
+    }
+
+    /**
+     * Get building/floor metadata derived from rooms table
+     */
+    async getStructureMetadata() {
+        const query = `
+            SELECT
+                building,
+                COUNT(*) AS room_count,
+                COUNT(DISTINCT floor) AS floor_count,
+                MIN(floor) AS min_floor,
+                MAX(floor) AS max_floor,
+                ARRAY_AGG(DISTINCT floor ORDER BY floor) AS floors
+            FROM ${this.tableName}
+            GROUP BY building
+            ORDER BY building
+        `;
+
+        return this.executeQuery(query);
+    }
+
+    /**
+     * Check if any room_number exists in the provided list
+     */
+    async findExistingRoomNumbers(roomNumbers = []) {
+        if (!roomNumbers.length) return [];
+
+        const query = `
+            SELECT room_number
+            FROM ${this.tableName}
+            WHERE room_number = ANY($1)
+        `;
+
+        const rows = await this.executeQuery(query, [roomNumbers]);
+        return rows.map((row) => row.room_number);
+    }
+
+    /**
+     * Create many rooms in one transaction
+     */
+    async createMany(rooms = []) {
+        if (!rooms.length) return [];
+
+        const client = await db.connect();
+        try {
+            await client.query('BEGIN');
+
+            const createdRows = [];
+            for (const room of rooms) {
+                const columns = Object.keys(room);
+                const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
+                const values = Object.values(room);
+
+                const query = `
+                    INSERT INTO ${this.tableName} (${columns.join(', ')})
+                    VALUES (${placeholders})
+                    RETURNING *
+                `;
+
+                const result = await client.query(query, values);
+                createdRows.push(result.rows[0]);
+            }
+
+            await client.query('COMMIT');
+            return createdRows;
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw new Error(`Error in createMany ${this.tableName}: ${error.message}`);
+        } finally {
+            client.release();
+        }
     }
 
     /**

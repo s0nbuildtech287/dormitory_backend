@@ -118,6 +118,53 @@ class RoomController {
     }
 
     /**
+     * Get building/floor metadata derived from rooms
+     */
+    async getStructureMetadata(req, res, next) {
+        try {
+            const metadata = await RoomService.getStructureMetadata();
+            res.json({
+                success: true,
+                data: metadata
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Create many rooms for one floor
+     */
+    async createFloorRooms(req, res, next) {
+        try {
+            const rooms = await RoomService.createFloorRooms(req.body, req.user.userId, req);
+            res.status(201).json({
+                success: true,
+                message: 'Floor rooms created successfully',
+                data: rooms
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Create many rooms for one building
+     */
+    async createBuildingRooms(req, res, next) {
+        try {
+            const rooms = await RoomService.createBuildingRooms(req.body, req.user.userId, req);
+            res.status(201).json({
+                success: true,
+                message: 'Building rooms created successfully',
+                data: rooms
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Update meter readings
      */
     async updateMeterReadings(req, res, next) {

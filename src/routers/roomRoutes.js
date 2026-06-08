@@ -12,8 +12,15 @@ router.get('/', RoomController.getAll);
 // Get available rooms
 router.get('/available', RoomController.getAvailable);
 
+// Get building/floor metadata
+router.get('/meta/structure', requireAdmin, RoomController.getStructureMetadata);
+
 // Get statistics
 router.get('/statistics', requireAdmin, RoomController.getStatistics);
+
+// Admin batch create routes
+router.post('/batch/floor', requireAdmin, RoomController.createFloorRooms);
+router.post('/batch/building', requireAdmin, RoomController.createBuildingRooms);
 
 // Get room by ID
 router.get('/:id', RoomController.getById);
