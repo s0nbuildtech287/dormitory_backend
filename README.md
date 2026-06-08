@@ -1,5 +1,6 @@
 # Dormitory Management System - Backend
 
+xuân sơn
 Backend API cho hệ thống quản lý ký túc xá sử dụng DAO Pattern với Node.js, Express và MySQL.
 
 ## 🏗️ Kiến trúc
@@ -20,31 +21,37 @@ backend/
 ## 🔑 Tính năng chính
 
 ### 1. Quản lý Hồ sơ Đăng ký
+
 - Import từ Excel/CSV
 - Duyệt/Từ chối hồ sơ
 - Lọc và tìm kiếm
 
 ### 2. Quản lý Phòng
+
 - CRUD phòng ở
 - Cập nhật chỉ số điện/nước
 - Theo dõi tình trạng phòng
 
 ### 3. Quản lý Hợp đồng
+
 - Tạo hợp đồng từ hồ sơ đã duyệt
 - Gán sinh viên vào phòng
 - Theo dõi hợp đồng sắp hết hạn
 
 ### 4. Quản lý Hóa đơn
+
 - Tạo hóa đơn từ chỉ số điện/nước
 - Thu phí thủ công
 - Báo cáo doanh thu
 
 ### 5. Thông báo & Phản ánh
+
 - Gửi thông báo cho sinh viên
 - Tiếp nhận và xử lý phản ánh
 - Phân loại theo trạng thái
 
 ### 6. Nhật ký hệ thống
+
 - Tự động ghi log mọi thao tác
 - Truy vết thay đổi
 - Báo cáo hoạt động
@@ -58,23 +65,29 @@ backend/
 ## 🚀 Cài đặt
 
 ### 1. Cài đặt dependencies
+
 ```bash
 npm install
 ```
 
 ### 2. Cấu hình Database
+
 Tạo database MySQL:
+
 ```sql
 CREATE DATABASE dormitory_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 Import schema:
+
 ```bash
 mysql -u root -p dormitory_system < database/schema.sql
 ```
 
 ### 3. Cấu hình môi trường
+
 Chỉnh sửa file `.env`:
+
 ```env
 PORT=5000
 DB_HOST=localhost
@@ -86,6 +99,7 @@ JWT_SECRET=your-secret-key
 ```
 
 ### 4. Chạy server
+
 ```bash
 # Development
 npm run dev
@@ -97,12 +111,14 @@ npm start
 ## 📡 API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/register` - Đăng ký tài khoản
 - `POST /api/auth/login` - Đăng nhập
 - `GET /api/auth/me` - Thông tin user hiện tại
 - `POST /api/auth/change-password` - Đổi mật khẩu
 
 ### Registrations
+
 - `GET /api/registrations` - Danh sách hồ sơ
 - `GET /api/registrations/:id` - Chi tiết hồ sơ
 - `POST /api/registrations` - Tạo hồ sơ mới
@@ -112,6 +128,7 @@ npm start
 - `POST /api/registrations/import/excel` - Import từ Excel
 
 ### Rooms
+
 - `GET /api/rooms` - Danh sách phòng
 - `GET /api/rooms/available` - Phòng còn trống
 - `GET /api/rooms/:id` - Chi tiết phòng
@@ -121,6 +138,7 @@ npm start
 - `POST /api/rooms/:id/meter-readings` - Cập nhật chỉ số
 
 ### Contracts
+
 - `GET /api/contracts` - Danh sách hợp đồng
 - `GET /api/contracts/:id` - Chi tiết hợp đồng
 - `POST /api/contracts` - Tạo hợp đồng
@@ -129,6 +147,7 @@ npm start
 - `POST /api/contracts/:id/terminate` - Kết thúc hợp đồng
 
 ### Invoices
+
 - `GET /api/invoices` - Danh sách hóa đơn
 - `GET /api/invoices/:id` - Chi tiết hóa đơn
 - `POST /api/invoices` - Tạo hóa đơn
@@ -138,6 +157,7 @@ npm start
 - `GET /api/invoices/statistics/revenue` - Thống kê doanh thu
 
 ### Notifications
+
 - `GET /api/notifications` - Danh sách thông báo
 - `GET /api/notifications/my` - Thông báo của tôi
 - `POST /api/notifications` - Tạo thông báo
@@ -146,6 +166,7 @@ npm start
 - `DELETE /api/notifications/:id` - Xóa thông báo
 
 ### Feedbacks
+
 - `GET /api/feedbacks` - Danh sách phản ánh
 - `GET /api/feedbacks/:id` - Chi tiết phản ánh
 - `POST /api/feedbacks` - Tạo phản ánh
@@ -153,6 +174,7 @@ npm start
 - `GET /api/feedbacks/statistics` - Thống kê
 
 ### Logs
+
 - `GET /api/logs` - Nhật ký hệ thống
 - `GET /api/logs/recent` - Hoạt động gần đây
 - `GET /api/logs/user/:userId` - Log theo user
@@ -161,6 +183,7 @@ npm start
 ## 🔐 Authentication
 
 API sử dụng JWT token. Thêm header:
+
 ```
 Authorization: Bearer <token>
 ```
@@ -168,12 +191,14 @@ Authorization: Bearer <token>
 ## 🗄️ DAO Pattern
 
 Hệ thống sử dụng DAO Pattern để:
+
 - Tách biệt logic truy cập database
 - Dễ dàng thêm/sửa/xóa cột trong bảng
 - Tái sử dụng code
 - Dễ bảo trì và mở rộng
 
 Ví dụ:
+
 ```javascript
 // BaseDAO.js - Class cơ sở
 class BaseDAO {
@@ -189,7 +214,7 @@ class UserDAO extends BaseDAO {
   constructor() {
     super('users');
   }
-  
+
   async findByEmail(email) {
     return this.findOne({ email });
   }
@@ -199,6 +224,7 @@ class UserDAO extends BaseDAO {
 ## 📝 Logging
 
 Mọi thao tác quan trọng đều được ghi log tự động:
+
 - Ai thực hiện
 - Thao tác gì
 - Lúc nào
