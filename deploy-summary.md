@@ -2,7 +2,7 @@
 
 **Stack:** Node.js + React + PostgreSQL  
 **Server:** Google Cloud Compute Engine (e2-small, asia-southeast1-b)  
-**IP VM:** `34.21.241.215` (Static IP)  
+**IP VM:** `34.143.140.150` (Static IP)  
 **Domain:** `https://kytucxatlu.site`  
 **Ngày deploy:** 07/06/2026
 
@@ -12,7 +12,7 @@
 
 Vào [console.cloud.google.com](https://console.cloud.google.com) → Compute Engine → VM instances → Create instance:
 
-```
+```text
 Name:      do-an-server
 Region:    asia-southeast1 (Singapore)
 Zone:      asia-southeast1-b
@@ -62,9 +62,9 @@ pm2 -v    # 7.0.1
 Ubuntu 24 dùng `scram-sha-256` và `peer` mặc định, cần đổi sang `md5`:
 
 ```bash
-sudo sed -i 's/local   all             postgres                                peer/local   all             postgres                                md5/' /etc/postgresql/16/main/pg_hba.conf
+sudo sed -i 's/local   all             postgres                                peer/local   all             postgres                                md5/' /etc/postgresql/18/main/pg_hba.conf
 
-sudo sed -i 's/host    all             all             127.0.0.1\/32            scram-sha-256/host    all             all             127.0.0.1\/32            md5/' /etc/postgresql/16/main/pg_hba.conf
+sudo sed -i 's/host    all             all             127.0.0.1\/32            scram-sha-256/host    all             all             127.0.0.1\/32            md5/' /etc/postgresql/18/main/pg_hba.conf
 
 sudo systemctl restart postgresql
 ```
@@ -75,7 +75,7 @@ sudo systemctl restart postgresql
 
 ```bash
 # Đổi local auth về peer để ALTER USER không hỏi password
-sudo sed -i 's/local   all             postgres                                md5/local   all             postgres                                peer/' /etc/postgresql/16/main/pg_hba.conf
+sudo sed -i 's/local   all             postgres                                md5/local   all             postgres                                peer/' /etc/postgresql/18/main/pg_hba.conf
 sudo systemctl restart postgresql
 
 # Set password
@@ -150,7 +150,7 @@ node fake-all-data.js
 
 Script chạy 10 bước tự động:
 
-```
+```text
 1. Setup Database Schema   → 16 bảng, enum, index, trigger
 2. Fake Rooms              → 400 phòng (4 tòa A/B/C/D)
 3. Fake Students           → 999 sinh viên + hợp đồng
@@ -165,9 +165,9 @@ Script chạy 10 bước tự động:
 
 Tài khoản mặc định:
 
-```
+```text
 Admin:    admin / 123
-SV đặc:  xu4ns0n@gmail.com / 123  (phòng room-200)
+SV đặc:   xu4ns0n@gmail.com / 123  (phòng room-200)
 ```
 
 ---
@@ -240,7 +240,7 @@ curl http://localhost:1234
 sudo bash -c 'cat > /etc/nginx/sites-available/dormitory << EOF
 server {
     listen 80;
-    server_name 34.21.241.215;
+    server_name kytucxatlu.site www.kytucxatlu.site;
     client_max_body_size 20M;
     location / {
         proxy_pass http://127.0.0.1:1234;
@@ -254,7 +254,7 @@ server {
 EOF'
 
 sudo ln -s /etc/nginx/sites-available/dormitory /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default   # xóa trang mặc định nginx
+sudo rm /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -266,9 +266,9 @@ sudo systemctl restart nginx
 - Mua domain `kytucxatlu.site` tại tenten.vn (~30k/năm)
 - Thêm 2 record A tại Tenten:
 
-```
-@ → 34.21.241.215
-www → 34.21.241.215
+```text
+@   → 34.143.140.150
+www → 34.143.140.150
 ```
 
 ---
@@ -279,32 +279,36 @@ www → 34.21.241.215
 2. Cloudflare tự scan DNS records
 3. Đổi Nameserver trên Tenten:
 
-```
+```text
 julissa.ns.cloudflare.com
 yew.ns.cloudflare.com
 ```
 
 4. Mở GCP Firewall cho Cloudflare IPs:
 
-```
+```text
 Name:     allow-cloudflare-ip
 Source:   103.21.244.0/22,103.22.200.0/22,...(danh sách IP Cloudflare)
 Protocol: TCP  Port: 80, 443
 ```
 
-5. Cloudflare SSL/TLS → chọn **Full** (không dùng Flexible → sẽ bị redirect loop)
+5. Cloudflare SSL/TLS → chọn **Flexible**
 
 ---
 
-## BƯỚC 15 — Cài SSL bằng Certbot
+## BƯỚC 15 — Dùng Cloudflare Flexible thay cho Certbot
 
-```bash
-sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d kytucxatlu.site -d www.kytucxatlu.site
+Hiện tại không cài Certbot trên VM và không cấu hình SSL certificate trong Nginx.
+
+Luồng thực tế:
+
+```text
+Người dùng → HTTPS tới Cloudflare
+Cloudflare → HTTP (port 80) tới Nginx trên VM
+Nginx → proxy_pass vào Node.js port 1234
 ```
 
-Certbot tự sửa Nginx config, thêm HTTPS và redirect HTTP → HTTPS.  
-Certificate hết hạn: **2026-09-05**, tự động gia hạn.
+Điều này có nghĩa là SSL được terminate ở Cloudflare, còn server thực tế chỉ cần `listen 80`.
 
 ---
 
@@ -316,7 +320,7 @@ Certificate hết hạn: **2026-09-05**, tự động gia hạn.
 sudo bash -c 'cat > /etc/nginx/sites-available/dormitory-ip << EOF
 server {
     listen 80;
-    server_name 34.21.241.215;
+    server_name 34.143.140.150;
     client_max_body_size 20M;
     location / {
         proxy_pass http://127.0.0.1:1234;
@@ -340,7 +344,7 @@ sudo systemctl restart nginx
 
 GCP Console → Compute Engine → VM instances → **do-an-server** → Edit → Network interfaces → External IPv4 address → đổi từ **Ephemeral** sang **Reserve static address** → tên `do-an-static-ip` → Save.
 
-IP `34.21.241.215` sẽ không đổi dù restart VM.
+IP `34.143.140.150` sẽ không đổi dù restart VM.
 
 ---
 
@@ -348,7 +352,7 @@ IP `34.21.241.215` sẽ không đổi dù restart VM.
 
 **GCP Firewall:**
 
-```
+```text
 Name:     allow-postgres
 Source:   0.0.0.0/0
 Protocol: TCP  Port: 5432
@@ -357,15 +361,15 @@ Protocol: TCP  Port: 5432
 **Trên VM:**
 
 ```bash
-sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/16/main/postgresql.conf
-echo "host    all             all             0.0.0.0/0               md5" | sudo tee -a /etc/postgresql/16/main/pg_hba.conf
+sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/18/main/postgresql.conf
+echo "host    all             all             0.0.0.0/0               md5" | sudo tee -a /etc/postgresql/18/main/pg_hba.conf
 sudo systemctl restart postgresql
 ```
 
 **pgAdmin kết nối:**
 
-```
-Host:     34.21.241.215
+```text
+Host:     34.143.140.150
 Port:     5432
 Database: dormitory_system
 Username: postgres
@@ -376,14 +380,14 @@ Password: 123456
 
 ## Kết quả cuối cùng
 
-```
-✅ Domain:      https://kytucxatlu.site  (HTTPS, qua Cloudflare)
-✅ Fallback IP: http://34.21.241.215     (HTTP, vào thẳng VM)
-✅ PostgreSQL:  34.21.241.215:5432
-✅ IP tĩnh:     34.21.241.215 (không đổi khi restart)
-✅ SSL:         Let's Encrypt, tự gia hạn
+```text
+✅ Domain:      https://kytucxatlu.site  (HTTPS qua Cloudflare)
+✅ Fallback IP: http://34.143.140.150    (HTTP vào thẳng VM)
+✅ PostgreSQL:  34.143.140.150:5432
+✅ IP tĩnh:     34.143.140.150 (không đổi khi restart)
+✅ SSL:         Cloudflare Flexible
 ✅ PM2:         tự restart khi VM reboot
-✅ Cloudflare:  CDN + DDoS protection + SSL mode Full
+✅ Cloudflare:  CDN + DDoS protection + SSL mode Flexible
 ```
 
 ---
@@ -412,19 +416,16 @@ sudo systemctl status nginx
 
 # Restart Nginx
 sudo systemctl restart nginx
-
-# Gia hạn SSL thủ công
-sudo certbot renew
 ```
 
 ---
 
 ## Xử lý sự cố
 
-| Lỗi                    | Nguyên nhân                                    | Fix                                        |
-| ---------------------- | ---------------------------------------------- | ------------------------------------------ |
-| 521                    | Cloudflare không vào được VM                   | Kiểm tra GCP Firewall, thêm Cloudflare IPs |
-| 522                    | VM đang tắt hoặc IP đổi                        | Kiểm tra VM status, cập nhật DNS           |
-| ERR_TOO_MANY_REDIRECTS | Cloudflare Flexible + Certbot redirect loop    | Đổi Cloudflare SSL sang Full               |
-| Failed to fetch        | Frontend gọi http:// nhưng trang load https:// | Build lại với VITE_BACKEND_URL=https://    |
-| IP đổi sau restart     | IP Ephemeral                                   | Đặt Static IP trên GCP                     |
+| Lỗi | Nguyên nhân | Fix |
+| --- | --- | --- |
+| 521 | Cloudflare không vào được VM | Kiểm tra GCP Firewall, thêm Cloudflare IPs |
+| 522 | VM đang tắt hoặc IP đổi | Kiểm tra VM status, cập nhật DNS |
+| ERR_TOO_MANY_REDIRECTS | Nginx hoặc app tự ép HTTPS khi đang dùng Cloudflare Flexible | Tắt redirect HTTPS ở server, giữ Cloudflare SSL là Flexible |
+| Failed to fetch | Frontend gọi `http://` nhưng trang load `https://` | Build lại với `VITE_BACKEND_URL=https://kytucxatlu.site` |
+| IP đổi sau restart | IP Ephemeral | Đặt Static IP trên GCP |
