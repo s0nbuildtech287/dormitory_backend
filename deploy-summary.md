@@ -2,9 +2,9 @@
 
 **Stack:** Node.js + React + PostgreSQL  
 **Server:** Google Cloud Compute Engine (e2-small, asia-southeast1-b)  
-**IP VM:** `34.143.140.150` (Static IP)  
+**IP VM:** `34.143.140.150` (Ephemeral — nên đặt Static sau)  
 **Domain:** `https://kytucxatlu.site`  
-**Ngày deploy:** 07/06/2026
+**Ngày deploy:** 08/06/2026
 
 ---
 
@@ -12,8 +12,8 @@
 
 Vào [console.cloud.google.com](https://console.cloud.google.com) → Compute Engine → VM instances → Create instance:
 
-```text
-Name:      do-an-server
+```
+Name:      do-an-tlu-2026
 Region:    asia-southeast1 (Singapore)
 Zone:      asia-southeast1-b
 Machine:   e2-small (2 vCPU, 2GB RAM)
@@ -36,37 +36,48 @@ Vào VM instances → nhấn nút **SSH** → mở terminal trên browser.
 ## BƯỚC 3 — Cài môi trường
 
 ```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git nginx postgresql postgresql-contrib
+# Vào root trước
+sudo -i
 
-# Cài Node.js 24 (đồng bộ với máy local)
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
+apt update && apt upgrade -y
+apt install -y curl git nginx postgresql postgresql-contrib
+
+# Cài Node.js 24
+curl -fsSL https://deb.nodesource.com/setup_24.x -o nodesource_setup.sh
+bash nodesource_setup.sh
+apt install -y nodejs
 
 # Cài PM2
-sudo npm install -g pm2
+npm install -g pm2
 ```
 
 Kiểm tra:
 
 ```bash
-node -v   # v24.16.0
-npm -v    # 11.13.0
-pm2 -v    # 7.0.1
+node -v   # v24.x.x
+npm -v
+pm2 -v
 ```
 
 ---
 
 ## BƯỚC 4 — Fix PostgreSQL authentication
 
-Ubuntu 24 dùng `scram-sha-256` và `peer` mặc định, cần đổi sang `md5`:
+> ⚠️ Ubuntu 24 cài PostgreSQL 18 (không phải 16). Kiểm tra version trước:
 
 ```bash
-sudo sed -i 's/local   all             postgres                                peer/local   all             postgres                                md5/' /etc/postgresql/18/main/pg_hba.conf
+find /etc/postgresql -name "pg_hba.conf"
+# → /etc/postgresql/18/main/pg_hba.conf
+```
 
-sudo sed -i 's/host    all             all             127.0.0.1\/32            scram-sha-256/host    all             all             127.0.0.1\/32            md5/' /etc/postgresql/18/main/pg_hba.conf
+Đổi auth sang md5:
 
-sudo systemctl restart postgresql
+```bash
+sed -i 's/local   all             postgres                                peer/local   all             postgres                                md5/' /etc/postgresql/18/main/pg_hba.conf
+
+sed -i 's/host    all             all             127.0.0.1\/32            scram-sha-256/host    all             all             127.0.0.1\/32            md5/' /etc/postgresql/18/main/pg_hba.conf
+
+systemctl restart postgresql
 ```
 
 ---
@@ -74,9 +85,9 @@ sudo systemctl restart postgresql
 ## BƯỚC 5 — Setup PostgreSQL
 
 ```bash
-# Đổi local auth về peer để ALTER USER không hỏi password
-sudo sed -i 's/local   all             postgres                                md5/local   all             postgres                                peer/' /etc/postgresql/18/main/pg_hba.conf
-sudo systemctl restart postgresql
+# Đổi lại peer để ALTER USER không hỏi password
+sed -i 's/local   all             postgres                                md5/local   all             postgres                                peer/' /etc/postgresql/18/main/pg_hba.conf
+systemctl restart postgresql
 
 # Set password
 sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '123456';"
@@ -85,20 +96,18 @@ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '123456';"
 sudo -u postgres psql -c "CREATE DATABASE dormitory_system;"
 ```
 
-> **Lưu ý:** Script `setup-database.js` hardcode password `123456` (không dùng dotenv). Các script fake data đọc từ `.env`. Đồng nhất password về `123456`.
+> **Lưu ý:** Script `setup-database.js` hardcode password `123456`. Các script fake data đọc từ `.env`. Đồng nhất password về `123456`.
 
 ---
 
 ## BƯỚC 6 — Clone code từ GitHub
 
 ```bash
-mkdir ~/do-an
-cd ~/do-an
+mkdir ~/do-an && cd ~/do-an
 git clone https://github.com/s0nbuildtech287/dormitory_backend.git
 cd dormitory_backend
 
 # Checkout sang nhánh deploy
-git stash
 git checkout deploy
 
 # Cài dependencies
@@ -110,7 +119,7 @@ npm install
 ## BƯỚC 7 — Tạo file .env
 
 ```bash
-cat > .env << 'ENVEOF'
+cat > /root/do-an/dormitory_backend/.env << 'ENVEOF'
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
@@ -144,13 +153,13 @@ ENVEOF
 ## BƯỚC 8 — Fake data
 
 ```bash
-cd scripts
+cd /root/do-an/dormitory_backend/scripts
 node fake-all-data.js
 ```
 
 Script chạy 10 bước tự động:
 
-```text
+```
 1. Setup Database Schema   → 16 bảng, enum, index, trigger
 2. Fake Rooms              → 400 phòng (4 tòa A/B/C/D)
 3. Fake Students           → 999 sinh viên + hợp đồng
@@ -165,9 +174,9 @@ Script chạy 10 bước tự động:
 
 Tài khoản mặc định:
 
-```text
-Admin:    admin / 123
-SV đặc:   xu4ns0n@gmail.com / 123  (phòng room-200)
+```
+Admin:   admin / 123
+SV đặc: xu4ns0n@gmail.com / 123  (phòng room-200)
 ```
 
 ---
@@ -179,8 +188,8 @@ Các file `.json` service account bị gitignore, upload thủ công:
 SSH browser → ⚙️ → **Upload file** → upload từng file `.json` → move vào đúng thư mục:
 
 ```bash
-mkdir -p ~/do-an/dormitory_backend/src/config/accounts
-mv ~/*.json ~/do-an/dormitory_backend/src/config/accounts/
+mkdir -p /root/do-an/dormitory_backend/src/config/accounts
+mv /home/xu4ns0n/*.json /root/do-an/dormitory_backend/src/config/accounts/
 ```
 
 ---
@@ -209,7 +218,7 @@ git push
 Trên VM:
 
 ```bash
-cd ~/do-an/dormitory_backend
+cd /root/do-an/dormitory_backend
 git pull
 ```
 
@@ -218,7 +227,7 @@ git pull
 ## BƯỚC 11 — Chạy Backend với PM2
 
 ```bash
-cd ~/do-an/dormitory_backend
+cd /root/do-an/dormitory_backend
 pm2 start src/server.js --name "dormitory-tlu"
 pm2 save
 pm2 startup
@@ -229,18 +238,18 @@ Test:
 
 ```bash
 curl http://localhost:1234
-# → {"message":"Welcome to the Dormitory System Backend!"}
+# → trả về HTML của React app
 ```
 
 ---
 
-## BƯỚC 12 — Cấu hình Nginx ban đầu
+## BƯỚC 12 — Cấu hình Nginx
 
 ```bash
-sudo bash -c 'cat > /etc/nginx/sites-available/dormitory << EOF
+bash -c 'cat > /etc/nginx/sites-available/dormitory << EOF
 server {
     listen 80;
-    server_name kytucxatlu.site www.kytucxatlu.site;
+    server_name kytucxatlu.site www.kytucxatlu.site 34.143.140.150;
     client_max_body_size 20M;
     location / {
         proxy_pass http://127.0.0.1:1234;
@@ -253,10 +262,10 @@ server {
 }
 EOF'
 
-sudo ln -s /etc/nginx/sites-available/dormitory /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
+ln -s /etc/nginx/sites-available/dormitory /etc/nginx/sites-enabled/
+rm /etc/nginx/sites-enabled/default
+nginx -t
+systemctl restart nginx
 ```
 
 ---
@@ -264,10 +273,10 @@ sudo systemctl restart nginx
 ## BƯỚC 13 — Mua Domain + Cấu hình DNS
 
 - Mua domain `kytucxatlu.site` tại tenten.vn (~30k/năm)
-- Thêm 2 record A tại Tenten:
+- Thêm 2 record A tại Tenten (hoặc Cloudflare):
 
-```text
-@   → 34.143.140.150
+```
+@ → 34.143.140.150
 www → 34.143.140.150
 ```
 
@@ -276,83 +285,41 @@ www → 34.143.140.150
 ## BƯỚC 14 — Cloudflare
 
 1. Đăng ký [cloudflare.com](https://cloudflare.com) → Add domain `kytucxatlu.site` → plan Free
-2. Cloudflare tự scan DNS records
+2. Cloudflare tự scan DNS records — cập nhật IP đúng `34.143.140.150`
 3. Đổi Nameserver trên Tenten:
 
-```text
+```
 julissa.ns.cloudflare.com
 yew.ns.cloudflare.com
 ```
 
-4. Mở GCP Firewall cho Cloudflare IPs:
+4. Cloudflare SSL/TLS → chọn **Flexible**
 
-```text
-Name:     allow-cloudflare-ip
-Source:   103.21.244.0/22,103.22.200.0/22,...(danh sách IP Cloudflare)
-Protocol: TCP  Port: 80, 443
-```
-
-5. Cloudflare SSL/TLS → chọn **Flexible**
+> ⚠️ Dùng **Flexible** vì VM không có SSL certificate. Nếu dùng Full sẽ bị lỗi 521.
 
 ---
 
-## BƯỚC 15 — Dùng Cloudflare Flexible thay cho Certbot
+## BƯỚC 15 — Mở GCP Firewall
 
-Hiện tại không cài Certbot trên VM và không cấu hình SSL certificate trong Nginx.
+Vào **GCP Console → VPC Network → Firewall → Create Firewall Rule:**
 
-Luồng thực tế:
-
-```text
-Người dùng → HTTPS tới Cloudflare
-Cloudflare → HTTP (port 80) tới Nginx trên VM
-Nginx → proxy_pass vào Node.js port 1234
 ```
-
-Điều này có nghĩa là SSL được terminate ở Cloudflare, còn server thực tế chỉ cần `listen 80`.
-
----
-
-## BƯỚC 16 — Nginx fallback qua IP
-
-Để vẫn vào được bằng IP khi domain/Cloudflare sập:
-
-```bash
-sudo bash -c 'cat > /etc/nginx/sites-available/dormitory-ip << EOF
-server {
-    listen 80;
-    server_name 34.143.140.150;
-    client_max_body_size 20M;
-    location / {
-        proxy_pass http://127.0.0.1:1234;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
-EOF'
-
-sudo ln -s /etc/nginx/sites-available/dormitory-ip /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
+Name:             allow-http-https
+Network:          default
+Direction:        Ingress
+Action:           Allow
+Targets:          All instances in the network
+Source IP ranges: 0.0.0.0/0
+Protocols/ports:  TCP: 80, 443
 ```
 
 ---
 
-## BƯỚC 17 — Đặt IP tĩnh trên GCP
+## BƯỚC 16 — Mở port PostgreSQL để kết nối pgAdmin
 
-GCP Console → Compute Engine → VM instances → **do-an-server** → Edit → Network interfaces → External IPv4 address → đổi từ **Ephemeral** sang **Reserve static address** → tên `do-an-static-ip` → Save.
+**GCP Firewall — tạo thêm rule:**
 
-IP `34.143.140.150` sẽ không đổi dù restart VM.
-
----
-
-## BƯỚC 18 — Mở port PostgreSQL để kết nối pgAdmin
-
-**GCP Firewall:**
-
-```text
+```
 Name:     allow-postgres
 Source:   0.0.0.0/0
 Protocol: TCP  Port: 5432
@@ -361,14 +328,14 @@ Protocol: TCP  Port: 5432
 **Trên VM:**
 
 ```bash
-sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/18/main/postgresql.conf
-echo "host    all             all             0.0.0.0/0               md5" | sudo tee -a /etc/postgresql/18/main/pg_hba.conf
-sudo systemctl restart postgresql
+sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/18/main/postgresql.conf
+echo "host    all             all             0.0.0.0/0               md5" | tee -a /etc/postgresql/18/main/pg_hba.conf
+systemctl restart postgresql
 ```
 
 **pgAdmin kết nối:**
 
-```text
+```
 Host:     34.143.140.150
 Port:     5432
 Database: dormitory_system
@@ -380,14 +347,12 @@ Password: 123456
 
 ## Kết quả cuối cùng
 
-```text
-✅ Domain:      https://kytucxatlu.site  (HTTPS qua Cloudflare)
-✅ Fallback IP: http://34.143.140.150    (HTTP vào thẳng VM)
-✅ PostgreSQL:  34.143.140.150:5432
-✅ IP tĩnh:     34.143.140.150 (không đổi khi restart)
-✅ SSL:         Cloudflare Flexible
-✅ PM2:         tự restart khi VM reboot
-✅ Cloudflare:  CDN + DDoS protection + SSL mode Flexible
+```
+✅ Domain:     https://kytucxatlu.site  (HTTPS qua Cloudflare Flexible)
+✅ Fallback:   http://34.143.140.150    (HTTP, vào thẳng VM)
+✅ PostgreSQL: 34.143.140.150:5432
+✅ PM2:        tự restart khi VM reboot
+✅ Cloudflare: CDN + DDoS protection + SSL mode Flexible
 ```
 
 ---
@@ -408,14 +373,13 @@ pm2 flush
 pm2 restart dormitory-tlu
 
 # Khi pull code mới về
-cd ~/do-an/dormitory_backend
-git pull && pm2 restart dormitory-tlu
+cd /root/do-an/dormitory_backend && git pull && pm2 restart dormitory-tlu
 
 # Xem trạng thái Nginx
-sudo systemctl status nginx
+systemctl status nginx
 
 # Restart Nginx
-sudo systemctl restart nginx
+systemctl restart nginx
 ```
 
 ---
@@ -423,9 +387,10 @@ sudo systemctl restart nginx
 ## Xử lý sự cố
 
 | Lỗi | Nguyên nhân | Fix |
-| --- | --- | --- |
-| 521 | Cloudflare không vào được VM | Kiểm tra GCP Firewall, thêm Cloudflare IPs |
+|-----|-------------|-----|
+| 521 | Cloudflare không vào được VM | Kiểm tra GCP Firewall, Nginx có chạy không |
 | 522 | VM đang tắt hoặc IP đổi | Kiểm tra VM status, cập nhật DNS |
-| ERR_TOO_MANY_REDIRECTS | Nginx hoặc app tự ép HTTPS khi đang dùng Cloudflare Flexible | Tắt redirect HTTPS ở server, giữ Cloudflare SSL là Flexible |
-| Failed to fetch | Frontend gọi `http://` nhưng trang load `https://` | Build lại với `VITE_BACKEND_URL=https://kytucxatlu.site` |
+| ERR_TOO_MANY_REDIRECTS | Cloudflare Full + không có SSL trên VM | Đổi Cloudflare SSL sang Flexible |
+| Failed to fetch | Frontend gọi http:// nhưng trang load https:// | Build lại với VITE_BACKEND_URL=https:// |
 | IP đổi sau restart | IP Ephemeral | Đặt Static IP trên GCP |
+| pg_hba.conf not found | PostgreSQL version khác 16 | Dùng version 18: /etc/postgresql/18/main/ |
