@@ -4,7 +4,7 @@ async function generateFakeRooms() {
   try {
     console.log("🚀 Bắt đầu tạo fake data cho bảng rooms...");
 
-    const buildings = ["A", "B", "C", "D"];
+    const buildings = ["BLD-1", "BLD-2", "BLD-3", "BLD-4"];
     const floors = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const roomsPerFloor = 10; // 10 phòng/tầng
     const totalRooms = buildings.length * floors.length * roomsPerFloor; // 400 phòng
@@ -19,12 +19,12 @@ async function generateFakeRooms() {
 
     for (const building of buildings) {
       // Xác định gender cho tòa: A và C Nam, B và D Nữ
-      const gender = building === "A" || building === "C" ? "Nam" : "Nữ";
+      const gender = building === "BLD-1" || building === "BLD-3" ? "Nam" : "Nữ";
 
       for (const floor of floors) {
         let roomSequence = 100;
         for (let roomNum = 1; roomNum <= roomsPerFloor; roomNum++) {
-          const roomNumber = `room-${roomSequence}-${building}-${floor}`; // room-100-A-1, room-101-A-1, etc.
+          const roomNumber = `room-${roomSequence}-${building}-${floor}`; // room-100-BLD-1-1, room-101-BLD-1-1, etc.
           const id = `room-${roomCounter.toString().padStart(3, "0")}`;
 
           const room = {

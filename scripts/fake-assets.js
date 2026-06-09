@@ -40,6 +40,8 @@ async function generateFakeAssets() {
       ORDER BY building, floor, room_number
     `);
     const rooms = roomsResult.rows;
+    const floorKeys = new Set(rooms.map((room) => `${room.building}::${room.floor}`));
+    const totalFloors = floorKeys.size;
 
     console.log(`📊 Tìm thấy ${rooms.length} phòng trong database`);
 
@@ -134,7 +136,7 @@ async function generateFakeAssets() {
     const totalAssetsByType = {};
     assetTypes.forEach((type) => {
       const roomAssets = type.perRoom * rooms.length;
-      const floorAssets = type.perFloor * 40; // 4 tòa × 10 tầng = 40 tầng
+      const floorAssets = type.perFloor * totalFloors;
       totalAssetsByType[type.asset_code] = roomAssets + floorAssets;
     });
 
@@ -184,11 +186,14 @@ async function generateFakeAssets() {
     // ========================================
     console.log("🏢 Đang tạo tài sản cho các tầng (Camera, Wifi)...");
 
-    const buildings = ["A", "B", "C", "D"];
-    const floors = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const buildingFloors = rooms.reduce((acc, room) => {
+      if (!acc[room.building]) acc[room.building] = new Set();
+      acc[room.building].add(room.floor);
+      return acc;
+    }, {});
 
-    for (const building of buildings) {
-      for (const floor of floors) {
+    for (const [building, floors] of Object.entries(buildingFloors)) {
+      for (const floor of [...floors].sort((a, b) => a - b)) {
         // Lấy phòng đầu tiên của tầng để gán tài sản
         const firstRoomOnFloor = rooms.find(
           (r) => r.building === building && r.floor === floor

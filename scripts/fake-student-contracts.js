@@ -104,6 +104,22 @@ async function generateFakeStudentContracts() {
     const users = [];
     const contracts = [];
     const timestamp = Date.now();
+    const specialStudent = {
+      email: "xu4ns0n@gmail.com",
+      studentId: "28711699999",
+      cccd: "123456789012",
+      phone: "0987654321",
+      fullName: "Bui Xuan Son",
+      password: "123",
+      faculty: "Cong nghe thong tin",
+      major: "Chuyen nganh Cong nghe thong tin",
+      classCode: "CNTT1",
+      year: 2,
+      gpa: 3.2,
+      dob: "2003-05-15",
+      address: "123 Duong Lang, Ha Noi",
+      distance: 15,
+    };
 
     const roomState = rooms.map((room) => ({
       ...room,
@@ -145,13 +161,6 @@ async function generateFakeStudentContracts() {
 
     let userIndex = 0;
     let timeIndex = 0;
-    const roomIndex = rooms.length - 1;
-    const basket1Count = 100;
-    const basket2Count = 500;
-    const basket3Count = 500;
-    const timeGroup1Count = 50;
-    const timeGroup2Count = 800;
-    const timeGroup3Count = 150;
     
     // Hàm tính điểm AI
     function calculateAIScore(year, gpa, priorityReason) {
@@ -486,6 +495,7 @@ async function generateFakeStudentContracts() {
       "Con thương binh, liệt sỹ",
       "Sinh viên khuyết tật",
     ];
+    let specialStudentPlaced = false;
 
     for (const plan of roomPlans) {
       const roomStudents = [];
@@ -495,18 +505,23 @@ async function generateFakeStudentContracts() {
 
         const tag = plan.slotTags[slotIndex];
         const gender = plan.room.gender_type;
-        const studentName = generateName(gender);
-        const studentId = `287116${String(Math.floor(Math.random() * 9000) + 1000)}`;
-        const email = generateEmail(studentName, studentId);
-        const phone = generatePhone();
-        const cccd = generateCCCD();
-        const age = plan.cohort === "freshmen" ? 18 : Math.floor(Math.random() * 4) + 20;
-        const dob = new Date(2006 - age, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
+        const isSpecialStudent = !specialStudentPlaced && plan.cohort === "returning_students" && tag === "general";
+        const studentName = isSpecialStudent ? specialStudent.fullName : generateName(gender);
+        const studentId = isSpecialStudent ? specialStudent.studentId : `287116${String(Math.floor(Math.random() * 9000) + 1000)}`;
+        const email = isSpecialStudent ? specialStudent.email : generateEmail(studentName, studentId);
+        const phone = isSpecialStudent ? specialStudent.phone : generatePhone();
+        const cccd = isSpecialStudent ? specialStudent.cccd : generateCCCD();
+        const age = isSpecialStudent ? null : (plan.cohort === "freshmen" ? 18 : Math.floor(Math.random() * 4) + 20);
+        const dob = isSpecialStudent
+          ? new Date(specialStudent.dob)
+          : new Date(2006 - age, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
         const province = provinces[Math.floor(Math.random() * provinces.length)];
-        const address = `${Math.floor(Math.random() * 500) + 1} Đường ${Math.random() > 0.5 ? 'Lê Lợi' : 'Trần Hưng Đạo'}, ${province}`;
-        const distance = Math.floor(Math.random() * 200) + 10;
-        const year = plan.cohort === "freshmen" ? 1 : Math.floor(Math.random() * 3) + 2;
-        const gpa = year === 1 ? 0 : (Math.random() * 1.5 + 2.5).toFixed(2);
+        const address = isSpecialStudent
+          ? specialStudent.address
+          : `${Math.floor(Math.random() * 500) + 1} ???????ng ${Math.random() > 0.5 ? 'L?? L???i' : 'Tr???n H??ng ?????o'}, ${province}`;
+        const distance = isSpecialStudent ? specialStudent.distance : Math.floor(Math.random() * 200) + 10;
+        const year = isSpecialStudent ? specialStudent.year : (plan.cohort === "freshmen" ? 1 : Math.floor(Math.random() * 3) + 2);
+        const gpa = isSpecialStudent ? specialStudent.gpa : (year === 1 ? 0 : (Math.random() * 1.5 + 2.5).toFixed(2));
         const priorityReason =
           tag === "international"
             ? internationalReasons[Math.floor(Math.random() * internationalReasons.length)]
@@ -514,9 +529,11 @@ async function generateFakeStudentContracts() {
               ? policyReasons[Math.floor(Math.random() * policyReasons.length)]
               : null;
 
-        const faculty = plan.faculty;
-        const major = plan.major;
-        const classCode = `${faculty.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10) + 1}`;
+        const faculty = isSpecialStudent ? specialStudent.faculty : plan.faculty;
+        const major = isSpecialStudent ? specialStudent.major : plan.major;
+        const classCode = isSpecialStudent
+          ? specialStudent.classCode
+          : `${faculty.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10) + 1}`;
         const { aiScore, aiSuggestion } = calculateAIScore(year, gpa, priorityReason);
         const aiReasoning = {
           priorityScore: priorityReason ? (priorityReason.toLowerCase().includes("hộ nghèo") ? 100 : 70) : 0,
@@ -567,6 +584,7 @@ async function generateFakeStudentContracts() {
           email,
           password: "__HASH_PLACEHOLDER__",
           _cccd: cccd,
+          _plainPassword: isSpecialStudent ? specialStudent.password : null,
           full_name: studentName,
           role: "STUDENT",
           phone,
@@ -618,9 +636,16 @@ async function generateFakeStudentContracts() {
         });
 
         roomStudents.push(studentName);
+        if (isSpecialStudent) {
+          specialStudentPlaced = true;
+        }
       }
 
       plan.room.occupancy = roomStudents.length;
+    }
+
+    if (!specialStudentPlaced) {
+      throw new Error("Khong the gan tai khoan sinh vien dac biet vao trong 1000 hop dong.");
     }
 
     // Hash tất cả CCCD song song (Promise.all) thay vì tuần tự
@@ -629,12 +654,15 @@ async function generateFakeStudentContracts() {
     const HASH_BATCH = 50;
     for (let i = 0; i < users.length; i += HASH_BATCH) {
       const batch = users.slice(i, i + HASH_BATCH);
-      const hashes = await Promise.all(batch.map(u => bcrypt.hash(u._cccd, 10)));
+      const hashes = await Promise.all(batch.map(u => bcrypt.hash(u._plainPassword || u._cccd, 10)));
       hashes.forEach((hash, j) => { users[i + j].password = hash; });
       console.log(`   ✓ ${Math.min(i + HASH_BATCH, users.length)}/${users.length}`);
     }
     // Xóa field tạm _cccd
-    users.forEach(u => delete u._cccd);
+    users.forEach(u => {
+      delete u._cccd;
+      delete u._plainPassword;
+    });
 
     console.log(`\n📝 Đang insert ${registerForms.length} register forms vào database...`);
     
@@ -717,88 +745,6 @@ async function generateFakeStudentContracts() {
       console.log(`   ✓ Đã insert ${Math.min((i + 100), contracts.length)}/${contracts.length} contracts`);
     }
 
-    // ── Sinh viên đặc cách ──────────────────────────────────────────────────
-    console.log(`\n📝 Đang tạo tài khoản sinh viên đặc cách (xu4ns0n@gmail.com)...`);
-    {
-      const specialPassword = "123";
-      const specialPasswordHash = await bcrypt.hash(specialPassword, 10);
-      const specialTimestamp = Date.now();
-
-      // Gán sinh viên đặc cách vào phòng kế tiếp ngoài 200 phòng đã dùng
-      const specialRoom = seedRooms[200] || seedRooms[seedRooms.length - 1];
-
-      const specialRegFormId  = `reg-special-${specialTimestamp}`;
-      const specialUserId     = `user-special-${specialTimestamp}`;
-      const specialContractId = `contract-special-${specialTimestamp}`;
-      const specialCccd       = '123456789012';
-
-      const startDate = new Date(); startDate.setMonth(startDate.getMonth() - 3);
-      const endDate   = new Date(startDate); endDate.setMonth(endDate.getMonth() + 6);
-      const reviewedAt = new Date(startDate); reviewedAt.setDate(reviewedAt.getDate() - 15);
-      const createdAt  = new Date(reviewedAt); createdAt.setDate(createdAt.getDate() - 7);
-
-      // Register form
-      await pool.query(`
-        INSERT INTO register_forms (
-          id, student_name, student_id, student_email, phone_number, gender, dob, cccd, address,
-          faculty, major, class, year, gpa, distance, priority_reasons, status, ai_suggestion,
-          ai_score, ai_reasoning, evidence_images, note, reviewed_by, reviewed_at, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
-        ON CONFLICT (id) DO NOTHING
-      `, [
-        specialRegFormId,
-        'Bùi Xuân Sơn', '28711699999', 'xu4ns0n@gmail.com', '0987654321',
-        specialRoom.gender_type, '2003-05-15', '123456789012',
-        '123 Đường Láng, Hà Nội', 'Công nghệ thông tin', 'Chuyên ngành Công nghệ thông tin',
-        'CNTT1', 2, 3.20, 15, null,
-        'Chấp nhận', 'Nên duyệt', 85,
-        JSON.stringify({ priorityScore: 0, yearScore: 60, gpaScore: 80, totalScore: 85 }),
-        null, 'Hồ sơ đã được phê duyệt và tạo hợp đồng', 'admin-1',
-        reviewedAt.toISOString(), createdAt.toISOString(), reviewedAt.toISOString()
-      ]);
-
-      // User
-      await pool.query(`
-        INSERT INTO users (id, email, password, full_name, role, phone, avatar, is_active, last_login, created_at, updated_at, deleted_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-        ON CONFLICT (id) DO NOTHING
-      `, [
-        specialUserId, 'xu4ns0n@gmail.com', specialPasswordHash,
-        'Bùi Xuân Sơn', 'STUDENT', '0987654321',
-        'https://ui-avatars.com/api/?name=Bui+Xuan+Son&background=random',
-        true, null, reviewedAt.toISOString(), new Date().toISOString(), null
-      ]);
-
-      // Contract
-      await pool.query(`
-        INSERT INTO student_contracts (
-          id, user_id, room_id, register_form_id, contract_number, start_date, end_date,
-          rent_price, deposit_amount, deposit_paid, hard_copy_received, email_sent_at, status,
-          snapshot_student_id, snapshot_cccd, snapshot_gender, snapshot_year, snapshot_faculty,
-          snapshot_phone, terms_conditions, signed_at, termination_reason, created_by, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
-        ON CONFLICT (id) DO NOTHING
-      `, [
-        specialContractId, specialUserId, specialRoom.id, specialRegFormId,
-        `HD-2024-SPECIAL`, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0],
-        specialRoom.rent_price, specialRoom.rent_price * 2, true, true,
-        createdAt.toISOString(), 'Active',
-        '28711699999', specialCccd, specialRoom.gender_type, 2, 'Công nghệ thông tin', '0987654321',
-        'Sinh viên cam kết tuân thủ nội quy ký túc xá.',
-        startDate.toISOString(), null, 'admin-1', createdAt.toISOString(), new Date().toISOString()
-      ]);
-
-      // Cập nhật occupancy phòng đặc cách
-      await pool.query(
-        `UPDATE rooms SET current_occupancy = current_occupancy + 1, updated_at = NOW() WHERE id = $1`,
-        [specialRoom.id]
-      );
-
-      console.log(`   ✓ Tạo xong: xu4ns0n@gmail.com | mật khẩu: 123 | phòng: ${specialRoom.id}`);
-    }
-    // ────────────────────────────────────────────────────────────────────────
-
-    // Cập nhật current_occupancy cho các phòng
     console.log(`\n📝 Đang cập nhật current_occupancy cho các phòng...`);
     
     for (const room of rooms) {
@@ -824,7 +770,7 @@ async function generateFakeStudentContracts() {
     console.log(`\n✅ Đã tạo thành công fake data!`);
     console.log(`📊 Tổng quan:`);
     console.log(`   - ${registerForms.length} hồ sơ đăng ký (trạng thái: Chấp nhận)`);
-    console.log(`   - ${users.length} tài khoản sinh viên (mật khẩu: số CCCD của sinh viên)`);
+    console.log(`   - ${users.length} tai khoan sinh vien (rieng ${specialStudent.email} co mat khau: ${specialStudent.password})`);
     console.log(`   - ${contracts.length} hợp đồng (${activeCount} Active, ${expiredCount} Expired)`);
     console.log(`   - 200 phòng đã được gán sinh viên`);
     console.log(`\n📋 Phân bổ theo phòng:`);

@@ -36,6 +36,7 @@ node scripts/fake-student-contracts.js
 - 200 phòng còn lại để test hồ sơ đăng ký mới
 - Thời gian hợp đồng: 6 tháng (bắt đầu từ 6 tháng trước)
 - ID format: `contract-1772528512456-abc123xyz`
+- T??i kho???n `xu4ns0n@gmail.com` n???m s???n trong 1000 sinh vi??n, m???t kh???u: `123`
 - **Phân bổ theo 3 rổ:**
   - Rổ 1 (Chính sách): 120 sinh viên (12%) - có lý do ưu tiên
   - Rổ 2 (Tân sinh viên): 550 sinh viên (55%) - năm 1, không ưu tiên
