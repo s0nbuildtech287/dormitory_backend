@@ -10,6 +10,13 @@ const firstNames = {
 const lastNames = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Phan", "Vũ", "Võ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý"];
 const middleNames = ["Văn", "Thị", "Đức", "Hữu", "Công", "Minh", "Thanh", "Quốc", "Xuân", "Bảo", "Ngọc", "Thúy", "Kim", "Phương"];
 
+const foreignFirstNames = {
+  male: ["John", "David", "Michael", "Daniel", "Kevin", "Lucas", "Henry", "Eric", "Alex", "Tom"],
+  female: ["Anna", "Linda", "Maria", "Sophie", "Julia", "Emma", "Lily", "Grace", "Mia", "Eva"],
+};
+
+const foreignLastNames = ["Smith", "Johnson", "Brown", "Taylor", "Wilson", "Miller", "Anderson", "Thomas", "Moore", "Martin"];
+
 const faculties = [
   "Công nghệ thông tin", "Kinh tế", "Ngoại ngữ", "Kỹ thuật", "Y Dược",
   "Luật", "Sư phạm", "Khoa học tự nhiên", "Xây dựng", "Điện - Điện tử"
@@ -38,6 +45,14 @@ function generateName(gender) {
     : firstNames.female[Math.floor(Math.random() * firstNames.female.length)];
   
   return `${lastName} ${middleName} ${firstName}`;
+}
+
+function generateForeignName(gender) {
+  const firstName = gender === "Nam"
+    ? foreignFirstNames.male[Math.floor(Math.random() * foreignFirstNames.male.length)]
+    : foreignFirstNames.female[Math.floor(Math.random() * foreignFirstNames.female.length)];
+  const lastName = foreignLastNames[Math.floor(Math.random() * foreignLastNames.length)];
+  return `${firstName} ${lastName}`;
 }
 
 function generateEmail(name, studentId) {
@@ -257,7 +272,7 @@ async function generateFakeStudentContracts() {
       const currentRoom = pickRoomForPlan(plan);
       const gender = currentRoom.gender_type;
       
-      const studentName = generateName(gender);
+      const studentName = plan.tag === "international" ? generateForeignName(gender) : generateName(gender);
       const studentId = `287116${String(Math.floor(Math.random() * 9000) + 1000)}`;
       const email = generateEmail(studentName, studentId);
       const phone = generatePhone();
