@@ -15,6 +15,10 @@ router.get('/available', RoomController.getAvailable);
 // Get building/floor metadata
 router.get('/meta/structure', requireAdmin, RoomController.getStructureMetadata);
 
+// Building display names settings
+router.get('/settings/display-names', requireAdmin, RoomController.getBuildingDisplayNames);
+router.put('/settings/display-names', requireAdmin, RoomController.updateBuildingDisplayNames);
+
 // Get statistics
 router.get('/statistics', requireAdmin, RoomController.getStatistics);
 

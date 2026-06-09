@@ -132,6 +132,35 @@ class RoomController {
         }
     }
 
+    async getBuildingDisplayNames(req, res, next) {
+        try {
+            const displayNames = await RoomService.getBuildingDisplayNames();
+            res.json({
+                success: true,
+                data: displayNames
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async updateBuildingDisplayNames(req, res, next) {
+        try {
+            const displayNames = await RoomService.updateBuildingDisplayNames(
+                req.body?.displayNames || {},
+                req.user?.userId || null,
+                req
+            );
+            res.json({
+                success: true,
+                message: 'Building display names updated successfully',
+                data: displayNames
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     /**
      * Create many rooms for one floor
      */

@@ -1,6 +1,7 @@
 const RoomDAO = require('../dao/RoomDAO');
 const StudentContractDAO = require('../dao/StudentContractDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
+const db = require('../config/database');
 
 const ROOM_CREATE_FIELDS = [
     'room_number',
@@ -61,6 +62,7 @@ function formatRoomNumber(sequence, building, floor) {
 }
 
 const RESERVED_FOR_VALUES = ['general', 'freshmen', 'returning_students', 'international'];
+const ROOM_BUILDING_DISPLAY_NAMES_SETTING_ID = 'room_building_display_names';
 
 class RoomService {
     validateCreateData(data) {
@@ -257,6 +259,89 @@ class RoomService {
             return await RoomDAO.getStructureMetadata();
         } catch (error) {
             throw new Error(`Get room structure metadata failed: ${error.message}`);
+        }
+    }
+
+    async getBuildingDisplayNames() {
+        try {
+            const query = `
+                SELECT value
+                FROM settings
+                WHERE id = $1 AND is_active = TRUE
+                LIMIT 1
+            `;
+            const result = await db.query(query, [ROOM_BUILDING_DISPLAY_NAMES_SETTING_ID]);
+            const row = result.rows[0];
+            if (!row || row.value === null || row.value === undefined) {
+                return {};
+            }
+
+            if (typeof row.value === 'object') {
+                return row.value;
+            }
+
+            if (typeof row.value === 'string') {
+                try {
+                    return JSON.parse(row.value);
+                } catch {
+                    return {};
+                }
+            }
+
+            return {};
+        } catch (error) {
+            throw new Error(`Get building display names failed: ${error.message}`);
+        }
+    }
+
+    async updateBuildingDisplayNames(displayNames, updatedBy = null, req = null) {
+        try {
+            const normalized = displayNames && typeof displayNames === 'object' && !Array.isArray(displayNames)
+                ? displayNames
+                : {};
+
+            const query = `
+                INSERT INTO settings (id, category, name, value, description, is_active, updated_by, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, TRUE, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (id)
+                DO UPDATE SET
+                    category = EXCLUDED.category,
+                    name = EXCLUDED.name,
+                    value = EXCLUDED.value,
+                    description = EXCLUDED.description,
+                    is_active = TRUE,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING *
+            `;
+
+            const values = [
+                ROOM_BUILDING_DISPLAY_NAMES_SETTING_ID,
+                'system',
+                'room_building_display_names',
+                JSON.stringify(normalized),
+                'Custom display names for dormitory buildings',
+                updatedBy,
+            ];
+
+            const result = await db.query(query, values);
+            const saved = result.rows[0];
+
+            if (updatedBy) {
+                await LogSystemDAO.log(
+                    updatedBy,
+                    'UPDATE_ROOM_BUILDING_DISPLAY_NAMES',
+                    'settings',
+                    ROOM_BUILDING_DISPLAY_NAMES_SETTING_ID,
+                    null,
+                    normalized,
+                    req
+                );
+            }
+
+            return saved;
+        } catch (error) {
+            throw new Error(`Update building display names failed: ${error.message}`);
         }
     }
 
