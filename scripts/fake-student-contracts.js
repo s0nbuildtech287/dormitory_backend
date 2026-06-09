@@ -71,12 +71,11 @@ async function generateFakeStudentContracts() {
 
 
 
-    // Lấy danh sách 200 phòng đầu tiên
+    // Lấy toàn bộ phòng để gán theo reserved_for nhưng vẫn có fallback nếu pool lệch
     const roomsResult = await pool.query(`
-      SELECT id, room_number, building, floor, gender_type, rent_price, capacity
+      SELECT id, room_number, building, floor, gender_type, rent_price, capacity, reserved_for
       FROM rooms
       ORDER BY id
-      LIMIT 200
     `);
     
     const rooms = roomsResult.rows;
@@ -90,23 +89,54 @@ async function generateFakeStudentContracts() {
     const users = [];
     const contracts = [];
     const timestamp = Date.now();
-    
-    // Phân bổ theo 3 rổ: Rổ 1 (10%) = 100, Rổ 2 (60%) = 600, Rổ 3 (30%) = 300
-    const basket1Count = 100; // Chính sách
-    const basket2Count = 599; // Tân sinh viên (năm 1) — giảm 1 để nhường chỗ cho SV đặc cách
-    const basket3Count = 300; // Khóa cũ (năm 2,3,4)
-    
-    // Phân bổ theo thời gian tạo hồ sơ
-    const timeGroup1Count = 50;  // Đã hết hạn (7 tháng trước)
-    const timeGroup2Count = 800; // 3 tháng trước (còn 3 tháng)
-    const timeGroup3Count = 150; // 1 tháng trước (còn 5 tháng - mới)
-    
+
+    const roomState = rooms.map((room) => ({
+      ...room,
+      occupancy: 0,
+    }));
+
+    const roomPools = roomState.reduce(
+      (acc, room) => {
+        const key = room.reserved_for || "general";
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(room);
+        acc.all.push(room);
+        return acc;
+      },
+      { general: [], freshmen: [], returning_students: [], international: [], all: [] }
+    );
+
+    const cohortPlan = [
+      { cohort: "freshmen", tag: "general", count: 425 },
+      { cohort: "freshmen", tag: "policy", count: 50 },
+      { cohort: "freshmen", tag: "international", count: 25 },
+      { cohort: "returning_students", tag: "general", count: 425 },
+      { cohort: "returning_students", tag: "policy", count: 50 },
+      { cohort: "returning_students", tag: "international", count: 25 },
+    ];
+
+    const studentPlans = cohortPlan.flatMap((item) =>
+      Array.from({ length: item.count }, () => ({ cohort: item.cohort, tag: item.tag }))
+    );
+
+    const timeBuckets = [
+      { count: 50, monthsAgo: 7, expired: true },
+      { count: 800, monthsAgo: 3, expired: false },
+      { count: 150, monthsAgo: 5, expired: false },
+    ];
+    const timePlan = timeBuckets.flatMap((item) =>
+      Array.from({ length: item.count }, () => ({ monthsAgo: item.monthsAgo, expired: item.expired }))
+    );
+
     let userIndex = 0;
-    let roomIndex = 0;
-    let studentsInCurrentRoom = 0;
-    const maxStudentsPerRoom = 5;
-    let currentTimeGroup = 1;
-    let countInCurrentTimeGroup = 0;
+    let timeIndex = 0;
+    const roomIndex = rooms.length - 1;
+    const basket1Count = 100;
+    const basket2Count = 500;
+    const basket3Count = 500;
+    const timeGroup1Count = 50;
+    const timeGroup2Count = 800;
+    const timeGroup3Count = 150;
     
     // Hàm tính điểm AI
     function calculateAIScore(year, gpa, priorityReason) {
@@ -148,37 +178,83 @@ async function generateFakeStudentContracts() {
       
       return { aiScore: totalScore, aiSuggestion };
     }
+
+    function pickRoomForPlan(plan) {
+      const preferredPools = [];
+
+      if (plan.tag === "international") {
+        preferredPools.push("international");
+      }
+
+      if (plan.cohort === "freshmen") {
+        preferredPools.push("freshmen");
+      } else if (plan.cohort === "returning_students") {
+        preferredPools.push("returning_students");
+      }
+
+      preferredPools.push("general");
+
+      const tried = new Set();
+      for (const poolName of preferredPools) {
+        if (tried.has(poolName)) continue;
+        tried.add(poolName);
+
+        const candidates = (roomPools[poolName] || [])
+          .filter((room) => room.occupancy < room.capacity)
+          .sort((a, b) => a.occupancy - b.occupancy || a.id.localeCompare(b.id));
+
+        if (candidates.length > 0) {
+          candidates[0].occupancy += 1;
+          return candidates[0];
+        }
+      }
+
+      const fallback = roomPools.all
+        .filter((room) => room.occupancy < room.capacity)
+        .sort((a, b) => a.occupancy - b.occupancy || a.id.localeCompare(b.id))[0];
+
+      if (!fallback) {
+        throw new Error("Không còn phòng trống phù hợp để gán hợp đồng");
+      }
+
+      fallback.occupancy += 1;
+      return fallback;
+    }
+
+    function getPriorityReason(plan) {
+      if (plan.tag === "international") {
+        const internationalReasons = [
+          "Lưu học sinh (Lào/Campuchia)",
+          "Du học sinh",
+          "Sinh viên quốc tế",
+        ];
+        return internationalReasons[Math.floor(Math.random() * internationalReasons.length)];
+      }
+
+      if (plan.tag === "policy") {
+        const policyReasons = [
+          "Hộ nghèo cận nghèo",
+          "Vùng sâu vùng xa",
+          "Con thương binh, liệt sỹ",
+          "Sinh viên khuyết tật",
+        ];
+        return policyReasons[Math.floor(Math.random() * policyReasons.length)];
+      }
+
+      return null;
+    }
     
     // Hàm tạo sinh viên
-    function createStudent(basket, index) {
+    function createStudent(plan, index) {
       userIndex++;
       
-      // Xác định nhóm thời gian
-      countInCurrentTimeGroup++;
-      if (currentTimeGroup === 1 && countInCurrentTimeGroup > timeGroup1Count) {
-        currentTimeGroup = 2;
-        countInCurrentTimeGroup = 1;
-      } else if (currentTimeGroup === 2 && countInCurrentTimeGroup > timeGroup2Count) {
-        currentTimeGroup = 3;
-        countInCurrentTimeGroup = 1;
-      }
-      
-      // Xác định thời gian tạo hồ sơ dựa trên nhóm
-      let monthsAgo;
-      let isExpired = false;
-      
-      if (currentTimeGroup === 1) {
-        // Nhóm 1: 50 hồ sơ đã hết hạn
-        monthsAgo = 7; // 7 tháng trước - đã hết hạn (6 tháng + 1 tháng)
-        isExpired = true;
-      } else if (currentTimeGroup === 2) {
-        monthsAgo = 3; // 3 tháng trước - còn 3 tháng
-      } else {
-        monthsAgo = 5; // 5 tháng trước - còn 1 tháng (~30 ngày)
-      }
-      
-      // Xác định giới tính dựa trên phòng
-      const currentRoom = rooms[roomIndex];
+      const timeProfile = timePlan[timeIndex] || timePlan[timePlan.length - 1];
+      timeIndex++;
+
+      const monthsAgo = timeProfile.monthsAgo;
+      const isExpired = timeProfile.expired;
+
+      const currentRoom = pickRoomForPlan(plan);
       const gender = currentRoom.gender_type;
       
       const studentName = generateName(gender);
@@ -195,25 +271,17 @@ async function generateFakeStudentContracts() {
       const address = `${Math.floor(Math.random() * 500) + 1} Đường ${Math.random() > 0.5 ? 'Lê Lợi' : 'Trần Hưng Đạo'}, ${province}`;
       const distance = Math.floor(Math.random() * 200) + 10; // 10-210 km
       
-      // Xác định năm học và GPA dựa trên rổ
-      let year, gpa, priorityReason;
-      
-      if (basket === 1) {
-        // Rổ 1: Chính sách - có lý do ưu tiên, năm học ngẫu nhiên
-        year = Math.floor(Math.random() * 4) + 1;
-        gpa = year === 1 ? 0 : (Math.random() * 2 + 2).toFixed(2); // 2.0-4.0
-        priorityReason = priorityReasons[Math.floor(Math.random() * priorityReasons.length)];
-      } else if (basket === 2) {
-        // Rổ 2: Tân sinh viên - năm 1, không có lý do ưu tiên
+      let year;
+      let gpa;
+      if (plan.cohort === "freshmen") {
         year = 1;
-        gpa = 0; // Năm 1 chưa có điểm
-        priorityReason = null;
+        gpa = 0;
       } else {
-        // Rổ 3: Khóa cũ - năm 2,3,4, không có lý do ưu tiên, GPA cao
         year = Math.floor(Math.random() * 3) + 2; // 2, 3, 4
-        gpa = (Math.random() * 1.5 + 2.5).toFixed(2); // 2.5-4.0 (GPA cao)
-        priorityReason = null;
+        gpa = (Math.random() * 1.5 + 2.5).toFixed(2); // 2.5-4.0
       }
+
+      const priorityReason = getPriorityReason(plan);
       
       const faculty = faculties[Math.floor(Math.random() * faculties.length)];
       const classCode = `${faculty.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10) + 1}`;
@@ -336,39 +404,208 @@ async function generateFakeStudentContracts() {
         created_at: createdAt.toISOString(),
         updated_at: new Date().toISOString()
       });
-      
-      // Chuyển phòng nếu đủ sinh viên
-      studentsInCurrentRoom++;
-      if (studentsInCurrentRoom >= maxStudentsPerRoom) {
-        roomIndex++;
-        studentsInCurrentRoom = 0;
+    }
+    
+    // Tạo sinh viên theo cụm phòng: mỗi phòng 5 người, cùng cohort và cùng khoa/ngành
+    const seedRooms = rooms.slice(0, 200);
+    if (seedRooms.length < 200) {
+      throw new Error(`Cần ít nhất 200 phòng để fake dữ liệu, hiện chỉ có ${seedRooms.length}`);
+    }
+
+    const roomPlans = [];
+    const cohortLayout = [
+      { cohort: "freshmen", roomOffset: 0 },
+      { cohort: "returning_students", roomOffset: 100 },
+    ];
+
+    cohortLayout.forEach(({ cohort, roomOffset }) => {
+      for (let roomIndex = 0; roomIndex < 100; roomIndex++) {
+        const room = seedRooms[roomOffset + roomIndex];
+        const roomType = roomIndex < 5 ? "international" : roomIndex < 55 ? "policy" : "general";
+        const faculty = faculties[(roomOffset + roomIndex) % faculties.length];
+        const major = `Chuyên ngành ${faculty}`;
+        const slotTags =
+          roomType === "international"
+            ? ["international", "international", "international", "international", "international"]
+            : roomType === "policy"
+              ? ["policy", "general", "general", "general", "general"]
+              : ["general", "general", "general", "general", "general"];
+
+        roomPlans.push({ room, cohort, roomType, faculty, major, slotTags });
       }
-    }
-    
-    // Tạo sinh viên theo từng rổ
-    console.log(`\n📊 Phân bổ theo 3 rổ:`);
-    console.log(`   - Rổ 1 (Chính sách): ${basket1Count} sinh viên (10%)`);
-    console.log(`   - Rổ 2 (Tân sinh viên): ${basket2Count} sinh viên (60%)`);
-    console.log(`   - Rổ 3 (Khóa cũ): ${basket3Count} sinh viên (30%)`);
-    
+    });
+
+    const roomStats = {
+      freshmen: { general: 0, policy: 0, international: 0 },
+      returning_students: { general: 0, policy: 0, international: 0 },
+    };
+
+    roomPlans.forEach((plan) => {
+      roomStats[plan.cohort][plan.roomType] += 1;
+    });
+
+    console.log(`\n📊 Phân bổ theo nhóm hồ sơ:`);
+    console.log(`   - Tân sinh viên: 500 (50%)`);
+    console.log(`     • Phòng thường: ${roomStats.freshmen.general}`);
+    console.log(`     • Phòng chính sách: ${roomStats.freshmen.policy}`);
+    console.log(`     • Phòng quốc tế: ${roomStats.freshmen.international}`);
+    console.log(`   - Lưu sinh viên: 500 (50%)`);
+    console.log(`     • Phòng thường: ${roomStats.returning_students.general}`);
+    console.log(`     • Phòng chính sách: ${roomStats.returning_students.policy}`);
+    console.log(`     • Phòng quốc tế: ${roomStats.returning_students.international}`);
+
     console.log(`\n📅 Phân bổ theo thời gian:`);
-    console.log(`   - Nhóm 1: ${timeGroup1Count} hồ sơ (7 tháng trước - đã hết hạn)`);
-    console.log(`   - Nhóm 2: ${timeGroup2Count} hồ sơ (3 tháng trước - còn 3 tháng)`);
-    console.log(`   - Nhóm 3: ${timeGroup3Count} hồ sơ (5 tháng trước - còn 1 tháng, sắp hết hạn)`);
-    
-    // Rổ 1: Chính sách
-    for (let i = 0; i < basket1Count; i++) {
-      createStudent(1, i);
-    }
-    
-    // Rổ 2: Tân sinh viên
-    for (let i = 0; i < basket2Count; i++) {
-      createStudent(2, i);
-    }
-    
-    // Rổ 3: Khóa cũ
-    for (let i = 0; i < basket3Count; i++) {
-      createStudent(3, i);
+    console.log(`   - 50 hợp đồng: 7 tháng trước (đã hết hạn)`);
+    console.log(`   - 800 hợp đồng: 3 tháng trước (còn 3 tháng)`);
+    console.log(`   - 150 hợp đồng: 5 tháng trước (còn 1 tháng, sắp hết hạn)`);
+
+    let studentIndex = 0;
+    const internationalReasons = [
+      "Lưu học sinh (Lào/Campuchia)",
+      "Du học sinh",
+      "Sinh viên quốc tế",
+    ];
+    const policyReasons = [
+      "Hộ nghèo cận nghèo",
+      "Vùng sâu vùng xa",
+      "Con thương binh, liệt sỹ",
+      "Sinh viên khuyết tật",
+    ];
+
+    for (const plan of roomPlans) {
+      const roomStudents = [];
+      for (let slotIndex = 0; slotIndex < plan.slotTags.length; slotIndex++) {
+        const timeProfile = timePlan[studentIndex] || timePlan[timePlan.length - 1];
+        studentIndex++;
+
+        const tag = plan.slotTags[slotIndex];
+        const gender = plan.room.gender_type;
+        const studentName = generateName(gender);
+        const studentId = `287116${String(Math.floor(Math.random() * 9000) + 1000)}`;
+        const email = generateEmail(studentName, studentId);
+        const phone = generatePhone();
+        const cccd = generateCCCD();
+        const age = plan.cohort === "freshmen" ? 18 : Math.floor(Math.random() * 4) + 20;
+        const dob = new Date(2006 - age, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
+        const province = provinces[Math.floor(Math.random() * provinces.length)];
+        const address = `${Math.floor(Math.random() * 500) + 1} Đường ${Math.random() > 0.5 ? 'Lê Lợi' : 'Trần Hưng Đạo'}, ${province}`;
+        const distance = Math.floor(Math.random() * 200) + 10;
+        const year = plan.cohort === "freshmen" ? 1 : Math.floor(Math.random() * 3) + 2;
+        const gpa = year === 1 ? 0 : (Math.random() * 1.5 + 2.5).toFixed(2);
+        const priorityReason =
+          tag === "international"
+            ? internationalReasons[Math.floor(Math.random() * internationalReasons.length)]
+            : tag === "policy"
+              ? policyReasons[Math.floor(Math.random() * policyReasons.length)]
+              : null;
+
+        const faculty = plan.faculty;
+        const major = plan.major;
+        const classCode = `${faculty.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10) + 1}`;
+        const { aiScore, aiSuggestion } = calculateAIScore(year, gpa, priorityReason);
+        const aiReasoning = {
+          priorityScore: priorityReason ? (priorityReason.toLowerCase().includes("hộ nghèo") ? 100 : 70) : 0,
+          yearScore: { 1: 100, 2: 60, 3: 40, 4: 20 }[year],
+          gpaScore: year === 1 ? 50 : parseFloat(gpa) * 25,
+          totalScore: aiScore
+        };
+
+        const regRandomStr = Math.random().toString(36).substring(2, 15);
+        const registerFormId = `reg-${timestamp - (studentIndex + 1) * 1000}-${regRandomStr}`;
+        const registerCreatedAt = new Date();
+        registerCreatedAt.setMonth(registerCreatedAt.getMonth() - timeProfile.monthsAgo - 1);
+        const reviewedAt = new Date(registerCreatedAt);
+        reviewedAt.setDate(reviewedAt.getDate() + 15);
+
+        registerForms.push({
+          id: registerFormId,
+          student_name: studentName,
+          student_id: studentId,
+          student_email: email,
+          phone_number: phone,
+          gender,
+          dob: dob.toISOString().split("T")[0],
+          cccd,
+          address,
+          faculty,
+          major,
+          class: classCode,
+          year,
+          gpa: parseFloat(gpa),
+          distance,
+          priority_reasons: priorityReason,
+          status: "Chấp nhận",
+          ai_suggestion: aiSuggestion,
+          ai_score: aiScore,
+          ai_reasoning: JSON.stringify(aiReasoning),
+          evidence_images: null,
+          note: "Hồ sơ đã được phê duyệt và tạo hợp đồng",
+          reviewed_by: "admin-1",
+          reviewed_at: reviewedAt.toISOString(),
+          created_at: registerCreatedAt.toISOString(),
+          updated_at: reviewedAt.toISOString()
+        });
+
+        const userId = `user-${timestamp - (studentIndex + 1) * 1000}`;
+        users.push({
+          id: userId,
+          email,
+          password: "__HASH_PLACEHOLDER__",
+          _cccd: cccd,
+          full_name: studentName,
+          role: "STUDENT",
+          phone,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(studentName)}&background=random`,
+          is_active: true,
+          last_login: null,
+          created_at: reviewedAt.toISOString(),
+          updated_at: new Date().toISOString(),
+          deleted_at: null
+        });
+
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        const contractId = `contract-${timestamp - (studentIndex + 1) * 1000}-${randomStr}`;
+        const contractNumber = `HD-2024-${(100000 + studentIndex + 1).toString()}`;
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - timeProfile.monthsAgo);
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + 6);
+        const signedAt = new Date(startDate);
+        const createdAt = new Date(startDate);
+        createdAt.setDate(createdAt.getDate() - 7);
+
+        contracts.push({
+          id: contractId,
+          user_id: userId,
+          room_id: plan.room.id,
+          register_form_id: registerFormId,
+          contract_number: contractNumber,
+          start_date: startDate.toISOString().split("T")[0],
+          end_date: endDate.toISOString().split("T")[0],
+          rent_price: plan.room.rent_price,
+          deposit_amount: plan.room.rent_price * 2,
+          deposit_paid: true,
+          hard_copy_received: true,
+          email_sent_at: createdAt.toISOString(),
+          status: timeProfile.expired ? "Expired" : "Active",
+          snapshot_student_id: studentId,
+          snapshot_cccd: cccd,
+          snapshot_gender: gender,
+          snapshot_year: year,
+          snapshot_faculty: faculty,
+          snapshot_phone: phone,
+          terms_conditions: "Sinh viên cam kết tuân thủ nội quy ký túc xá, giữ gìn vệ sinh chung, không gây ồn ào, không sử dụng các thiết bị điện công suất lớn.",
+          signed_at: signedAt.toISOString(),
+          termination_reason: null,
+          created_by: "admin-1",
+          created_at: createdAt.toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+        roomStudents.push(studentName);
+      }
+
+      plan.room.occupancy = roomStudents.length;
     }
 
     // Hash tất cả CCCD song song (Promise.all) thay vì tuần tự
@@ -472,9 +709,8 @@ async function generateFakeStudentContracts() {
       const specialPasswordHash = await bcrypt.hash(specialPassword, 10);
       const specialTimestamp = Date.now();
 
-      // Lấy đúng phòng tiếp theo trong danh sách (phòng đang dở dang sau 999 SV)
-      const specialRoom = rooms[roomIndex];
-      if (!specialRoom) throw new Error("Không tìm thấy phòng để gán cho sinh viên đặc cách!");
+      // Gán sinh viên đặc cách vào phòng kế tiếp ngoài 200 phòng đã dùng
+      const specialRoom = seedRooms[200] || seedRooms[seedRooms.length - 1];
 
       const specialRegFormId  = `reg-special-${specialTimestamp}`;
       const specialUserId     = `user-special-${specialTimestamp}`;
@@ -564,7 +800,7 @@ async function generateFakeStudentContracts() {
       );
     }
     
-    console.log(`   ✓ Đã cập nhật occupancy cho ${roomIndex + 1} phòng`);
+    console.log(`   ✓ Đã cập nhật occupancy cho ${rooms.length} phòng`);
 
     // Thống kê
     const expiredCount = contracts.filter(c => c.status === "Expired").length;
@@ -575,18 +811,17 @@ async function generateFakeStudentContracts() {
     console.log(`   - ${registerForms.length} hồ sơ đăng ký (trạng thái: Chấp nhận)`);
     console.log(`   - ${users.length} tài khoản sinh viên (mật khẩu: số CCCD của sinh viên)`);
     console.log(`   - ${contracts.length} hợp đồng (${activeCount} Active, ${expiredCount} Expired)`);
-    console.log(`   - ${roomIndex + 1} phòng đã được gán sinh viên`);
-    console.log(`\n📋 Phân bổ theo rổ:`);
-    console.log(`   - Rổ 1 (Chính sách): ${basket1Count} (10%)`);
-    console.log(`   - Rổ 2 (Tân sinh viên): ${basket2Count} (60%)`);
-    console.log(`   - Rổ 3 (Khóa cũ): ${basket3Count} (30%)`);
+    console.log(`   - 200 phòng đã được gán sinh viên`);
+    console.log(`\n📋 Phân bổ theo phòng:`);
+    console.log(`   - 100 phòng tân sinh viên`);
+    console.log(`   - 100 phòng lưu sinh viên`);
+    console.log(`   - Trong mỗi cụm phòng: 5% quốc tế, 10% chính sách, còn lại là thường`);
     console.log(`\n📅 Phân bổ theo thời gian:`);
-    console.log(`   - ${timeGroup1Count} hợp đồng: 7 tháng trước (đã hết hạn - Expired)`);
-    console.log(`   - ${timeGroup2Count} hợp đồng: 3 tháng trước (còn 3 tháng - Active)`);
-    console.log(`   - ${timeGroup3Count} hợp đồng: 5 tháng trước (còn 1 tháng - Active, sắp hết hạn)`);
+    console.log(`   - 50 hợp đồng: 7 tháng trước (đã hết hạn - Expired)`);
+    console.log(`   - 800 hợp đồng: 3 tháng trước (còn 3 tháng - Active)`);
+    console.log(`   - 150 hợp đồng: 5 tháng trước (còn 1 tháng - Active, sắp hết hạn)`);
     console.log(`\n⏱️  Timeline mỗi hồ sơ:`);
     console.log(`   - Tạo hồ sơ → +15 ngày → Duyệt hồ sơ → Tạo hợp đồng (6 tháng)`);
-    
   } catch (error) {
     console.error("❌ Lỗi khi tạo fake data:", error);
   } finally {
@@ -596,3 +831,5 @@ async function generateFakeStudentContracts() {
 
 // Chạy script
 generateFakeStudentContracts();
+
+
