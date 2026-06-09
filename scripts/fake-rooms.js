@@ -18,8 +18,9 @@ async function generateFakeRooms() {
       const gender = building === "A" || building === "C" ? "Nam" : "Nữ";
 
       for (const floor of floors) {
+        let roomSequence = 100;
         for (let roomNum = 1; roomNum <= roomsPerFloor; roomNum++) {
-          const roomNumber = `room-${roomCounter.toString().padStart(3, "0")}-${building}-${floor}`; // room-001-A-1, etc.
+          const roomNumber = `room-${roomSequence}-${building}-${floor}`; // room-100-A-1, room-101-A-1, etc.
           const id = `room-${roomCounter.toString().padStart(3, "0")}`;
 
           const room = {
@@ -46,6 +47,7 @@ async function generateFakeRooms() {
 
           rooms.push(room);
           roomCounter++;
+          roomSequence++;
         }
       }
     }

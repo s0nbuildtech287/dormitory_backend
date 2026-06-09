@@ -14,6 +14,33 @@ class RoomDAO extends BaseDAO {
     }
 
     /**
+     * Get next room sequence for a building/floor pair based on room_number format room-XXX-B-F
+     */
+    async getNextRoomSequence(building, floor, fallbackStart = 100) {
+        const query = `
+            SELECT MAX(
+                CASE
+                    WHEN split_part(room_number, '-', 2) ~ '^[0-9]+$'
+                    THEN CAST(split_part(room_number, '-', 2) AS INTEGER)
+                    ELSE NULL
+                END
+            ) AS max_sequence
+            FROM ${this.tableName}
+            WHERE building = $1
+              AND floor = $2
+              AND room_number LIKE 'room-%'
+        `;
+
+        const rows = await this.executeQuery(query, [building, floor]);
+        const maxSequence = rows[0]?.max_sequence;
+        if (maxSequence === null || maxSequence === undefined) {
+            return fallbackStart;
+        }
+
+        return Number(maxSequence) + 1;
+    }
+
+    /**
      * Get building/floor metadata derived from rooms table
      */
     async getStructureMetadata() {

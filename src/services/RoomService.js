@@ -54,9 +54,8 @@ function normalizePositiveInteger(value, fieldName) {
     return parsed;
 }
 
-function formatRoomNumber(building, floor, roomIndex) {
-    const roomSuffix = String(roomIndex).padStart(2, '0');
-    return `${building}${floor}${roomSuffix}`;
+function formatRoomNumber(sequence, building, floor) {
+    return `room-${sequence}-${building}-${floor}`;
 }
 
 class RoomService {
@@ -125,6 +124,10 @@ class RoomService {
     async createRoom(data, adminId, req = null) {
         try {
             const sanitizedData = pickAllowedFields(data, ROOM_CREATE_FIELDS);
+            if (!sanitizedData.room_number && sanitizedData.building && sanitizedData.floor) {
+                const nextSequence = await RoomDAO.getNextRoomSequence(sanitizedData.building, Number(sanitizedData.floor));
+                sanitizedData.room_number = formatRoomNumber(nextSequence, sanitizedData.building, Number(sanitizedData.floor));
+            }
             this.validateCreateData(sanitizedData);
 
             const roomId = `room-${Date.now()}`;
@@ -277,7 +280,9 @@ class RoomService {
         try {
             const roomsCount = normalizePositiveInteger(data.rooms_count, 'rooms_count');
             const floor = normalizePositiveInteger(data.floor, 'floor');
-            const roomStartNumber = normalizePositiveInteger(data.room_start_number, 'room_start_number');
+            const roomStartNumber = data.room_start_number === undefined
+                ? await RoomDAO.getNextRoomSequence(data.building, floor, 100)
+                : normalizePositiveInteger(data.room_start_number, 'room_start_number');
 
             const sanitizedData = pickAllowedFields(data, ROOM_CREATE_FIELDS);
             sanitizedData.floor = floor;
@@ -288,7 +293,7 @@ class RoomService {
 
             const roomsToCreate = [];
             for (let index = 0; index < roomsCount; index++) {
-                const roomNumber = formatRoomNumber(sanitizedData.building, floor, roomStartNumber + index);
+                const roomNumber = formatRoomNumber(roomStartNumber + index, sanitizedData.building, floor);
                 roomsToCreate.push(this.buildDefaultRoomPayload(sanitizedData, roomNumber, floor));
             }
 
@@ -331,7 +336,7 @@ class RoomService {
             const floorsCount = normalizePositiveInteger(data.floors_count, 'floors_count');
             const roomsPerFloor = normalizePositiveInteger(data.rooms_per_floor, 'rooms_per_floor');
             const startFloor = data.start_floor === undefined ? 1 : normalizePositiveInteger(data.start_floor, 'start_floor');
-            const roomStartNumber = data.room_start_number === undefined ? 1 : normalizePositiveInteger(data.room_start_number, 'room_start_number');
+            const roomStartNumber = data.room_start_number === undefined ? 100 : normalizePositiveInteger(data.room_start_number, 'room_start_number');
 
             const sanitizedData = pickAllowedFields(data, ROOM_CREATE_FIELDS);
             this.validateCreateData({
@@ -343,8 +348,9 @@ class RoomService {
             const roomsToCreate = [];
             for (let floorOffset = 0; floorOffset < floorsCount; floorOffset++) {
                 const floor = startFloor + floorOffset;
+                const nextSequence = await RoomDAO.getNextRoomSequence(sanitizedData.building, floor, roomStartNumber);
                 for (let roomIndex = 0; roomIndex < roomsPerFloor; roomIndex++) {
-                    const roomNumber = formatRoomNumber(sanitizedData.building, floor, roomStartNumber + roomIndex);
+                    const roomNumber = formatRoomNumber(nextSequence + roomIndex, sanitizedData.building, floor);
                     roomsToCreate.push(this.buildDefaultRoomPayload(sanitizedData, roomNumber, floor));
                 }
             }
