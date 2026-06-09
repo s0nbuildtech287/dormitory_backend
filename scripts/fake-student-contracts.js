@@ -518,7 +518,7 @@ async function generateFakeStudentContracts() {
         const province = provinces[Math.floor(Math.random() * provinces.length)];
         const address = isSpecialStudent
           ? specialStudent.address
-          : `${Math.floor(Math.random() * 500) + 1} ???????ng ${Math.random() > 0.5 ? 'L?? L???i' : 'Tr???n H??ng ?????o'}, ${province}`;
+          : `${Math.floor(Math.random() * 500) + 1} Duong ${Math.random() > 0.5 ? 'Le Loi' : 'Tran Hung Dao'}, ${province}`;
         const distance = isSpecialStudent ? specialStudent.distance : Math.floor(Math.random() * 200) + 10;
         const year = isSpecialStudent ? specialStudent.year : (plan.cohort === "freshmen" ? 1 : Math.floor(Math.random() * 3) + 2);
         const gpa = isSpecialStudent ? specialStudent.gpa : (year === 1 ? 0 : (Math.random() * 1.5 + 2.5).toFixed(2));
@@ -543,7 +543,7 @@ async function generateFakeStudentContracts() {
         };
 
         const regRandomStr = Math.random().toString(36).substring(2, 15);
-        const registerFormId = `reg-${timestamp - (studentIndex + 1) * 1000}-${regRandomStr}`;
+        const registerFormId = `reg-${Date.now()}-${studentIndex}-${regRandomStr}`;
         const registerCreatedAt = new Date();
         registerCreatedAt.setMonth(registerCreatedAt.getMonth() - timeProfile.monthsAgo - 1);
         const reviewedAt = new Date(registerCreatedAt);
@@ -578,7 +578,7 @@ async function generateFakeStudentContracts() {
           updated_at: reviewedAt.toISOString()
         });
 
-        const userId = `user-${timestamp - (studentIndex + 1) * 1000}`;
+        const userId = `user-${Date.now()}-${studentIndex}-${Math.random().toString(36).substring(2, 10)}`;
         users.push({
           id: userId,
           email,
@@ -597,7 +597,7 @@ async function generateFakeStudentContracts() {
         });
 
         const randomStr = Math.random().toString(36).substring(2, 15);
-        const contractId = `contract-${timestamp - (studentIndex + 1) * 1000}-${randomStr}`;
+        const contractId = `contract-${Date.now()}-${studentIndex}-${randomStr}`;
         const contractNumber = `HD-2024-${(100000 + studentIndex + 1).toString()}`;
         const startDate = new Date();
         startDate.setMonth(startDate.getMonth() - timeProfile.monthsAgo);
@@ -620,7 +620,7 @@ async function generateFakeStudentContracts() {
           deposit_paid: true,
           hard_copy_received: true,
           email_sent_at: createdAt.toISOString(),
-          status: timeProfile.expired ? "Expired" : "Active",
+          status: isSpecialStudent ? "Active" : (timeProfile.expired ? "Expired" : "Active"),
           snapshot_student_id: studentId,
           snapshot_cccd: cccd,
           snapshot_gender: gender,
