@@ -256,6 +256,7 @@ CREATE TABLE rooms (
     water_meter_reading DECIMAL(10,2) DEFAULT 0,
     -- Các cột khác
     status room_status DEFAULT 'Active',
+    reserved_for VARCHAR(50) DEFAULT 'general',
     maintenance_reason TEXT,                  -- Lý do bảo trì (chỉ dùng khi status = 'Maintenance')
     area DECIMAL(5,2),                        -- Tối ưu: Diện tích (m2)
     qr_code VARCHAR(255),                     -- Tối ưu: Mã QR cho check-in

@@ -13,6 +13,7 @@ const ROOM_CREATE_FIELDS = [
     'internet_fee',
     'parking_fee',
     'status',
+    'reserved_for',
     'maintenance_reason',
     'area',
     'qr_code',
@@ -32,6 +33,7 @@ const ROOM_UPDATE_FIELDS = [
     'internet_fee',
     'parking_fee',
     'status',
+    'reserved_for',
     'maintenance_reason',
     'area',
     'qr_code',
@@ -58,6 +60,8 @@ function formatRoomNumber(sequence, building, floor) {
     return `room-${sequence}-${building}-${floor}`;
 }
 
+const RESERVED_FOR_VALUES = ['general', 'freshmen', 'returning_students', 'international'];
+
 class RoomService {
     validateCreateData(data) {
         const requiredFields = ['room_number', 'building', 'floor', 'capacity', 'gender_type', 'rent_price'];
@@ -68,6 +72,10 @@ class RoomService {
 
         if (missingFields.length > 0) {
             throw new Error(`Missing required room fields: ${missingFields.join(', ')}`);
+        }
+
+        if (data.reserved_for && !RESERVED_FOR_VALUES.includes(data.reserved_for)) {
+            throw new Error(`Invalid reserved_for value. Allowed values: ${RESERVED_FOR_VALUES.join(', ')}`);
         }
     }
 
@@ -272,6 +280,7 @@ class RoomService {
             area: sanitizedData.area ?? null,
             qr_code: sanitizedData.qr_code ?? null,
             last_inspection_date: sanitizedData.last_inspection_date ?? null,
+            reserved_for: sanitizedData.reserved_for ?? 'general',
             current_occupancy: 0
         };
     }

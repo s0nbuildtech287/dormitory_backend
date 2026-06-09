@@ -36,6 +36,7 @@ async function generateFakeRooms() {
             internet_fee: 50000.0, // 50,000 VNĐ
             parking_fee: 30000.0, // 30,000 VNĐ
             status: "Active",
+            reserved_for: "general",
             area: 25.0, // 25 m²
             qr_code: `QR_${roomNumber}`, // Fake QR code
             electric_meter_reading: 0.0,
@@ -55,11 +56,11 @@ async function generateFakeRooms() {
     // Insert vào database
     const values = rooms.map(
       (room) =>
-        `('${room.id}', '${room.room_number}', '${room.building}', ${room.floor}, ${room.capacity}, ${room.current_occupancy}, '${room.gender_type}', ${room.rent_price}, ${room.garbage_fee}, ${room.internet_fee}, ${room.parking_fee}, '${room.status}', ${room.area}, '${room.qr_code}', ${room.electric_meter_reading}, ${room.water_meter_reading}, '${room.last_inspection_date}', '${room.created_at}', '${room.updated_at}')`,
+        `('${room.id}', '${room.room_number}', '${room.building}', ${room.floor}, ${room.capacity}, ${room.current_occupancy}, '${room.gender_type}', ${room.rent_price}, ${room.garbage_fee}, ${room.internet_fee}, ${room.parking_fee}, '${room.status}', '${room.reserved_for}', ${room.area}, '${room.qr_code}', ${room.electric_meter_reading}, ${room.water_meter_reading}, '${room.last_inspection_date}', '${room.created_at}', '${room.updated_at}')`,
     );
 
     const query = `
-      INSERT INTO rooms (id, room_number, building, floor, capacity, current_occupancy, gender_type, rent_price, garbage_fee, internet_fee, parking_fee, status, area, qr_code, electric_meter_reading, water_meter_reading, last_inspection_date, created_at, updated_at)
+      INSERT INTO rooms (id, room_number, building, floor, capacity, current_occupancy, gender_type, rent_price, garbage_fee, internet_fee, parking_fee, status, reserved_for, area, qr_code, electric_meter_reading, water_meter_reading, last_inspection_date, created_at, updated_at)
             VALUES ${values.join(", ")}
             ON CONFLICT (room_number) DO NOTHING;
         `;
