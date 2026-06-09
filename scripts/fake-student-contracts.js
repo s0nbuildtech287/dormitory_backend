@@ -507,7 +507,7 @@ async function generateFakeStudentContracts() {
         const gender = plan.room.gender_type;
         const isSpecialStudent = !specialStudentPlaced && plan.cohort === "returning_students" && tag === "general";
         const studentName = isSpecialStudent ? specialStudent.fullName : generateName(gender);
-        const studentId = isSpecialStudent ? specialStudent.studentId : `287116${String(Math.floor(Math.random() * 9000) + 1000)}`;
+        const studentId = isSpecialStudent ? specialStudent.studentId : `287116${String(studentIndex).padStart(4, "0")}`;
         const email = isSpecialStudent ? specialStudent.email : generateEmail(studentName, studentId);
         const phone = isSpecialStudent ? specialStudent.phone : generatePhone();
         const cccd = isSpecialStudent ? specialStudent.cccd : generateCCCD();
@@ -707,7 +707,7 @@ async function generateFakeStudentContracts() {
           id, email, password, full_name, role, phone, avatar, is_active, last_login,
           created_at, updated_at, deleted_at
         ) VALUES ${values.join(", ")}
-        ON CONFLICT DO NOTHING;
+        ON CONFLICT (id) DO NOTHING;
       `;
 
       await pool.query(query);
