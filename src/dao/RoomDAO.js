@@ -144,13 +144,16 @@ class RoomDAO extends BaseDAO {
                             'student_name', u.full_name,
                             'student_id', sc.snapshot_student_id,
                             'email', u.email,
-                            'contract_number', sc.contract_number
+                            'contract_number', sc.contract_number,
+                            'snapshot_year', sc.snapshot_year,
+                            'priority_reasons', rf.priority_reasons
                         )
                     ) FILTER (WHERE sc.id IS NOT NULL), '[]'::json
                 ) AS students
             FROM ${this.tableName} r
             LEFT JOIN student_contracts sc ON sc.room_id = r.id AND sc.status IN ('Active', 'Expired')
             LEFT JOIN users u ON sc.user_id = u.id
+            LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
             WHERE 1=1
         `;
 
@@ -201,10 +204,13 @@ class RoomDAO extends BaseDAO {
                 sc.contract_number,
                 sc.start_date,
                 sc.end_date,
-                sc.status as contract_status
+                sc.status as contract_status,
+                sc.snapshot_year,
+                rf.priority_reasons
             FROM rooms r
             LEFT JOIN student_contracts sc ON r.id = sc.room_id AND sc.status IN ('Active', 'Expired')
             LEFT JOIN users u ON sc.user_id = u.id
+            LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
             WHERE r.id = $1
         `;
         return this.executeQuery(query, [roomId]);
