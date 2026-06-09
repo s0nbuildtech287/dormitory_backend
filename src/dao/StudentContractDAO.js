@@ -82,7 +82,8 @@ class StudentContractDAO extends BaseDAO {
                   u.avatar       AS student_avatar,
                   r.room_number,
                   r.building,
-                  rf.student_id  AS rf_student_id
+                  rf.student_id  AS rf_student_id,
+                  rf.priority_reasons AS rf_priority_reasons
               FROM ${this.tableName} sc
               LEFT JOIN users u ON sc.user_id = u.id
               LEFT JOIN rooms r ON sc.room_id = r.id
