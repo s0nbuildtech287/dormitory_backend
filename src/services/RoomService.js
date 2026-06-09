@@ -301,8 +301,8 @@ class RoomService {
                 : {};
 
             const query = `
-                INSERT INTO settings (id, category, name, value, description, is_active, updated_by, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, TRUE, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO settings (id, category, name, value, description, is_active, updated_by, updated_at)
+                VALUES ($1, $2, $3, $4, $5, TRUE, $6, CURRENT_TIMESTAMP)
                 ON CONFLICT (id)
                 DO UPDATE SET
                     category = EXCLUDED.category,

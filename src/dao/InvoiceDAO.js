@@ -496,8 +496,8 @@ class InvoiceDAO extends BaseDAO {
      */
     async createPricingSettings(settingData) {
         const query = `
-            INSERT INTO settings (id, category, name, value, description, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO settings (id, category, name, value, description, is_active, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
             RETURNING *
         `;
         const result = await this.executeQuery(query, [

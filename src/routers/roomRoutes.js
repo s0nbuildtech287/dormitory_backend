@@ -16,7 +16,7 @@ router.get('/available', RoomController.getAvailable);
 router.get('/meta/structure', requireAdmin, RoomController.getStructureMetadata);
 
 // Building display names settings
-router.get('/settings/display-names', requireAdmin, RoomController.getBuildingDisplayNames);
+router.get('/settings/display-names', RoomController.getBuildingDisplayNames);
 router.put('/settings/display-names', requireAdmin, RoomController.updateBuildingDisplayNames);
 
 // Get statistics
