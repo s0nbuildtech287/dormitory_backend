@@ -1618,6 +1618,9 @@ class RegistrationService {
       // Phòng trống ngay lập tức (tổng số slot trống)
       const availableNow = await RoomDAO.countAvailableRooms();
       
+      // Chỗ trống theo từng tòa nhà
+      const byBuilding = await RoomDAO.countAvailableByBuilding();
+
       // Hợp đồng sắp hết hạn → số chỗ sẽ được giải phóng
       const expiringContracts = await StudentContractDAO.getExpiringContracts(days);
       const availableSoon = expiringContracts.length; // mỗi HĐ = 1 chỗ giải phóng
@@ -1630,6 +1633,7 @@ class RegistrationService {
         available_soon: availableSoon,
         total: availableNow + availableSoon,
         rooms_affected: roomIdsSoon.length,
+        by_building: byBuilding,
         forecast_days: days
       };
     } catch (error) {
@@ -1643,18 +1647,42 @@ class RegistrationService {
    */
   async getDemandForecast() {
     try {
-      // Đếm số lượng hồ sơ năm trước (giả định là năm 2025)
-      const lastYearCount = await RegisterFormDAO.countByYear(2025);
-      
-      // Dự báo: năm trước + 10%
+      const currentYear = new Date().getFullYear();
+      const lastYear = currentYear - 1;
+
+      // Đếm số hồ sơ thực tế năm trước từ DB
+      const actualLastYear = await RegisterFormDAO.countByYear(lastYear);
+
+      // Nếu data fake chưa đủ (< 500), dùng baseline thực tế của trường (~1100 suất/năm)
+      const BASELINE = 1100;
+      const lastYearCount = actualLastYear >= 500 ? actualLastYear : BASELINE;
+      const isBaseline = actualLastYear < 500;
+
+      // Công thức: năm trước × (1 + tăng trưởng 10%)
       const growthRate = 0.10;
       const estimated = Math.ceil(lastYearCount * (1 + growthRate));
-      
+
+      // Phân loại đối tượng dựa trên data thực (hoặc tỷ lệ chuẩn nếu dùng baseline)
+      // Tỷ lệ chuẩn TLU: ~10% chính sách, ~50% tân SV năm 1, ~40% lưu SV
+      let byTarget;
+      if (!isBaseline) {
+        byTarget = await RegisterFormDAO.countByTargetGroup(lastYear);
+      } else {
+        // Baseline: áp tỷ lệ chuẩn lên 1100
+        byTarget = [
+          { label: "Tân sinh viên (Năm 1)", count: Math.round(lastYearCount * 0.50), color: "blue" },
+          { label: "Lưu sinh viên (Năm 2-4)", count: Math.round(lastYearCount * 0.40), color: "violet" },
+          { label: "Diện chính sách", count: Math.round(lastYearCount * 0.10), color: "rose" },
+        ];
+      }
+
       return {
         last_year: lastYearCount,
         estimated,
         growth_rate: growthRate,
-        year: new Date().getFullYear()
+        year: currentYear,
+        is_baseline: isBaseline,
+        by_target: byTarget,
       };
     } catch (error) {
       throw new Error(`Get demand forecast failed: ${error.message}`);

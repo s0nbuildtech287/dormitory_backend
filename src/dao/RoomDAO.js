@@ -281,6 +281,31 @@ class RoomDAO extends BaseDAO {
         const result = await this.executeQuery(query);
         return parseInt(result[0]?.available_slots || 0, 10);
     }
+
+    /**
+     * Count available slots grouped by building AND floor (for heatmap table)
+     */
+    async countAvailableByBuilding() {
+        const query = `
+            SELECT
+                building,
+                floor,
+                COUNT(*) AS total_rooms,
+                SUM(capacity) AS total_capacity,
+                SUM(current_occupancy) AS total_occupancy,
+                SUM(capacity - current_occupancy) AS available_slots,
+                ROUND(
+                    CASE WHEN SUM(capacity) > 0
+                    THEN SUM(current_occupancy)::numeric / SUM(capacity) * 100
+                    ELSE 0 END, 0
+                ) AS occupancy_pct
+            FROM ${this.tableName}
+            WHERE status = 'Active'
+            GROUP BY building, floor
+            ORDER BY building, floor
+        `;
+        return this.executeQuery(query);
+    }
 }
 
 module.exports = new RoomDAO();

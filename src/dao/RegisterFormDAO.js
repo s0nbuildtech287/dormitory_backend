@@ -161,6 +161,27 @@ class RegisterFormDAO extends BaseDAO {
         const result = await this.executeQuery(query, [year]);
         return parseInt(result[0]?.count || 0, 10);
     }
+
+    /**
+     * Count registrations by target group (năm 1, năm 2-4, chính sách) for a given year
+     */
+    async countByTargetGroup(year) {
+        const query = `
+            SELECT
+                COUNT(*) FILTER (WHERE year = 1 AND (priority_reasons IS NULL OR priority_reasons = '')) AS freshmen,
+                COUNT(*) FILTER (WHERE year > 1 AND (priority_reasons IS NULL OR priority_reasons = '')) AS returning,
+                COUNT(*) FILTER (WHERE priority_reasons IS NOT NULL AND priority_reasons <> '') AS policy
+            FROM ${this.tableName}
+            WHERE EXTRACT(YEAR FROM created_at) = $1
+        `;
+        const result = await this.executeQuery(query, [year]);
+        const row = result[0] || {};
+        return [
+            { label: "Tân sinh viên (Năm 1)", count: parseInt(row.freshmen || 0, 10), color: "blue" },
+            { label: "Lưu sinh viên (Năm 2-4)", count: parseInt(row.returning || 0, 10), color: "violet" },
+            { label: "Diện chính sách", count: parseInt(row.policy || 0, 10), color: "rose" },
+        ];
+    }
 }
 
 module.exports = new RegisterFormDAO();
