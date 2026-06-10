@@ -268,6 +268,19 @@ class RoomDAO extends BaseDAO {
             water_meter_reading: waterReading
         });
     }
+
+    /**
+     * Count total available (empty) slots across all active rooms
+     */
+    async countAvailableRooms() {
+        const query = `
+            SELECT COALESCE(SUM(capacity - current_occupancy), 0) AS available_slots
+            FROM ${this.tableName}
+            WHERE status = 'Active' AND current_occupancy < capacity
+        `;
+        const result = await this.executeQuery(query);
+        return parseInt(result[0]?.available_slots || 0, 10);
+    }
 }
 
 module.exports = new RoomDAO();

@@ -37,6 +37,10 @@ router.put('/scoring-weights', requireAdmin, RegistrationController.updateScorin
 // Recalculate scores for all registrations (when settings change)
 router.post('/recalculate-scores', requireAdmin, RegistrationController.recalculateScores);
 
+// CAMPAIGN LAUNCHER ENDPOINTS
+router.get('/room-forecast', requireAdmin, RegistrationController.getRoomForecast);
+router.get('/demand-forecast', requireAdmin, RegistrationController.getDemandForecast);
+
 // Get registration by ID
 router.get('/:id', RegistrationController.getById);
 

@@ -1594,18 +1594,68 @@ class RegistrationService {
       }
 
       const totalQuota = policy_priority + freshmen + seniors;
-      if (Math.abs(totalQuota - 100) > 1) {
-        throw new Error(`Total quota must equal 100% (current: ${totalQuota.toFixed(1)}%)`);
+      if (Math.abs(totalQuota - 100) > 0.1) {
+        throw new Error(`Quotas must sum to 100% (current: ${totalQuota.toFixed(1)}%)`);
       }
     }
 
-    // Validate score mappings (optional, just check structure exists)
-    if (config.scoreMappings) {
-      const { priority, year, gpa } = config.scoreMappings;
+    return true;
+  }
 
-      if (!priority || !year || !gpa) {
-        throw new Error("Score mappings must include priority, year, and gpa sections");
-      }
+  /**
+   * CAMPAIGN LAUNCHER SUPPORT METHODS
+   */
+
+  /**
+   * Get room forecast: Phòng trống hiện tại + sẽ trống sau X ngày
+   * @param {number} days - Số ngày dự báo (default: 30)
+   * @returns {object} { available_now, available_soon, total, rooms_soon }
+   */
+  async getRoomForecast(days = 30) {
+    try {
+      const RoomDAO = require("../dao/RoomDAO");
+      
+      // Phòng trống ngay lập tức
+      const availableNow = await RoomDAO.countAvailableRooms();
+      
+      // Hợp đồng sắp hết hạn (sẽ giải phóng phòng)
+      const expiringContracts = await StudentContractDAO.getExpiringContracts(days);
+      const roomIdsSoon = [...new Set(expiringContracts.map(c => c.room_id).filter(Boolean))];
+      const availableSoon = roomIdsSoon.length;
+      
+      return {
+        available_now: availableNow,
+        available_soon: availableSoon,
+        total: availableNow + availableSoon,
+        rooms_soon: roomIdsSoon,
+        forecast_days: days
+      };
+    } catch (error) {
+      throw new Error(`Get room forecast failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get demand forecast: Dự báo nhu cầu dựa vào năm trước +10%
+   * @returns {object} { last_year, estimated, growth_rate }
+   */
+  async getDemandForecast() {
+    try {
+      // Đếm số lượng hồ sơ năm trước (giả định là năm 2025)
+      const lastYearCount = await RegisterFormDAO.countByYear(2025);
+      
+      // Dự báo: năm trước + 10%
+      const growthRate = 0.10;
+      const estimated = Math.ceil(lastYearCount * (1 + growthRate));
+      
+      return {
+        last_year: lastYearCount,
+        estimated,
+        growth_rate: growthRate,
+        year: new Date().getFullYear()
+      };
+    } catch (error) {
+      throw new Error(`Get demand forecast failed: ${error.message}`);
     }
   }
 }

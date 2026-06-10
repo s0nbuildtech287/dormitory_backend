@@ -18,6 +18,9 @@ router.get("/pending", requireAdmin, ContractController.getPending);
 // Get expiring contracts
 router.get("/expiring", requireAdmin, ContractController.getExpiring);
 
+// Send renewal reminder emails
+router.post("/send-renewal-emails", requireAdmin, ContractController.sendRenewalEmails);
+
 // Get contracts by user
 router.get("/user", ContractController.getByUser);
 router.get("/user/:userId", ContractController.getByUser);

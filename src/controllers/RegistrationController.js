@@ -396,6 +396,43 @@ class RegistrationController {
             next(error);
         }
     }
+
+    /**
+     * CAMPAIGN LAUNCHER ENDPOINTS
+     */
+
+    /**
+     * GET /api/registrations/room-forecast?days=30
+     * Dự báo phòng trống
+     */
+    async getRoomForecast(req, res, next) {
+        try {
+            const days = req.query.days ? parseInt(req.query.days) : 30;
+            const forecast = await RegistrationService.getRoomForecast(days);
+            res.json({
+                success: true,
+                data: forecast
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/registrations/demand-forecast
+     * Dự báo nhu cầu đăng ký
+     */
+    async getDemandForecast(req, res, next) {
+        try {
+            const forecast = await RegistrationService.getDemandForecast();
+            res.json({
+                success: true,
+                data: forecast
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new RegistrationController();

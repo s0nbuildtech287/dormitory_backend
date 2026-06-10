@@ -197,6 +197,54 @@ class ContractService {
   }
 
   /**
+   * Send renewal reminder emails to students with expiring contracts
+   * @param {Array<string>} contractIds - Array of contract IDs
+   * @param {string} adminId - Admin ID sending emails
+   * @param {object} req - Request object
+   * @returns {object} { sent, failed }
+   */
+  async sendRenewalReminders(contractIds, adminId, req = null) {
+    try {
+      const EmailService = require("./EmailService");
+      const sent = [];
+      const failed = [];
+
+      for (const contractId of contractIds) {
+        try {
+          const contract = await StudentContractDAO.getContractDetails(contractId);
+          if (!contract || !contract.user_email) {
+            failed.push({ contractId, reason: "Contract or email not found" });
+            continue;
+          }
+
+          const daysUntilExpiry = Math.ceil((new Date(contract.end_date) - new Date()) / (1000 * 60 * 60 * 24));
+
+          await EmailService.sendEmail({
+            to: contract.user_email,
+            subject: "Thông báo gia hạn hợp đồng ký túc xá",
+            text: `Kính gửi ${contract.user_full_name},\n\nHợp đồng ký túc xá của bạn (${contract.contract_number}) sẽ hết hạn vào ngày ${new Date(contract.end_date).toLocaleDateString("vi-VN")} (còn ${daysUntilExpiry} ngày).\n\nVui lòng liên hệ Ban quản lý để gia hạn hợp đồng nếu bạn muốn tiếp tục ở lại.\n\nTrân trọng,\nBan quản lý KTX`,
+            html: `<p>Kính gửi <strong>${contract.user_full_name}</strong>,</p><p>Hợp đồng ký túc xá của bạn (<strong>${contract.contract_number}</strong>) sẽ hết hạn vào ngày <strong>${new Date(contract.end_date).toLocaleDateString("vi-VN")}</strong> (còn <strong>${daysUntilExpiry} ngày</strong>).</p><p>Vui lòng liên hệ Ban quản lý để gia hạn hợp đồng nếu bạn muốn tiếp tục ở lại.</p><p>Trân trọng,<br/>Ban quản lý KTX</p>`,
+          });
+
+          sent.push(contractId);
+        } catch (error) {
+          console.error(`Failed to send renewal email for contract ${contractId}:`, error.message);
+          failed.push({ contractId, reason: error.message });
+        }
+      }
+
+      // Log action
+      if (adminId && req) {
+        await LogSystemDAO.log(adminId, "SEND_RENEWAL_REMINDERS", "student_contracts", null, null, { sent: sent.length, failed: failed.length, contractIds }, req);
+      }
+
+      return { sent: sent.length, failed: failed.length, details: { sent, failed } };
+    } catch (error) {
+      throw new Error(`Send renewal reminders failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Revert contract: xóa contract, set registration về "Chờ duyệt", xóa user account
    * Chỉ cho phép khi Pending + chưa cọc + chưa bản cứng
    */

@@ -146,6 +146,28 @@ class ContractController {
   }
 
   /**
+   * Send renewal reminder emails
+   * POST /api/contracts/send-renewal-emails
+   * Body: { contractIds: [...] }
+   */
+  async sendRenewalEmails(req, res, next) {
+    try {
+      const { contractIds } = req.body;
+      if (!contractIds || !Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ success: false, message: "contractIds array is required" });
+      }
+      const result = await ContractService.sendRenewalReminders(contractIds, req.user.userId, req);
+      res.json({ 
+        success: true, 
+        message: `Đã gửi ${result.sent} email thành công`, 
+        data: result 
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Revert contract → set registration back to "Chờ duyệt", delete contract + user
    * Chỉ cho phép khi: status=Pending, chưa cọc, chưa bản cứng
    */

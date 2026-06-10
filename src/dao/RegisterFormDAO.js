@@ -148,6 +148,19 @@ class RegisterFormDAO extends BaseDAO {
         const result = await this.executeQuery(query, [JSON.stringify(value), updatedBy]);
         return result[0];
     }
+
+    /**
+     * Count registrations created in a specific year (for demand forecast)
+     */
+    async countByYear(year) {
+        const query = `
+            SELECT COUNT(*) AS count
+            FROM ${this.tableName}
+            WHERE EXTRACT(YEAR FROM created_at) = $1
+        `;
+        const result = await this.executeQuery(query, [year]);
+        return parseInt(result[0]?.count || 0, 10);
+    }
 }
 
 module.exports = new RegisterFormDAO();
