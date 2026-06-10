@@ -212,18 +212,33 @@ class ContractService {
       for (const contractId of contractIds) {
         try {
           const contract = await StudentContractDAO.getContractDetails(contractId);
-          if (!contract || !contract.user_email) {
+          if (!contract || !contract.student_email) {
             failed.push({ contractId, reason: "Contract or email not found" });
             continue;
           }
 
           const daysUntilExpiry = Math.ceil((new Date(contract.end_date) - new Date()) / (1000 * 60 * 60 * 24));
+          const endDateFormatted = new Date(contract.end_date).toLocaleDateString("vi-VN");
+          const studentName = contract.student_name || "Sinh viên";
+          const isYear4 = contract.snapshot_year === 4;
+
+          const subject = isYear4
+            ? "Thông báo kết thúc hợp đồng ký túc xá"
+            : "Thông báo gia hạn hợp đồng ký túc xá";
+
+          const text = isYear4
+            ? `Kính gửi ${studentName},\n\nHợp đồng ký túc xá của bạn (${contract.contract_number}) sẽ hết hạn vào ngày ${endDateFormatted} (còn ${daysUntilExpiry} ngày).\n\nDo bạn đang học năm cuối, hợp đồng sẽ không được gia hạn sau khi hết hạn. Vui lòng sắp xếp chỗ ở mới và hoàn tất thủ tục trả phòng trước ngày hết hạn.\n\nChúc bạn tốt nghiệp thuận lợi!\n\nTrân trọng,\nBan quản lý KTX`
+            : `Kính gửi ${studentName},\n\nHợp đồng ký túc xá của bạn (${contract.contract_number}) sẽ hết hạn vào ngày ${endDateFormatted} (còn ${daysUntilExpiry} ngày).\n\nVui lòng liên hệ Ban quản lý để gia hạn hợp đồng nếu bạn muốn tiếp tục ở lại.\n\nTrân trọng,\nBan quản lý KTX`;
+
+          const html = isYear4
+            ? `<p>Kính gửi <strong>${studentName}</strong>,</p><p>Hợp đồng ký túc xá của bạn (<strong>${contract.contract_number}</strong>) sẽ hết hạn vào ngày <strong>${endDateFormatted}</strong> (còn <strong>${daysUntilExpiry} ngày</strong>).</p><p>Do bạn đang học <strong>năm cuối</strong>, hợp đồng sẽ <strong style="color:red">không được gia hạn</strong> sau khi hết hạn. Vui lòng sắp xếp chỗ ở mới và hoàn tất thủ tục trả phòng trước ngày hết hạn.</p><p>Chúc bạn tốt nghiệp thuận lợi!</p><p>Trân trọng,<br/>Ban quản lý KTX</p>`
+            : `<p>Kính gửi <strong>${studentName}</strong>,</p><p>Hợp đồng ký túc xá của bạn (<strong>${contract.contract_number}</strong>) sẽ hết hạn vào ngày <strong>${endDateFormatted}</strong> (còn <strong>${daysUntilExpiry} ngày</strong>).</p><p>Vui lòng liên hệ Ban quản lý để <strong>gia hạn hợp đồng</strong> nếu bạn muốn tiếp tục ở lại.</p><p>Trân trọng,<br/>Ban quản lý KTX</p>`;
 
           await EmailService.sendEmail({
-            to: contract.user_email,
-            subject: "Thông báo gia hạn hợp đồng ký túc xá",
-            text: `Kính gửi ${contract.user_full_name},\n\nHợp đồng ký túc xá của bạn (${contract.contract_number}) sẽ hết hạn vào ngày ${new Date(contract.end_date).toLocaleDateString("vi-VN")} (còn ${daysUntilExpiry} ngày).\n\nVui lòng liên hệ Ban quản lý để gia hạn hợp đồng nếu bạn muốn tiếp tục ở lại.\n\nTrân trọng,\nBan quản lý KTX`,
-            html: `<p>Kính gửi <strong>${contract.user_full_name}</strong>,</p><p>Hợp đồng ký túc xá của bạn (<strong>${contract.contract_number}</strong>) sẽ hết hạn vào ngày <strong>${new Date(contract.end_date).toLocaleDateString("vi-VN")}</strong> (còn <strong>${daysUntilExpiry} ngày</strong>).</p><p>Vui lòng liên hệ Ban quản lý để gia hạn hợp đồng nếu bạn muốn tiếp tục ở lại.</p><p>Trân trọng,<br/>Ban quản lý KTX</p>`,
+            to: contract.student_email,
+            subject,
+            text,
+            html,
           });
 
           sent.push(contractId);
