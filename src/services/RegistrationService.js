@@ -1615,19 +1615,21 @@ class RegistrationService {
     try {
       const RoomDAO = require("../dao/RoomDAO");
       
-      // Phòng trống ngay lập tức
+      // Phòng trống ngay lập tức (tổng số slot trống)
       const availableNow = await RoomDAO.countAvailableRooms();
       
-      // Hợp đồng sắp hết hạn (sẽ giải phóng phòng)
+      // Hợp đồng sắp hết hạn → số chỗ sẽ được giải phóng
       const expiringContracts = await StudentContractDAO.getExpiringContracts(days);
+      const availableSoon = expiringContracts.length; // mỗi HĐ = 1 chỗ giải phóng
+      
+      // Số phòng unique bị ảnh hưởng (để thông tin thêm)
       const roomIdsSoon = [...new Set(expiringContracts.map(c => c.room_id).filter(Boolean))];
-      const availableSoon = roomIdsSoon.length;
       
       return {
         available_now: availableNow,
         available_soon: availableSoon,
         total: availableNow + availableSoon,
-        rooms_soon: roomIdsSoon,
+        rooms_affected: roomIdsSoon.length,
         forecast_days: days
       };
     } catch (error) {
