@@ -1676,6 +1676,37 @@ class RegistrationService {
         ];
       }
 
+      // Lịch sử 6 năm gần nhất — chỉ đến năm ngoái, không include năm hiện tại
+      const HISTORY_YEARS = 6;
+      const history = [];
+      const PAST_DECLINE = 0.06;
+
+      for (let i = HISTORY_YEARS; i >= 1; i--) {
+        const yr = currentYear - i;
+        const actualCount = await RegisterFormDAO.countByYear(yr);
+
+        let total, freshmen, returning, policy, isReal;
+        if (actualCount >= 500) {
+          // Có data thật
+          const groups = await RegisterFormDAO.countByTargetGroup(yr);
+          total = actualCount;
+          freshmen = groups.find(g => g.label.includes("Tân"))?.count || 0;
+          returning = groups.find(g => g.label.includes("Lưu"))?.count || 0;
+          policy = groups.find(g => g.label.includes("chính sách"))?.count || 0;
+          isReal = true;
+        } else {
+          // Không có data — tạo có logic từ baseline, lùi về quá khứ
+          const yearsBack = (currentYear - 1) - yr; // khoảng cách từ lastYear
+          total = Math.round(BASELINE * Math.pow(1 - PAST_DECLINE, yearsBack));
+          freshmen = Math.round(total * 0.50);
+          returning = Math.round(total * 0.40);
+          policy = total - freshmen - returning;
+          isReal = false;
+        }
+
+        history.push({ year: yr, total, freshmen, returning, policy, isReal });
+      }
+
       return {
         last_year: lastYearCount,
         estimated,
@@ -1683,6 +1714,7 @@ class RegistrationService {
         year: currentYear,
         is_baseline: isBaseline,
         by_target: byTarget,
+        history,
       };
     } catch (error) {
       throw new Error(`Get demand forecast failed: ${error.message}`);
