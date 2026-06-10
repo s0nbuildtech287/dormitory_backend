@@ -41,6 +41,18 @@ const defaultSettings = {
         other_objects: 30,
         non_priority: 0
       },
+      priority_detailed: {
+        ho_ngheo: 40,
+        can_ngheo: 35,
+        khuyet_tat: 30,
+        liet_sy: 50,
+        thuong_binh: 45,
+        luu_hoc_sinh: 40,
+        vung_sau_xa: 20,
+        hai_dao: 25,
+        hoan_canh_kho_khan: 30,
+        giay_xac_nhan: 15
+      },
       year: {
         year1: 100,
         year2: 60,

@@ -94,6 +94,18 @@ class RegistrationService {
         other_objects: 30,
         non_priority: 0,
       },
+      priority_detailed: {
+        ho_ngheo: 40,
+        can_ngheo: 35,
+        khuyet_tat: 30,
+        liet_sy: 50,
+        thuong_binh: 45,
+        luu_hoc_sinh: 40,
+        vung_sau_xa: 20,
+        hai_dao: 25,
+        hoan_canh_kho_khan: 30,
+        giay_xac_nhan: 15,
+      },
       year: {
         year1: 100,
         year2: 60,
@@ -108,51 +120,87 @@ class RegistrationService {
   }
 
   /**
-   * Calculate Priority Score based on priority_reasons
+   * Calculate Priority Score based on priority_reasons (CUMULATIVE SCORING)
    * @param {string} priorityReasons - Priority reason string
    * @param {object} scoreMappings - Score mappings from settings
-   * @returns {number} Priority score (0-100)
+   * @returns {number} Priority score (0-150, capped at 100 in final calculation)
    */
   calculatePriorityScore(priorityReasons, scoreMappings = null) {
-    // Use defaults if no mappings provided
-    const mappings = scoreMappings?.priority || {
-      absolute_policy: 100,
-      priority_area: 70,
-      other_objects: 30,
-      non_priority: 0,
+    // Use detailed mappings or defaults
+    const detailedMappings = scoreMappings?.priority_detailed || {
+      ho_ngheo: 40,
+      can_ngheo: 35,
+      khuyet_tat: 30,
+      liet_sy: 50,
+      thuong_binh: 45,
+      luu_hoc_sinh: 40,
+      vung_sau_xa: 20,
+      hai_dao: 25,
+      hoan_canh_kho_khan: 30,
+      giay_xac_nhan: 15,
     };
 
-    if (!priorityReasons) {
-      return mappings.non_priority; // Không thuộc diện ưu tiên
+    if (!priorityReasons || priorityReasons.trim() === "") {
+      return 0; // Không thuộc diện ưu tiên
     }
 
+    let totalScore = 0;
     const lowerReason = priorityReasons.toLowerCase();
 
-    // Chính sách tuyệt đối
-    if (
-      lowerReason.includes("hộ nghèo") ||
-      lowerReason.includes("cận nghèo") ||
-      lowerReason.includes("thương binh") ||
-      lowerReason.includes("liệt sỹ") ||
-      lowerReason.includes("khuyết tật") ||
-      lowerReason.includes("lưu học sinh") ||
-      lowerReason.includes("hoàn cảnh khó khăn đặc biệt")
-    ) {
-      return mappings.absolute_policy;
+    // CỘNG ĐIỂM CHO TỪNG CHÍNH SÁCH
+    
+    // Hộ nghèo
+    if (lowerReason.includes("hộ nghèo")) {
+      totalScore += detailedMappings.ho_ngheo || 40;
     }
-
-    // Khu vực ưu tiên
-    if (lowerReason.includes("vùng sâu") || lowerReason.includes("vùng xa") || lowerReason.includes("hải đảo") || lowerReason.includes("vùng có điều kiện kinh tế đặc biệt khó khăn")) {
-      return mappings.priority_area;
+    
+    // Cận nghèo
+    if (lowerReason.includes("cận nghèo")) {
+      totalScore += detailedMappings.can_ngheo || 35;
     }
-
-    // Đối tượng khác
+    
+    // Khuyết tật
+    if (lowerReason.includes("khuyết tật")) {
+      totalScore += detailedMappings.khuyet_tat || 30;
+    }
+    
+    // Con liệt sỹ
+    if (lowerReason.includes("liệt sỹ")) {
+      totalScore += detailedMappings.liet_sy || 50;
+    }
+    
+    // Con thương binh
+    if (lowerReason.includes("thương binh")) {
+      totalScore += detailedMappings.thuong_binh || 45;
+    }
+    
+    // Lưu học sinh
+    if (lowerReason.includes("lưu học sinh")) {
+      totalScore += detailedMappings.luu_hoc_sinh || 40;
+    }
+    
+    // Vùng sâu vùng xa
+    if (lowerReason.includes("vùng sâu") || lowerReason.includes("vùng xa") || lowerReason.includes("vùng có điều kiện kinh tế đặc biệt khó khăn")) {
+      totalScore += detailedMappings.vung_sau_xa || 20;
+    }
+    
+    // Hải đảo
+    if (lowerReason.includes("hải đảo")) {
+      totalScore += detailedMappings.hai_dao || 25;
+    }
+    
+    // Hoàn cảnh khó khăn đặc biệt
+    if (lowerReason.includes("hoàn cảnh khó khăn đặc biệt")) {
+      totalScore += detailedMappings.hoan_canh_kho_khan || 30;
+    }
+    
+    // Giấy xác nhận ưu tiên khác
     if (lowerReason.includes("giấy xác nhận ưu tiên") || lowerReason.includes("ưu tiên khác")) {
-      return mappings.other_objects;
+      totalScore += detailedMappings.giay_xac_nhan || 15;
     }
 
-    // Mặc định: không thuộc diện ưu tiên
-    return mappings.non_priority;
+    // Giới hạn tối đa 100 điểm
+    return Math.min(totalScore, 100);
   }
 
   /**
