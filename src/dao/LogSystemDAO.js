@@ -39,7 +39,7 @@ class LogSystemDAO extends BaseDAO {
 
     async getRecentActivity(limit = 50) {
         const query = `
-            SELECT l.*, u.full_name as user_name, u.email as user_email, u.role as user_role
+            SELECT l.*, u.full_name as user_name, u.email as user_email, u.role as user_role, u.staff_title as user_staff_title
             FROM ${this.tableName} l
             LEFT JOIN users u ON l.user_id = u.id
             ORDER BY l.created_at DESC
@@ -97,7 +97,7 @@ class LogSystemDAO extends BaseDAO {
         const offsetIdx = p + 1;
 
         const dataQuery =
-            'SELECT l.*, u.full_name as user_name, u.email as user_email, u.role as user_role ' +
+            'SELECT l.*, u.full_name as user_name, u.email as user_email, u.role as user_role, u.staff_title as user_staff_title ' +
             baseFrom +
             ' ORDER BY l.created_at DESC' +
             ' LIMIT $' + limitIdx + ' OFFSET $' + offsetIdx;

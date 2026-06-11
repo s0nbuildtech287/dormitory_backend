@@ -1785,6 +1785,18 @@ class RegistrationService {
         });
       }
 
+      if (adminId && adminId !== "system" && req) {
+        await LogSystemDAO.log(
+          adminId,
+          "AUTO_APPROVE_REGISTRATIONS",
+          "register_forms",
+          null,
+          null,
+          { processed, approvedCount: approved.length, skippedQuota },
+          req
+        );
+      }
+
       return { processed, approved, skippedQuota, allocations: approved };
     } catch (error) {
       throw new Error(`Bulk approve registrations failed: ${error.message}`);
