@@ -67,7 +67,7 @@ DROP TYPE IF EXISTS disciplinary_level CASCADE;
 -- Mục đích: Đảm bảo tính toàn vẹn dữ liệu và dễ bảo trì
 
 -- 3.1. ENUMs cho hệ thống cơ bản
-CREATE TYPE user_role AS ENUM ('ADMIN', 'STUDENT');  -- ADMIN làm tất cả, STUDENT chỉ xem
+CREATE TYPE user_role AS ENUM ('ADMIN', 'STUDENT', 'SUPER_ADMIN', 'STAFF');  -- ADMIN và SUPER_ADMIN/STAFF làm quản trị, STUDENT chỉ xem
 CREATE TYPE gender_type AS ENUM ('Nam', 'Nữ');
 CREATE TYPE registration_status AS ENUM ('Chờ duyệt', 'Chấp nhận', 'Từ chối');
 CREATE TYPE ai_suggestion_type AS ENUM ('Nên duyệt', 'Cân nhắc', 'Không ưu tiên'); -- Gợi ý xét duyệt từ hệ thống tính điểm
@@ -149,6 +149,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     role user_role NOT NULL DEFAULT 'STUDENT',
+    staff_title VARCHAR(100),
     phone VARCHAR(20),
     avatar VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,           -- Tối ưu: Khóa tài khoản
@@ -771,9 +772,9 @@ INSERT INTO settings (id, category, name, value, description) VALUES
 }', 'Cấu hình giới hạn số lượng tài sản cho mỗi phòng và tầng');
 
 -- Insert default admin user
-INSERT INTO users (id, email, password, full_name, role, phone, avatar, created_at, updated_at) VALUES 
-('admin-1', 'admin', '$2b$10$r4PtV7h0KGlEULC0E0gOwudU1jY5rrTam9PBpwDb90rZqZxxgymyO', 'Quản Trị Viên', 'ADMIN', '0123456789', 'https://ui-avatars.com/api/?name=Admin&background=1e40af&color=fff', NOW(), NOW()),
-('admin-2', 'buixu4ns0n@gmail.com', '123', 'Bui Xuan Son', 'ADMIN', NULL, 'https://ui-avatars.com/api/?name=Bui+Xuan+Son&background=1e40af&color=fff', NOW(), NOW());
+INSERT INTO users (id, email, password, full_name, role, staff_title, phone, avatar, created_at, updated_at) VALUES 
+('admin-1', 'admin', '$2b$10$nS/acpW56tS/Vvhr4kS7cOhTOc2C8anFrdUDpkKtONv60kwC0Rubi', 'Quản Trị Viên', 'STAFF', 'Quản trị viên hệ thống', '0123456789', 'https://ui-avatars.com/api/?name=Admin&background=1e40af&color=fff', NOW(), NOW()),
+('admin-2', 'buixu4ns0n@gmail.com', '123', 'Bui Xuan Son', 'SUPER_ADMIN', NULL, NULL, 'https://ui-avatars.com/api/?name=Bui+Xuan+Son&background=1e40af&color=fff', NOW(), NOW());
 
 -- ============================================================================
 -- KẾT THÚC SCHEMA

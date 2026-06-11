@@ -36,7 +36,7 @@ const requireAdmin = (req, res, next) => {
         });
     }
 
-    if (req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'STAFF') {
         return res.status(403).json({
             success: false,
             message: 'Admin access required'

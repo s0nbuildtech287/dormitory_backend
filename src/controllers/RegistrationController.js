@@ -156,7 +156,7 @@ class RegistrationController {
             }
 
             // Validate authorization (only admin can delete)
-            if (req.user.role !== 'ADMIN') {
+            if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'STAFF') {
                 return res.status(403).json({
                     success: false,
                     message: 'Only admins can delete registrations'

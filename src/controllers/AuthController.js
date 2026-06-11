@@ -111,15 +111,21 @@ class AuthController {
      */
     async createAdmin(req, res, next) {
         try {
-            const { email, full_name } = req.body;
+            const { email, full_name, role, staff_title } = req.body;
 
-            // Chỉ buixu4ns0n@gmail.com mới được tạo
-            if (req.user.email !== 'buixu4ns0n@gmail.com') {
+            // Chỉ buixu4ns0n@gmail.com hoặc role SUPER_ADMIN mới được tạo
+            const isAuthorized = req.user.email === 'buixu4ns0n@gmail.com' || req.user.role === 'SUPER_ADMIN';
+            if (!isAuthorized) {
                 return res.status(403).json({ success: false, message: 'Không có quyền thực hiện thao tác này!' });
             }
 
             if (!email || !full_name) {
                 return res.status(400).json({ success: false, message: 'Email và họ tên là bắt buộc!' });
+            }
+
+            const targetRole = role || 'STAFF';
+            if (!['SUPER_ADMIN', 'STAFF', 'ADMIN'].includes(targetRole)) {
+                return res.status(400).json({ success: false, message: 'Role không hợp lệ!' });
             }
 
             const UserDAO = require('../dao/UserDAO');
@@ -134,7 +140,8 @@ class AuthController {
                 email,
                 password: '123',
                 full_name,
-                role: 'ADMIN',
+                role: targetRole,
+                staff_title: targetRole === 'STAFF' ? staff_title : null,
                 is_active: true,
             });
 

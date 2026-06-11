@@ -48,7 +48,7 @@ function initSocket(httpServer) {
 
         // Join room theo role và userId
         socket.join(`user:${userId}`);
-        if (role === "ADMIN") {
+        if (role === "ADMIN" || role === "SUPER_ADMIN" || role === "STAFF") {
             socket.join("admins");
         } else {
             socket.join("students");

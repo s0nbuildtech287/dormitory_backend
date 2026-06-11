@@ -213,7 +213,8 @@ class FeedbackService {
             }
 
             // Only allow user to delete their own feedback or admin
-            if (feedback.user_id !== userId && req.user.role !== 'ADMIN') {
+            const isAdmin = ['ADMIN', 'SUPER_ADMIN', 'STAFF'].includes(req.user.role);
+            if (feedback.user_id !== userId && !isAdmin) {
                 throw new Error('Unauthorized to delete this feedback');
             }
 
