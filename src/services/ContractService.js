@@ -86,6 +86,7 @@ class ContractService {
         contract_number: contractNumber,
         rent_price: room.rent_price,
         updated_at: new Date(),
+        volunteer_role: room.reserved_for === "xung_kich" ? "xung_kich" : null
       });
 
       // Log
@@ -130,6 +131,20 @@ class ContractService {
       // Transactional transfer
       await StudentContractDAO.transferRoom(contractId, oldRoomId, newRoomId);
 
+      // Manage volunteer role change
+      const oldRoom = await RoomDAO.findById(oldRoomId);
+      let newRole = contract.volunteer_role;
+      if (newRoom.reserved_for === "xung_kich") {
+        if (oldRoom.building !== newRoom.building || !newRole) {
+          newRole = "xung_kich";
+        }
+      } else {
+        newRole = null;
+      }
+      if (newRole !== contract.volunteer_role) {
+        await StudentContractDAO.update(contractId, { volunteer_role: newRole, updated_at: new Date() });
+      }
+
       // Log
       await LogSystemDAO.log(adminId, "TRANSFER_ROOM", "student_contracts", contractId, { room_id: oldRoomId }, { room_id: newRoomId }, req);
 
@@ -168,6 +183,7 @@ class ContractService {
         status: "Active",
         signed_at: new Date(),
         created_by: adminId,
+        volunteer_role: room.reserved_for === "xung_kich" ? "xung_kich" : null
       };
 
       const contract = await StudentContractDAO.createContractWithRoom(contractData);
@@ -187,6 +203,10 @@ class ContractService {
     try {
       const oldData = await StudentContractDAO.findById(id);
       if (!oldData) throw new Error("Contract not found");
+
+      if (data.volunteer_role !== undefined && data.volunteer_role !== oldData.volunteer_role) {
+        throw new Error("Không thể thay đổi chức vụ xung kích trực tiếp qua cập nhật hợp đồng. Vui lòng sử dụng tính năng phân quyền xung kích.");
+      }
 
       await StudentContractDAO.update(id, { ...data, updated_at: new Date() });
 
@@ -430,6 +450,10 @@ class ContractService {
     try {
       const contract = await StudentContractDAO.findById(contractId);
       if (!contract) throw new Error("Contract not found");
+
+      if (contract.status !== "Active") {
+        throw new Error("Chỉ có thể cập nhật chức vụ xung kích cho hợp đồng đang hoạt động (Active)");
+      }
 
       const room = await RoomDAO.findById(contract.room_id);
       if (!room || room.reserved_for !== "xung_kich") {
