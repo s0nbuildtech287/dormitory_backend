@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const RegistrationController = require('../controllers/RegistrationController');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
@@ -58,5 +58,8 @@ router.post('/:id/validate-images', requireAdmin, RegistrationController.validat
 
 // Delete registration
 router.delete('/:id', requireAdmin, RegistrationController.delete);
+
+// AI Auto-Allocation Route
+router.post('/auto-allocate', requireAdmin, RegistrationController.autoAllocate);
 
 module.exports = router;

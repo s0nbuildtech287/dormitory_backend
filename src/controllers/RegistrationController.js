@@ -1,4 +1,4 @@
-﻿const RegistrationService = require('../services/RegistrationService');
+const RegistrationService = require('../services/RegistrationService');
 const upload = require('../middlewares/upload');
 const GoogleSheetsService = require('../services/GoogleSheetsService');
 const ImageValidatorService = require('../services/ImageValidatorService');
@@ -428,6 +428,28 @@ class RegistrationController {
             res.json({
                 success: true,
                 data: forecast
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/registrations/auto-allocate
+     * AI Bulk Auto-Allocation and Room Assignment
+     */
+    async autoAllocate(req, res, next) {
+        try {
+            const { faculty } = req.body;
+            const result = await RegistrationService.autoAllocateRooms({
+                faculty,
+                adminId: req.user.userId,
+                req
+            });
+            res.json({
+                success: true,
+                message: `Đã tự động duyệt và xếp phòng thành công cho ${result.approvedAndAssigned} sinh viên (và ${result.approvedPending} sinh viên chờ xếp phòng).`,
+                data: result
             });
         } catch (error) {
             next(error);
