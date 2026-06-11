@@ -305,6 +305,7 @@ CREATE TABLE student_contracts (
     created_by VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    volunteer_role VARCHAR(50),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE RESTRICT,
     FOREIGN KEY (register_form_id) REFERENCES register_forms(id) ON DELETE SET NULL,

@@ -647,7 +647,9 @@ async function generateFakeStudentContracts() {
           termination_reason: null,
           created_by: "admin-1",
           created_at: createdAt.toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          volunteer_role: plan.room.reserved_for === "xung_kich" ? "xung_kich" : null,
+          _building: plan.room.building
         });
 
         roomStudents.push(studentName);
@@ -662,6 +664,33 @@ async function generateFakeStudentContracts() {
     if (!specialStudentPlaced) {
       throw new Error("Khong the gan tai khoan sinh vien dac biet vao trong 1000 hop dong.");
     }
+
+    // Bổ nhiệm ngẫu nhiên 1 Trưởng xung kích cho mỗi tòa nhà từ các sinh viên xung kích
+    const contractsByBuilding = {};
+    contracts.forEach((c) => {
+      if (c.volunteer_role === "xung_kich") {
+        if (!contractsByBuilding[c._building]) {
+          contractsByBuilding[c._building] = [];
+        }
+        contractsByBuilding[c._building].push(c);
+      }
+    });
+
+    for (const bld of Object.keys(contractsByBuilding)) {
+      const bldContracts = contractsByBuilding[bld];
+      if (bldContracts.length > 0) {
+        // Ưu tiên hợp đồng Active, nếu không có thì lấy Expired
+        const activeContracts = bldContracts.filter(c => c.status === "Active");
+        const listToPick = activeContracts.length > 0 ? activeContracts : bldContracts;
+        const randomIdx = Math.floor(Math.random() * listToPick.length);
+        listToPick[randomIdx].volunteer_role = "truong_xung_kich";
+      }
+    }
+
+    // Clean up temporary property
+    contracts.forEach((c) => {
+      delete c._building;
+    });
 
     // Hash tất cả CCCD song song (Promise.all) thay vì tuần tự
     // Chia thành batch 50 để tránh quá tải CPU
@@ -742,7 +771,8 @@ async function generateFakeStudentContracts() {
         `'${contract.snapshot_student_id}', '${contract.snapshot_cccd}', '${contract.snapshot_gender}', ` +
         `${contract.snapshot_year}, '${contract.snapshot_faculty}', '${contract.snapshot_phone}', ` +
         `'${contract.terms_conditions.replace(/'/g, "''")}', '${contract.signed_at}', NULL, ` +
-        `'${contract.created_by}', '${contract.created_at}', '${contract.updated_at}')`
+        `'${contract.created_by}', '${contract.created_at}', '${contract.updated_at}', ` +
+        `${contract.volunteer_role ? `'${contract.volunteer_role}'` : "NULL"})`
       );
 
       const query = `
@@ -751,7 +781,7 @@ async function generateFakeStudentContracts() {
           rent_price, deposit_amount, deposit_paid, hard_copy_received, email_sent_at, status,
           snapshot_student_id, snapshot_cccd, snapshot_gender, snapshot_year, snapshot_faculty,
           snapshot_phone, terms_conditions, signed_at, termination_reason, created_by,
-          created_at, updated_at
+          created_at, updated_at, volunteer_role
         ) VALUES ${values.join(", ")}
         ON CONFLICT (id) DO NOTHING;
       `;

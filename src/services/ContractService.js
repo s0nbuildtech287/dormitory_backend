@@ -421,6 +421,80 @@ class ContractService {
       throw new Error(`Create contract from registration failed: ${error.message}`);
     }
   }
+
+  /**
+   * Set volunteer role for a student contract
+   * If promoting to leader ('truong_xung_kich'), the previous leader of the same building is demoted to 'xung_kich'
+   */
+  async setVolunteerRole(contractId, volunteerRole, adminId, req = null) {
+    try {
+      const contract = await StudentContractDAO.findById(contractId);
+      if (!contract) throw new Error("Contract not found");
+
+      const room = await RoomDAO.findById(contract.room_id);
+      if (!room || room.reserved_for !== "xung_kich") {
+        throw new Error("Contract does not belong to a volunteer room");
+      }
+
+      const oldRole = contract.volunteer_role;
+
+      // If promoting to leader, we need to demote the old leader of the building
+      if (volunteerRole === "truong_xung_kich") {
+        const building = room.building;
+        // Find existing active leader contract in the same building
+        const query = `
+          SELECT sc.id, sc.volunteer_role
+          FROM student_contracts sc
+          JOIN rooms r ON sc.room_id = r.id
+          WHERE r.building = $1 
+            AND sc.volunteer_role = 'truong_xung_kich'
+            AND sc.status = 'Active'
+        `;
+        const existingLeaders = await StudentContractDAO.executeQuery(query, [building]);
+
+        for (const leader of existingLeaders) {
+          if (leader.id !== contractId) {
+            await StudentContractDAO.update(leader.id, {
+              volunteer_role: "xung_kich",
+              updated_at: new Date()
+            });
+
+            // Log demotion
+            await LogSystemDAO.log(
+              adminId,
+              "UPDATE_VOLUNTEER_ROLE",
+              "student_contracts",
+              leader.id,
+              { volunteer_role: "truong_xung_kich" },
+              { volunteer_role: "xung_kich" },
+              req
+            );
+          }
+        }
+      }
+
+      // Update target contract
+      await StudentContractDAO.update(contractId, {
+        volunteer_role: volunteerRole,
+        updated_at: new Date()
+      });
+
+      // Log promotion/role update
+      await LogSystemDAO.log(
+        adminId,
+        "UPDATE_VOLUNTEER_ROLE",
+        "student_contracts",
+        contractId,
+        { volunteer_role: oldRole },
+        { volunteer_role: volunteerRole },
+        req
+      );
+
+      return await StudentContractDAO.getContractDetails(contractId);
+    } catch (error) {
+      throw new Error(`Set volunteer role failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new ContractService();

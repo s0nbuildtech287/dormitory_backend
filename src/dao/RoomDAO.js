@@ -146,7 +146,9 @@ class RoomDAO extends BaseDAO {
                             'email', u.email,
                             'contract_number', sc.contract_number,
                             'snapshot_year', sc.snapshot_year,
-                            'priority_reasons', rf.priority_reasons
+                            'priority_reasons', rf.priority_reasons,
+                            'volunteer_role', sc.volunteer_role,
+                            'contract_id', sc.id
                         )
                     ) FILTER (WHERE sc.id IS NOT NULL), '[]'::json
                 ) AS students
@@ -206,7 +208,9 @@ class RoomDAO extends BaseDAO {
                 sc.end_date,
                 sc.status as contract_status,
                 sc.snapshot_year,
-                rf.priority_reasons
+                rf.priority_reasons,
+                sc.volunteer_role,
+                sc.id as contract_id
             FROM rooms r
             LEFT JOIN student_contracts sc ON r.id = sc.room_id AND sc.status IN ('Active', 'Expired')
             LEFT JOIN users u ON sc.user_id = u.id

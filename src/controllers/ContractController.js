@@ -223,6 +223,22 @@ class ContractController {
       next(error);
     }
   }
+
+  /**
+   * Set volunteer role for a student contract
+   */
+  async setVolunteerRole(req, res, next) {
+    try {
+      const { volunteer_role } = req.body;
+      if (!volunteer_role || !["truong_xung_kich", "xung_kich"].includes(volunteer_role)) {
+        return res.status(400).json({ success: false, message: "volunteer_role must be 'truong_xung_kich' or 'xung_kich'" });
+      }
+      const updatedContract = await ContractService.setVolunteerRole(req.params.id, volunteer_role, req.user.userId, req);
+      res.json({ success: true, message: "Volunteer role updated successfully", data: updatedContract });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new ContractController();
