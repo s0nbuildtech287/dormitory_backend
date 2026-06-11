@@ -436,19 +436,19 @@ class RegistrationController {
 
     /**
      * POST /api/registrations/auto-allocate
-     * AI Bulk Auto-Allocation and Room Assignment
+     * Duyệt hàng loạt hồ sơ → tạo hợp đồng Pending (chưa gán phòng)
      */
     async autoAllocate(req, res, next) {
         try {
             const { faculty } = req.body;
-            const result = await RegistrationService.autoAllocateRooms({
+            const result = await RegistrationService.bulkApproveRegistrations({
                 faculty,
                 adminId: req.user.userId,
                 req
             });
             res.json({
                 success: true,
-                message: `Đã tự động duyệt và xếp phòng thành công cho ${result.approvedAndAssigned} sinh viên (và ${result.approvedPending} sinh viên chờ xếp phòng).`,
+                message: `Đã duyệt ${result.processed} hồ sơ. Chuyển sang Hợp đồng sinh viên (chờ gán phòng).`,
                 data: result
             });
         } catch (error) {

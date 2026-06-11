@@ -519,6 +519,130 @@ class ContractService {
       throw new Error(`Set volunteer role failed: ${error.message}`);
     }
   }
+
+  /**
+   * Gán phòng tự động cho các hợp đồng Pending (sau khi đã duyệt hồ sơ).
+   */
+  async autoAssignPendingRooms({ faculty, adminId, req = null }) {
+    try {
+      const RegistrationService = require("./RegistrationService");
+      const rooms = (await RoomDAO.findAll({ status: "Active" })).map((r) => ({ ...r }));
+
+      let contracts = await StudentContractDAO.searchAndFilter({ status: "Pending" });
+      if (faculty && faculty !== "All") {
+        contracts = contracts.filter((c) => c.snapshot_faculty === faculty);
+      }
+
+      contracts.sort((a, b) => {
+        const aBasket = RegistrationService.determineBasket(a.rf_priority_reasons, a.snapshot_year);
+        const bBasket = RegistrationService.determineBasket(b.rf_priority_reasons, b.snapshot_year);
+        if (aBasket !== bBasket) return aBasket - bBasket;
+        return (b.rf_ai_score || 0) - (a.rf_ai_score || 0);
+      });
+
+      const allocations = [];
+      let processed = 0;
+      let assigned = 0;
+      let stillPending = 0;
+
+      for (const contract of contracts) {
+        processed++;
+        const priorityReasons = contract.rf_priority_reasons || "";
+        const year = contract.snapshot_year;
+        const gender = contract.snapshot_gender;
+
+        let studentCategory = "general";
+        const lowerReason = priorityReasons.toLowerCase();
+        if (
+          lowerReason.includes("lưu học sinh") ||
+          lowerReason.includes("quốc tế") ||
+          lowerReason.includes("du học sinh")
+        ) {
+          studentCategory = "international";
+        } else if (year === 1) {
+          studentCategory = "freshmen";
+        } else {
+          studentCategory = "returning_students";
+        }
+
+        let bestRoom = null;
+        let bestScore = -1;
+
+        for (const room of rooms) {
+          if (gender && room.gender_type !== gender) continue;
+          if (room.current_occupancy >= room.capacity) continue;
+          if (room.reserved_for === "xung_kich") continue;
+
+          let score = 0;
+          if (room.reserved_for === studentCategory) score = 10;
+          else if (room.reserved_for === "general" || !room.reserved_for) score = 5;
+          else continue;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestRoom = room;
+          } else if (score === bestScore && bestRoom) {
+            const curVac = bestRoom.capacity - bestRoom.current_occupancy;
+            const roomVac = room.capacity - room.current_occupancy;
+            if (roomVac > curVac) bestRoom = room;
+          }
+        }
+
+        if (bestRoom) {
+          try {
+            await this.assignRoom(contract.id, bestRoom.id, adminId, req);
+            bestRoom.current_occupancy++;
+            assigned++;
+            allocations.push({
+              student_name: contract.student_name,
+              student_id: contract.snapshot_student_id,
+              faculty: contract.snapshot_faculty,
+              room_number: bestRoom.room_number,
+              building: bestRoom.building,
+              status: "Active",
+            });
+          } catch (err) {
+            stillPending++;
+            allocations.push({
+              student_name: contract.student_name,
+              student_id: contract.snapshot_student_id,
+              faculty: contract.snapshot_faculty,
+              room_number: "Chờ gán phòng",
+              building: "N/A",
+              status: "Pending",
+              error: err.message,
+            });
+          }
+        } else {
+          stillPending++;
+          allocations.push({
+            student_name: contract.student_name,
+            student_id: contract.snapshot_student_id,
+            faculty: contract.snapshot_faculty,
+            room_number: "Chờ gán phòng",
+            building: "N/A",
+            status: "Pending",
+          });
+        }
+      }
+
+      if (req && processed > 0) {
+        await LogSystemDAO.log(
+          adminId,
+          "AUTO_ASSIGN_ROOMS",
+          "student_contracts",
+          null,
+          null,
+          { processed, assigned, stillPending },
+          req
+        );
+      }
+
+      return { processed, assigned, stillPending, allocations };
+    } catch (error) {
+      throw new Error(`Auto assign pending rooms failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new ContractService();

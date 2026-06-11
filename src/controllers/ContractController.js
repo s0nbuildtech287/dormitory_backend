@@ -225,6 +225,28 @@ class ContractController {
   }
 
   /**
+   * POST /api/contracts/auto-assign
+   * Gán phòng tự động cho hợp đồng Pending
+   */
+  async autoAssign(req, res, next) {
+    try {
+      const { faculty } = req.body;
+      const result = await ContractService.autoAssignPendingRooms({
+        faculty,
+        adminId: req.user.userId,
+        req,
+      });
+      res.json({
+        success: true,
+        message: `Đã gán phòng cho ${result.assigned}/${result.processed} hợp đồng. Còn ${result.stillPending} hợp đồng chờ gán.`,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Set volunteer role for a student contract
    */
   async setVolunteerRole(req, res, next) {

@@ -32,6 +32,7 @@ router.get("/:id", ContractController.getById);
 router.get("/:id/suggest-rooms", requireAdmin, ContractController.suggestRooms);
 
 // Admin only write routes
+router.post("/auto-assign", requireAdmin, ContractController.autoAssign);
 router.post("/", requireAdmin, ContractController.create);
 router.post("/from-registration", requireAdmin, ContractController.createFromRegistration);
 router.put("/:id", requireAdmin, ContractController.update);

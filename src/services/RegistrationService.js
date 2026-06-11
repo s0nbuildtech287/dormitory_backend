@@ -1722,16 +1722,11 @@ class RegistrationService {
   }
 
   /**
-   * AI Bulk Auto-Allocation and Room Assignment
+   * Duyệt hàng loạt hồ sơ chờ duyệt → tạo hợp đồng Pending (chưa gán phòng).
+   * Sắp xếp theo nhóm ưu tiên + điểm AI, tuân thủ chỉ tiêu từng giỏ.
    */
-  async autoAllocateRooms({ faculty, adminId, req = null }) {
+  async bulkApproveRegistrations({ faculty, adminId, req = null }) {
     try {
-      const RoomDAO = require("../dao/RoomDAO");
-      
-      // 1. Load active rooms
-      const rooms = await RoomDAO.findAll({ status: "Active" });
-
-      // 2. Query pending registrations
       let query = "SELECT * FROM register_forms WHERE status = 'Chờ duyệt'";
       const params = [];
       if (faculty && faculty !== "All") {
@@ -1740,28 +1735,15 @@ class RegistrationService {
       }
       const registrations = await RegisterFormDAO.executeQuery(query, params);
 
-      // 3. Load quotas from settings
       const setting = await RegisterFormDAO.getScoringWeightsSettings();
       let totalSlots = 1000;
-      let quotas = {
-        policy_priority: 10,
-        freshmen: 60,
-        seniors: 30,
-      };
+      let quotas = { policy_priority: 10, freshmen: 60, seniors: 30 };
 
-      if (setting && setting.value && setting.value.quotas) {
-        if (setting.value.quotas.totalSlots) {
-          totalSlots = setting.value.quotas.totalSlots;
-        }
-        if (setting.value.quotas.policy_priority !== undefined) {
-          quotas.policy_priority = setting.value.quotas.policy_priority;
-        }
-        if (setting.value.quotas.freshmen !== undefined) {
-          quotas.freshmen = setting.value.quotas.freshmen;
-        }
-        if (setting.value.quotas.seniors !== undefined) {
-          quotas.seniors = setting.value.quotas.seniors;
-        }
+      if (setting?.value?.quotas) {
+        if (setting.value.quotas.totalSlots) totalSlots = setting.value.quotas.totalSlots;
+        if (setting.value.quotas.policy_priority !== undefined) quotas.policy_priority = setting.value.quotas.policy_priority;
+        if (setting.value.quotas.freshmen !== undefined) quotas.freshmen = setting.value.quotas.freshmen;
+        if (setting.value.quotas.seniors !== undefined) quotas.seniors = setting.value.quotas.seniors;
       }
 
       const slotsPerBasket = {
@@ -1770,220 +1752,59 @@ class RegistrationService {
         3: Math.round((quotas.seniors / 100) * totalSlots),
       };
 
-      // Count already approved registrations in current database for each basket
-      const approvedRegs = await RegisterFormDAO.executeQuery(`
-        SELECT id, priority_reasons, year FROM register_forms WHERE status = 'Chấp nhận'
-      `);
+      const approvedRegs = await RegisterFormDAO.executeQuery(
+        `SELECT priority_reasons, year FROM register_forms WHERE status = 'Chấp nhận'`
+      );
       const approvedCounts = { 1: 0, 2: 0, 3: 0 };
-      approvedRegs.forEach(reg => {
-        const b = this.determineBasket(reg.priority_reasons, reg.year);
-        approvedCounts[b]++;
+      approvedRegs.forEach((reg) => {
+        approvedCounts[this.determineBasket(reg.priority_reasons, reg.year)]++;
       });
 
       const remainingSlots = {
         1: Math.max(0, slotsPerBasket[1] - approvedCounts[1]),
         2: Math.max(0, slotsPerBasket[2] - approvedCounts[2]),
-        3: Math.max(0, slotsPerBasket[3] - approvedCounts[3])
+        3: Math.max(0, slotsPerBasket[3] - approvedCounts[3]),
       };
 
-      // 4. Sort registrations: Basket (1 -> 2 -> 3) then AI score desc
       registrations.sort((a, b) => {
         const aBasket = this.determineBasket(a.priority_reasons, a.year);
         const bBasket = this.determineBasket(b.priority_reasons, b.year);
-        if (aBasket !== bBasket) {
-          return aBasket - bBasket;
-        }
+        if (aBasket !== bBasket) return aBasket - bBasket;
         return (b.ai_score || 0) - (a.ai_score || 0);
       });
 
-      const allocations = [];
+      const approved = [];
       let processed = 0;
-      let approvedAndAssigned = 0;
-      let approvedPending = 0;
+      let skippedQuota = 0;
 
-      // 5. Loop and assign
       for (const reg of registrations) {
         const basket = this.determineBasket(reg.priority_reasons, reg.year);
         if (remainingSlots[basket] <= 0) {
-          continue; // Quota full for this group
+          skippedQuota++;
+          continue;
         }
 
+        await this.approveRegistration(reg.id, adminId, null, req);
         processed++;
+        remainingSlots[basket]--;
 
-        // Determine student category for room matching
-        let studentCategory = "general";
-        if (reg.priority_reasons && (
-            reg.priority_reasons.toLowerCase().includes("lưu học sinh") || 
-            reg.priority_reasons.toLowerCase().includes("quốc tế") ||
-            reg.priority_reasons.toLowerCase().includes("du học sinh")
-        )) {
-          studentCategory = "international";
-        } else if (reg.year === 1) {
-          studentCategory = "freshmen";
-        } else {
-          studentCategory = "returning_students";
-        }
-
-        let bestRoom = null;
-        let bestScore = -1;
-
-        for (const room of rooms) {
-          if (room.gender_type !== reg.gender) continue;
-          if (room.current_occupancy >= room.capacity) continue;
-          if (room.reserved_for === "xung_kich") continue;
-
-          let score = 0;
-          if (room.reserved_for === studentCategory) {
-            score = 10;
-          } else if (room.reserved_for === "general" || !room.reserved_for) {
-            score = 5;
-          } else {
-            continue; // Mismatch
-          }
-
-          if (score > bestScore) {
-            bestScore = score;
-            bestRoom = room;
-          } else if (score === bestScore && bestRoom) {
-            const currentVacancy = bestRoom.capacity - bestRoom.current_occupancy;
-            const roomVacancy = room.capacity - room.current_occupancy;
-            if (roomVacancy > currentVacancy) {
-              bestRoom = room;
-            }
-          }
-        }
-
-        // Setup student user
-        const email = reg.student_email || reg.email;
-        let user = await UserDAO.findByEmail(email);
-        if (!user) {
-          const defaultPwd = reg.cccd || reg.student_id || "123456";
-          const hashed = await bcrypt.hash(defaultPwd, 10);
-          const newUserId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-          user = await UserDAO.create({
-            id: newUserId,
-            email: email || `${newUserId}@ktx.edu.vn`,
-            password: hashed,
-            full_name: reg.student_name,
-            role: "STUDENT",
-            phone: reg.phone_number || null,
-          });
-        }
-
-        if (bestRoom) {
-          // Approve & assign to active contract
-          await RegisterFormDAO.updateStatus(reg.id, "Chấp nhận", adminId);
-
-          const contractId = `contract-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-          const contractNumber = `HD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-          
-          const rentPrice = bestRoom.rent_price || 500000;
-          const depositAmount = rentPrice * 2;
-          const submittedAt = new Date(reg.created_at || Date.now());
-          const startDate = new Date(submittedAt);
-          startDate.setDate(startDate.getDate() + 7);
-          const endDate = new Date(startDate);
-          endDate.setMonth(endDate.getMonth() + 6);
-
-          await StudentContractDAO.createContractWithRoom({
-            id: contractId,
-            contract_number: contractNumber,
-            user_id: user.id,
-            room_id: bestRoom.id,
-            register_form_id: reg.id,
-            status: "Active",
-            start_date: startDate.toISOString().split("T")[0],
-            end_date: endDate.toISOString().split("T")[0],
-            rent_price: rentPrice,
-            deposit_amount: depositAmount,
-            deposit_paid: true,
-            hard_copy_received: true,
-            snapshot_student_id: reg.student_id || null,
-            snapshot_cccd: reg.cccd || null,
-            snapshot_gender: reg.gender || null,
-            snapshot_year: reg.year || null,
-            snapshot_faculty: reg.faculty || null,
-            snapshot_phone: reg.phone_number || null,
-            created_by: adminId,
-            signed_at: new Date()
-          });
-
-          bestRoom.current_occupancy++;
-          approvedAndAssigned++;
-          remainingSlots[basket]--;
-
-          allocations.push({
-            student_name: reg.student_name,
-            student_id: reg.student_id,
-            faculty: reg.faculty,
-            room_number: bestRoom.room_number,
-            building: bestRoom.building,
-            status: "Active"
-          });
-
-          if (req) {
-            await LogSystemDAO.log(adminId, "APPROVE_REGISTRATION", "register_forms", reg.id, { status: reg.status }, { status: "Chấp nhận" }, req);
-          }
-        } else {
-          // Approve as Pending contract (no room available)
-          await RegisterFormDAO.updateStatus(reg.id, "Chấp nhận", adminId);
-
-          const contractId = `contract-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-          const contractNumber = `HD-PENDING-${Date.now().toString().slice(-6)}`;
-          
-          const submittedAt = new Date(reg.created_at || Date.now());
-          const startDate = new Date(submittedAt);
-          startDate.setDate(startDate.getDate() + 7);
-          const endDate = new Date(startDate);
-          endDate.setMonth(endDate.getMonth() + 6);
-
-          await StudentContractDAO.createPendingContract({
-            id: contractId,
-            contract_number: contractNumber,
-            user_id: user.id,
-            room_id: null,
-            register_form_id: reg.id,
-            status: "Pending",
-            start_date: startDate.toISOString().split("T")[0],
-            end_date: endDate.toISOString().split("T")[0],
-            snapshot_student_id: reg.student_id || null,
-            snapshot_cccd: reg.cccd || null,
-            snapshot_gender: reg.gender || null,
-            snapshot_year: reg.year || null,
-            snapshot_faculty: reg.faculty || null,
-            snapshot_phone: reg.phone_number || null,
-            rent_price: 0,
-            deposit_amount: 500000,
-            created_by: adminId,
-          });
-
-          approvedPending++;
-          remainingSlots[basket]--;
-
-          allocations.push({
-            student_name: reg.student_name,
-            student_id: reg.student_id,
-            faculty: reg.faculty,
-            room_number: "Chờ gán phòng",
-            building: "N/A",
-            status: "Pending"
-          });
-
-          if (req) {
-            await LogSystemDAO.log(adminId, "APPROVE_REGISTRATION", "register_forms", reg.id, { status: reg.status }, { status: "Chấp nhận (Chờ gán phòng)" }, req);
-          }
-        }
+        approved.push({
+          student_name: reg.student_name,
+          student_id: reg.student_id,
+          faculty: reg.faculty,
+          status: "Pending",
+        });
       }
 
-      return {
-        processed,
-        approvedAndAssigned,
-        approvedPending,
-        allocations
-      };
+      return { processed, approved, skippedQuota, allocations: approved };
     } catch (error) {
-      throw new Error(`Auto allocate rooms failed: ${error.message}`);
+      throw new Error(`Bulk approve registrations failed: ${error.message}`);
     }
+  }
+
+  /** @deprecated Dùng bulkApproveRegistrations — giữ alias để tương thích route cũ */
+  async autoAllocateRooms(opts) {
+    return this.bulkApproveRegistrations(opts);
   }
 }
 
