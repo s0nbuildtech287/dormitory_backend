@@ -36,6 +36,7 @@ const EXPECTED_KEYWORDS = [
   // Thẻ sinh viên / trường học
   'sinh viên', 'student', 'thẻ sinh viên', 'mã sinh viên', 'mssv',
   'trường đại học', 'đại học thủy lợi', 'thuyloi', 'tlu',
+  'ktx đại học thủy lợi 2026', 'ktx đh thủy lợi 2026', 'ký túc xá',
   'khoa', 'ngành', 'lớp', 'niên khóa',
 
   // Giấy xác nhận hộ nghèo / cận nghèo
