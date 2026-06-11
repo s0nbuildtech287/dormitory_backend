@@ -681,11 +681,61 @@ CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON settings
 -- Insert default settings
 INSERT INTO settings (id, category, name, value, description) VALUES 
 ('scoring_weights', 'system', 'scoring_weights', '{
-    "year": {"weight": 20, "max_year": 5},
-    "distance": {"weight": 30, "max_distance": 100},
-    "gpa": {"weight": 25, "min_gpa": 2.0},
-    "circumstance": {"weight": 25, "max_points": 20}
-}', 'Trọng số tính điểm hồ sơ đăng ký'),
+  "quotas": {
+    "totalSlots": 1000,
+    "policy_priority": 0,
+    "freshmen": 60,
+    "seniors": 40,
+    "waterfall_enabled": true
+  },
+  "weights": {
+    "basket1": {
+      "w1_priority": 0.4,
+      "w2_year": 0.3,
+      "w3_gpa": 0.3
+    },
+    "basket2": {
+      "w1_priority": 0.2,
+      "w2_year": 0.5,
+      "w3_gpa": 0.3
+    },
+    "basket3": {
+      "w1_priority": 0.1,
+      "w2_year": 0.2,
+      "w3_gpa": 0.7
+    }
+  },
+  "scoreMappings": {
+    "priority": {
+      "absolute_policy": 100,
+      "priority_area": 70,
+      "other_objects": 30,
+      "non_priority": 0
+    },
+    "priority_detailed": {
+      "ho_ngheo": 40,
+      "can_ngheo": 35,
+      "khuyet_tat": 30,
+      "liet_sy": 50,
+      "thuong_binh": 45,
+      "luu_hoc_sinh": 40,
+      "vung_sau_xa": 20,
+      "hai_dao": 25,
+      "hoan_canh_kho_khan": 30,
+      "giay_xac_nhan": 15
+    },
+    "year": {
+      "year1": 100,
+      "year2": 60,
+      "year3": 40,
+      "year4": 20
+    },
+    "gpa": {
+      "conversion_factor": 25,
+      "min_gpa_filter": 2.0
+    }
+  }
+}', 'Cấu hình hệ thống chấm điểm và phân bổ chỗ ở cho đăng ký KTX'),
 ('room_capacity', 'room', 'defaultCapacity', '4', 'Sức chứa mặc định cho phòng mới'),
 ('room_rent_price', 'room', 'defaultRentPrice', '1200000', 'Giá thuê phòng mặc định (VNĐ)'),
 ('room_garbage_fee', 'room', 'defaultGarbageFee', '20000', 'Phí rác hàng tháng mặc định'),

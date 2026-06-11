@@ -459,9 +459,9 @@ class RegistrationService {
         const setting = await RegisterFormDAO.getScoringWeightsSettings();
         let totalSlots = 1000; // Default
         let quotas = {
-          policy_priority: 10,
+          policy_priority: 0,
           freshmen: 60,
-          seniors: 30,
+          seniors: 40,
         };
 
         if (setting && setting.value && setting.value.quotas) {
@@ -479,45 +479,33 @@ class RegistrationService {
           }
         }
 
-        // Calculate slots per basket
-        const slotsPerBasket = {
-          1: Math.round((quotas.policy_priority / 100) * totalSlots), // Nhóm 1: Chính sách
-          2: Math.round((quotas.freshmen / 100) * totalSlots), // Nhóm 2: Tân SV
-          3: Math.round((quotas.seniors / 100) * totalSlots), // Nhóm 3: Khóa cũ
+        // Calculate slots per academic year quota
+        const slotsPerQuota = {
+          freshmen: Math.round((quotas.freshmen / 100) * totalSlots),
+          seniors: Math.round((quotas.seniors / 100) * totalSlots),
         };
 
-        console.log(`📊 Slot allocation: Nhóm 1=${slotsPerBasket[1]}, Nhóm 2=${slotsPerBasket[2]}, Nhóm 3=${slotsPerBasket[3]} (Total: ${totalSlots})`);
+        console.log(`📊 Slot allocation: Tân SV (Nhóm 1+2)=${slotsPerQuota.freshmen}, Khóa cũ (Nhóm 1+3)=${slotsPerQuota.seniors} (Total: ${totalSlots})`);
 
-        // Count pending registrations per basket
-        const basketCounts = { 1: 0, 2: 0, 3: 0 };
+        // Count pending registrations per academic year quota
+        const quotaCounts = { freshmen: 0, seniors: 0 };
 
         registrations.forEach((reg) => {
           // Only count pending registrations
           if (reg.status === "Chờ duyệt") {
-            // Determine which basket this registration belongs to
-            let basket = 3; // Default
-            try {
-              if (reg.ai_reasoning) {
-                const reasoning = JSON.parse(reg.ai_reasoning);
-                basket = reasoning.basket || this.determineBasket(reg.priority_reasons, reg.year);
-              } else {
-                basket = this.determineBasket(reg.priority_reasons, reg.year);
-              }
-            } catch (e) {
-              basket = this.determineBasket(reg.priority_reasons, reg.year);
-            }
+            const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+            
+            // Increment count for this quota key
+            quotaCounts[quotaKey]++;
 
-            // Increment count for this basket
-            basketCounts[basket]++;
-
-            // Mark as full if this basket has exceeded its quota
-            reg.isFull = basketCounts[basket] > slotsPerBasket[basket];
+            // Mark as full if this quota key has exceeded its limit
+            reg.isFull = quotaCounts[quotaKey] > slotsPerQuota[quotaKey];
           } else {
             reg.isFull = false;
           }
         });
 
-        console.log(`📊 Registration counts: Nhóm 1=${basketCounts[1]}, Nhóm 2=${basketCounts[2]}, Nhóm 3=${basketCounts[3]}`);
+        console.log(`📊 Registration counts: Tân SV=${quotaCounts.freshmen}, Khóa cũ=${quotaCounts.seniors}`);
       } catch (error) {
         console.warn("⚠️ Could not check slot capacity:", error.message);
         // If error, don't mark any as full
@@ -1448,9 +1436,9 @@ class RegistrationService {
           value: {
             quotas: {
               totalSlots: 1000,
-              policy_priority: 10,
+              policy_priority: 0,
               freshmen: 60,
-              seniors: 30,
+              seniors: 40,
               waterfall_enabled: true,
             },
             weights: {
@@ -1583,7 +1571,7 @@ class RegistrationService {
         throw new Error("Invalid totalSlots: must be a positive number");
       }
 
-      if (typeof policy_priority !== "number" || policy_priority < 0 || policy_priority > 100) {
+      if (policy_priority !== undefined && (typeof policy_priority !== "number" || policy_priority < 0 || policy_priority > 100)) {
         throw new Error("Invalid policy_priority quota");
       }
       if (typeof freshmen !== "number" || freshmen < 0 || freshmen > 100) {
@@ -1593,7 +1581,7 @@ class RegistrationService {
         throw new Error("Invalid seniors quota");
       }
 
-      const totalQuota = policy_priority + freshmen + seniors;
+      const totalQuota = (policy_priority !== undefined ? policy_priority : 0) + freshmen + seniors;
       if (Math.abs(totalQuota - 100) > 0.1) {
         throw new Error(`Quotas must sum to 100% (current: ${totalQuota.toFixed(1)}%)`);
       }
@@ -1627,6 +1615,14 @@ class RegistrationService {
       
       // Số phòng unique bị ảnh hưởng (để thông tin thêm)
       const roomIdsSoon = [...new Set(expiringContracts.map(c => c.room_id).filter(Boolean))];
+
+      // Tính tổng số chỗ (capacity) đang hoạt động trong hệ thống
+      const totalCapacityRes = await RoomDAO.executeQuery(`
+        SELECT COALESCE(SUM(capacity), 0) AS total_capacity
+        FROM rooms
+        WHERE status = 'Active'
+      `);
+      const totalCapacity = parseInt(totalCapacityRes[0]?.total_capacity || 0, 10);
       
       return {
         available_now: availableNow,
@@ -1634,7 +1630,8 @@ class RegistrationService {
         total: availableNow + availableSoon,
         rooms_affected: roomIdsSoon.length,
         by_building: byBuilding,
-        forecast_days: days
+        forecast_days: days,
+        total_capacity: totalCapacity
       };
     } catch (error) {
       throw new Error(`Get room forecast failed: ${error.message}`);
@@ -1737,35 +1734,25 @@ class RegistrationService {
 
       const setting = await RegisterFormDAO.getScoringWeightsSettings();
       let totalSlots = 1000;
-      let quotas = { policy_priority: 10, freshmen: 60, seniors: 30 };
+      let quotas = { freshmen: 60, seniors: 40 };
 
       if (setting?.value?.quotas) {
         if (setting.value.quotas.totalSlots) totalSlots = setting.value.quotas.totalSlots;
-        if (setting.value.quotas.policy_priority !== undefined) quotas.policy_priority = setting.value.quotas.policy_priority;
         if (setting.value.quotas.freshmen !== undefined) quotas.freshmen = setting.value.quotas.freshmen;
         if (setting.value.quotas.seniors !== undefined) quotas.seniors = setting.value.quotas.seniors;
       }
 
       const slotsPerBasket = {
-        1: Math.round((quotas.policy_priority / 100) * totalSlots),
-        2: Math.round((quotas.freshmen / 100) * totalSlots),
-        3: Math.round((quotas.seniors / 100) * totalSlots),
+        freshmen: Math.round((quotas.freshmen / 100) * totalSlots),
+        seniors: Math.round((quotas.seniors / 100) * totalSlots),
       };
-
-      const approvedRegs = await RegisterFormDAO.executeQuery(
-        `SELECT priority_reasons, year FROM register_forms WHERE status = 'Chấp nhận'`
-      );
-      const approvedCounts = { 1: 0, 2: 0, 3: 0 };
-      approvedRegs.forEach((reg) => {
-        approvedCounts[this.determineBasket(reg.priority_reasons, reg.year)]++;
-      });
 
       const remainingSlots = {
-        1: Math.max(0, slotsPerBasket[1] - approvedCounts[1]),
-        2: Math.max(0, slotsPerBasket[2] - approvedCounts[2]),
-        3: Math.max(0, slotsPerBasket[3] - approvedCounts[3]),
+        freshmen: slotsPerBasket.freshmen,
+        seniors: slotsPerBasket.seniors,
       };
 
+      // Vẫn sắp xếp theo thứ tự Basket (1 -> 2 -> 3) để đưa các bạn Chính sách lên đầu duyệt trước
       registrations.sort((a, b) => {
         const aBasket = this.determineBasket(a.priority_reasons, a.year);
         const bBasket = this.determineBasket(b.priority_reasons, b.year);
@@ -1778,15 +1765,17 @@ class RegistrationService {
       let skippedQuota = 0;
 
       for (const reg of registrations) {
-        const basket = this.determineBasket(reg.priority_reasons, reg.year);
-        if (remainingSlots[basket] <= 0) {
+        // Áp chỉ tiêu dựa trên năm học của sinh viên
+        const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+        
+        if (remainingSlots[quotaKey] <= 0) {
           skippedQuota++;
           continue;
         }
 
         await this.approveRegistration(reg.id, adminId, null, req);
         processed++;
-        remainingSlots[basket]--;
+        remainingSlots[quotaKey]--;
 
         approved.push({
           student_name: reg.student_name,

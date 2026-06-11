@@ -12,9 +12,9 @@ const defaultSettings = {
   value: {
     quotas: {
       totalSlots: 1000,
-      policy_priority: 10,
+      policy_priority: 0,
       freshmen: 60,
-      seniors: 30,
+      seniors: 40,
       waterfall_enabled: true
     },
     weights: {
