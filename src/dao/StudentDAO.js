@@ -164,6 +164,9 @@ class StudentDAO {
         const query = `
             SELECT
                 sc.*,
+                u.full_name          AS student_name,
+                rf.student_name      AS rf_student_name,
+                rf.class             AS snapshot_class,
                 r.room_number,
                 r.building,
                 r.floor,
@@ -176,6 +179,8 @@ class StudentDAO {
                 r.parking_fee,
                 r.last_inspection_date
             FROM student_contracts sc
+            LEFT JOIN users u ON u.id = sc.user_id
+            LEFT JOIN register_forms rf ON rf.id = sc.register_form_id
             LEFT JOIN rooms r ON r.id = sc.room_id
             WHERE sc.user_id = $1
             ORDER BY sc.created_at DESC
