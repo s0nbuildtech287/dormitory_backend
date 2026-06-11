@@ -515,7 +515,7 @@ function randDate(daysAgo) {
 async function run() {
   const client = await pool.connect();
   try {
-    const adminRes = await client.query(`SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1`);
+    const adminRes = await client.query(`SELECT id FROM users WHERE role != 'STUDENT' LIMIT 1`);
     const adminId = adminRes.rows[0]?.id || null;
 
     // Xóa dữ liệu cũ nếu có

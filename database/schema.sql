@@ -773,8 +773,13 @@ INSERT INTO settings (id, category, name, value, description) VALUES
 
 -- Insert default admin user
 INSERT INTO users (id, email, password, full_name, role, staff_title, phone, avatar, created_at, updated_at) VALUES 
-('admin-1', 'admin', '$2b$10$nS/acpW56tS/Vvhr4kS7cOhTOc2C8anFrdUDpkKtONv60kwC0Rubi', 'Quản Trị Viên', 'STAFF', 'Quản trị viên hệ thống', '0123456789', 'https://ui-avatars.com/api/?name=Admin&background=1e40af&color=fff', NOW(), NOW()),
-('admin-2', 'buixu4ns0n@gmail.com', '123', 'Bui Xuan Son', 'SUPER_ADMIN', NULL, NULL, 'https://ui-avatars.com/api/?name=Bui+Xuan+Son&background=1e40af&color=fff', NOW(), NOW());
+('admin-1', 'admin', 'Sondeptrai123@k', 'Quản Trị Viên', 'STAFF', 'Quản trị viên hệ thống', '0123456789', 'https://ui-avatars.com/api/?name=Admin&background=1e40af&color=fff', NOW(), NOW()),
+('admin-2', 'buixu4ns0n@gmail.com', '123', 'Bui Xuan Son', 'SUPER_ADMIN', NULL, NULL, 'https://ui-avatars.com/api/?name=Bui+Xuan+Son&background=1e40af&color=fff', NOW(), NOW()),
+('admin-3', 'admin1', 'Sondeptrai123@k', 'Quản lý tòa nhà 1', 'STAFF', 'Quản lý tòa nhà', '0912345671', 'https://ui-avatars.com/api/?name=admin1&background=1e40af&color=fff', NOW(), NOW()),
+('admin-4', 'admin2', 'Sondeptrai123@k', 'Quản lý tòa nhà 2', 'STAFF', 'Quản lý tòa nhà', '0912345672', 'https://ui-avatars.com/api/?name=admin2&background=1e40af&color=fff', NOW(), NOW()),
+('admin-5', 'admin3', 'Sondeptrai123@k', 'Quản lý tòa nhà 3', 'STAFF', 'Quản lý tòa nhà', '0912345673', 'https://ui-avatars.com/api/?name=admin3&background=1e40af&color=fff', NOW(), NOW()),
+('admin-6', 'admin4', 'Sondeptrai123@k', 'Quản lý tòa nhà 4', 'STAFF', 'Quản lý tòa nhà', '0912345674', 'https://ui-avatars.com/api/?name=admin4&background=1e40af&color=fff', NOW(), NOW()),
+('admin-7', 'admin5', 'Sondeptrai123@k', 'Kế toán KTX', 'STAFF', 'Kế toán', '0912345675', 'https://ui-avatars.com/api/?name=admin5&background=1e40af&color=fff', NOW(), NOW());
 
 -- ============================================================================
 -- KẾT THÚC SCHEMA

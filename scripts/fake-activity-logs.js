@@ -32,7 +32,7 @@ async function run() {
   const client = await pool.connect();
   try {
     // Lấy danh sách admin để gán user_id
-    const adminRes = await client.query(`SELECT id, full_name FROM users WHERE role = 'ADMIN' ORDER BY created_at LIMIT 4`);
+    const adminRes = await client.query(`SELECT id, full_name FROM users WHERE role != 'STUDENT' ORDER BY created_at LIMIT 4`);
     const admins = adminRes.rows;
 
     if (admins.length === 0) {

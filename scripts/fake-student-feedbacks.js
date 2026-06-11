@@ -113,7 +113,7 @@ async function run() {
 
     // Tìm admin để gán resolved_by
     const adminRes = await client.query(
-      `SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1`
+      `SELECT id FROM users WHERE role != 'STUDENT' LIMIT 1`
     );
     const adminId = adminRes.rows[0]?.id || null;
 

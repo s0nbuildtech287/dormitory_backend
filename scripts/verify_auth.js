@@ -21,6 +21,17 @@ async function verifyAuth() {
       passwordLength: superUser.password?.length
     } : "Not found");
 
+    for (let i = 1; i <= 5; i++) {
+      const email = `admin${i}`;
+      const user = await UserDAO.findByEmail(email);
+      console.log(`Admin${i} account:`, user ? {
+        email: user.email,
+        role: user.role,
+        staff_title: user.staff_title,
+        passwordLength: user.password?.length
+      } : "Not found");
+    }
+
     console.log("\n🔑 Testing login for 'admin' (expect STAFF)...");
     try {
       const loginAdmin = await AuthService.login("admin", "Sondeptrai123@k");
@@ -35,6 +46,17 @@ async function verifyAuth() {
       console.log("✅ SuperAdmin login successful! Token role:", loginSuper.user.role);
     } catch (err) {
       console.error("❌ SuperAdmin login failed:", err.message);
+    }
+
+    for (let i = 1; i <= 5; i++) {
+      const email = `admin${i}`;
+      console.log(`\n🔑 Testing login for '${email}' (expect STAFF)...`);
+      try {
+        const login = await AuthService.login(email, "Sondeptrai123@k");
+        console.log(`✅ ${email} login successful! Token role:`, login.user.role, "Title:", login.user.staff_title);
+      } catch (err) {
+        console.error(`❌ ${email} login failed:`, err.message);
+      }
     }
 
   } catch (err) {
