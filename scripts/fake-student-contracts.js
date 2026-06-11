@@ -443,9 +443,24 @@ async function generateFakeStudentContracts() {
     ];
 
     cohortLayout.forEach(({ cohort, roomOffset }) => {
+      let internationalRoomCount = 0;
+      let policyRoomCount = 0;
       for (let roomIndex = 0; roomIndex < 100; roomIndex++) {
         const room = seedRooms[roomOffset + roomIndex];
-        const roomType = roomIndex < 5 ? "international" : roomIndex < 55 ? "policy" : "general";
+        
+        let roomType = "general";
+        if (room.reserved_for === "xung_kich") {
+          roomType = "general"; // volunteer students are domestic (general / policy)
+        } else if (internationalRoomCount < 5) {
+          roomType = "international";
+          internationalRoomCount++;
+        } else if (policyRoomCount < 50) {
+          roomType = "policy";
+          policyRoomCount++;
+        } else {
+          roomType = "general";
+        }
+
         const faculty = faculties[(roomOffset + roomIndex) % faculties.length];
         const major = `Chuyên ngành ${faculty}`;
         const slotTags =

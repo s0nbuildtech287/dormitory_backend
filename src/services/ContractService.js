@@ -1,4 +1,4 @@
-﻿const StudentContractDAO = require("../dao/StudentContractDAO");
+const StudentContractDAO = require("../dao/StudentContractDAO");
 const RoomDAO = require("../dao/RoomDAO");
 const UserDAO = require("../dao/UserDAO");
 const RegisterFormDAO = require("../dao/RegisterFormDAO");
@@ -94,6 +94,48 @@ class ContractService {
       return await StudentContractDAO.getContractDetails(contractId);
     } catch (error) {
       throw new Error(`Assign room failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Transfer room for an active contract
+   */
+  async transferRoom(contractId, newRoomId, adminId, req = null) {
+    try {
+      const contract = await StudentContractDAO.findById(contractId);
+      if (!contract) throw new Error("Contract not found");
+      if (contract.status !== "Active") throw new Error("Contract is not Active");
+
+      const oldRoomId = contract.room_id;
+      if (oldRoomId === newRoomId) throw new Error("Student is already in this room");
+
+      const newRoom = await RoomDAO.findById(newRoomId);
+      if (!newRoom) throw new Error("Target room not found");
+      if (newRoom.current_occupancy >= newRoom.capacity) throw new Error("Target room is full");
+
+      if (newRoom.reserved_for === "xung_kich") {
+        const contractDetails = await StudentContractDAO.getContractDetails(contractId);
+        if (contractDetails && contractDetails.rf_priority_reasons) {
+          const normalized = contractDetails.rf_priority_reasons
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
+          const isInternational = ["luu hoc sinh", "quoc te", "nuoc ngoai", "du hoc sinh", "du hoc", "lao", "campuchia"].some(kw => normalized.includes(kw));
+          if (isInternational) {
+            throw new Error("Không thể chuyển sinh viên quốc tế vào phòng xung kích");
+          }
+        }
+      }
+
+      // Transactional transfer
+      await StudentContractDAO.transferRoom(contractId, oldRoomId, newRoomId);
+
+      // Log
+      await LogSystemDAO.log(adminId, "TRANSFER_ROOM", "student_contracts", contractId, { room_id: oldRoomId }, { room_id: newRoomId }, req);
+
+      return await StudentContractDAO.getContractDetails(contractId);
+    } catch (error) {
+      throw new Error(`Transfer room failed: ${error.message}`);
     }
   }
 

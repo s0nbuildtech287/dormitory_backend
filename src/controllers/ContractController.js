@@ -84,6 +84,22 @@ class ContractController {
   }
 
   /**
+   * Transfer room for an active contract
+   */
+  async transferRoom(req, res, next) {
+    try {
+      const { room_id } = req.body;
+      if (!room_id) {
+        return res.status(400).json({ success: false, message: "room_id is required" });
+      }
+      const contract = await ContractService.transferRoom(req.params.id, room_id, req.user.userId, req);
+      res.json({ success: true, message: "Room transferred successfully", data: contract });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Create new contract
    */
   async create(req, res, next) {

@@ -61,7 +61,7 @@ function formatRoomNumber(sequence, building, floor) {
     return `room-${sequence}-${building}-${floor}`;
 }
 
-const RESERVED_FOR_VALUES = ['general', 'freshmen', 'returning_students', 'international'];
+const RESERVED_FOR_VALUES = ['general', 'freshmen', 'returning_students', 'international', 'xung_kich'];
 const ROOM_BUILDING_DISPLAY_NAMES_SETTING_ID = 'room_building_display_names';
 
 class RoomService {
@@ -178,6 +178,25 @@ class RoomService {
             const sanitizedData = pickAllowedFields(data, ROOM_UPDATE_FIELDS);
             if (Object.keys(sanitizedData).length === 0) {
                 throw new Error('No valid room fields provided for update');
+            }
+
+            if (sanitizedData.reserved_for && !RESERVED_FOR_VALUES.includes(sanitizedData.reserved_for)) {
+                throw new Error(`Invalid reserved_for value. Allowed values: ${RESERVED_FOR_VALUES.join(', ')}`);
+            }
+
+            if (sanitizedData.reserved_for === 'xung_kich') {
+                const roomWithStudents = await RoomDAO.getRoomWithStudents(id);
+                const hasInternational = roomWithStudents.some(row => {
+                    if (!row.student_id || !row.priority_reasons) return false;
+                    const normalized = row.priority_reasons
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toLowerCase();
+                    return ["luu hoc sinh", "quoc te", "nuoc ngoai", "du hoc sinh", "du hoc", "lao", "campuchia"].some(kw => normalized.includes(kw));
+                });
+                if (hasInternational) {
+                    throw new Error("Không thể chuyển phòng này thành phòng xung kích vì đang có sinh viên quốc tế ở.");
+                }
             }
 
             await RoomDAO.update(id, sanitizedData);

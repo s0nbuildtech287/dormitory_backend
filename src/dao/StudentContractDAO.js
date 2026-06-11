@@ -56,7 +56,8 @@ class StudentContractDAO extends BaseDAO {
                 rf.gender      AS rf_gender,
                 rf.cccd        AS rf_cccd,
                 rf.address     AS rf_address,
-                rf.phone_number AS rf_phone
+                rf.phone_number AS rf_phone,
+                rf.priority_reasons AS rf_priority_reasons
             FROM ${this.tableName} sc
             LEFT JOIN users u ON sc.user_id = u.id
             LEFT JOIN rooms r ON sc.room_id = r.id
@@ -165,6 +166,40 @@ class StudentContractDAO extends BaseDAO {
 
       // Increment room occupancy
       await client.query(`UPDATE rooms SET current_occupancy = current_occupancy + 1, updated_at = NOW() WHERE id = $1`, [roomId]);
+
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Transfer room for an Active contract (atomic: decrement old room occupancy + increment new room occupancy + update contract)
+   */
+  async transferRoom(contractId, oldRoomId, newRoomId) {
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Decrement old room occupancy
+      if (oldRoomId) {
+        await client.query(`UPDATE rooms SET current_occupancy = GREATEST(current_occupancy - 1, 0), updated_at = NOW() WHERE id = $1`, [oldRoomId]);
+      }
+
+      // Increment new room occupancy
+      await client.query(`UPDATE rooms SET current_occupancy = current_occupancy + 1, updated_at = NOW() WHERE id = $1`, [newRoomId]);
+
+      // Update contract
+      await client.query(
+        `UPDATE ${this.tableName}
+         SET room_id = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [newRoomId, contractId]
+      );
 
       await client.query("COMMIT");
       return true;

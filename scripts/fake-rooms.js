@@ -8,13 +8,8 @@ async function generateFakeRooms() {
     const floors = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const roomsPerFloor = 10; // 10 phòng/tầng
     const totalRooms = buildings.length * floors.length * roomsPerFloor; // 400 phòng
-    function buildReservedForAssignments(totalCount) {
-      return Array.from({ length: totalCount }, () => "general");
-    }
 
     const rooms = [];
-    const reservedForAssignments = buildReservedForAssignments(totalRooms);
-
     let roomCounter = 1;
 
     for (const building of buildings) {
@@ -40,7 +35,7 @@ async function generateFakeRooms() {
             internet_fee: 50000.0, // 50,000 VNĐ
             parking_fee: 30000.0, // 30,000 VNĐ
             status: "Active",
-            reserved_for: reservedForAssignments[roomCounter - 1] || "general",
+            reserved_for: (floor === 1 && roomNum <= 2) ? "xung_kich" : "general",
             area: 25.0, // 25 m²
             qr_code: `QR_${roomNumber}`, // Fake QR code
             electric_meter_reading: 0.0,
