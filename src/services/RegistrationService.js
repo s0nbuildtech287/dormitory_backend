@@ -11,11 +11,11 @@ const ImageValidatorService = require("./ImageValidatorService");
 class RegistrationService {
   /**
    * ============================================================
-   * HỆ THỐNG TÍNH ĐIỂM AI MỚI
+   * HỆ THỐNG TÍNH ĐIỂM XÉT TUYỂN TỰ ĐỘNG (ALGORITHMIC SCORING)
    * ============================================================
    *
    * CÔNG THỨC:
-   * aiScore = (PriorityScore × W₁) + (YearScore × W₂) + (GPAScore × W₃)
+   * score = (PriorityScore × W₁) + (YearScore × W₂) + (GPAScore × W₃)
    *
    * 1. PRIORITY SCORE (Thang 100):
    *    - Chính sách tuyệt đối: 100
