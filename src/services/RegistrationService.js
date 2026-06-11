@@ -777,7 +777,7 @@ class RegistrationService {
         if (!existingUser) {
           // Tạo tài khoản sinh viên với mật khẩu mặc định là số CCCD (giống fake-student-contracts.js)
           const defaultPwd = oldData.cccd || oldData.student_id || "123456";
-          const hashed = await bcrypt.hash(defaultPwd, 10);
+          const hashed = await bcrypt.hash(defaultPwd, 6);
           const newUserId = `user-${Date.now()}`;
           existingUser = await UserDAO.create({
             id: newUserId,
