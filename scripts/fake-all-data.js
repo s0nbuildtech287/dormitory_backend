@@ -25,7 +25,7 @@ const SCRIPTS_DIR = path.join(__dirname);
 const steps = [
   { file: 'setup-database.js',         label: 'Setup Database Schema' },
   { file: 'fake-rooms.js',             label: 'Fake Rooms (400 phòng)' },
-  { file: 'fake-student-contracts.js', label: 'Fake Students + Contracts (1000 SV, g???m t??i kho???n ?????c bi???t)' },
+  { file: 'fake-student-contracts.js', label: 'Fake Students + Contracts (1000 SV, gồm tài khoản đặc biệt)' },
   { file: 'fake-invoices.js',          label: 'Fake Invoices (tháng hiện tại)' },
   { file: 'fake-invoices-history.js',  label: 'Fake Invoices History (5 tháng)' },
   { file: 'fake-assets.js',            label: 'Fake Assets (tài sản)' },
