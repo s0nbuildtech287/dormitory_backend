@@ -223,6 +223,27 @@ class RoomController {
             next(error);
         }
     }
+
+    async updateBatchReservedFor(req, res, next) {
+        try {
+            const { building, floor, reserved_for } = req.body;
+            const updatedRooms = await RoomService.updateBatchReservedFor(
+                building,
+                floor,
+                reserved_for,
+                req.user.userId,
+                req
+            );
+            res.json({
+                success: true,
+                message: 'Batch updated reserved_for successfully',
+                count: updatedRooms.length,
+                data: updatedRooms
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new RoomController();

@@ -496,6 +496,77 @@ class RoomService {
     }
 
     /**
+     * Batch update reserved_for for building/floor rooms
+     */
+    async updateBatchReservedFor(building, floor, reservedFor, adminId, req = null) {
+        try {
+            if (!building) {
+                throw new Error("Building is required for batch update");
+            }
+            if (reservedFor && !RESERVED_FOR_VALUES.includes(reservedFor)) {
+                throw new Error(`Invalid reserved_for value. Allowed values: ${RESERVED_FOR_VALUES.join(', ')}`);
+            }
+
+            if (reservedFor === 'xung_kich') {
+                let checkQuery = `
+                    SELECT r.id, r.room_number, c.priority_reasons
+                    FROM rooms r
+                    JOIN student_contracts c ON r.id = c.room_id
+                    WHERE r.building = $1 AND c.status = 'Active'
+                `;
+                const checkParams = [building];
+                if (floor !== undefined && floor !== null) {
+                    checkQuery += " AND r.floor = $2";
+                    checkParams.push(Number(floor));
+                }
+                const checkRes = await db.query(checkQuery, checkParams);
+                const hasInternational = checkRes.rows.some(row => {
+                    if (!row.priority_reasons) return false;
+                    const normalized = row.priority_reasons
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toLowerCase();
+                    return ["luu hoc sinh", "quoc te", "nuoc ngoai", "du hoc sinh", "du hoc", "lao", "campuchia"].some(kw => normalized.includes(kw));
+                });
+                if (hasInternational) {
+                    throw new Error("Không thể chuyển các phòng thành phòng xung kích vì đang có sinh viên quốc tế ở.");
+                }
+            }
+
+            let query = `
+                UPDATE rooms 
+                SET reserved_for = $1, updated_at = NOW() 
+                WHERE building = $2
+            `;
+            const params = [reservedFor || 'general', building];
+
+            if (floor !== undefined && floor !== null) {
+                query += " AND floor = $3";
+                params.push(Number(floor));
+            }
+
+            query += " RETURNING *";
+
+            const result = await db.query(query, params);
+
+            // Log action
+            await LogSystemDAO.log(
+                adminId,
+                'BATCH_UPDATE_ROOMS_RESERVED_FOR',
+                'rooms',
+                null,
+                null,
+                { building, floor, reserved_for: reservedFor, affected_count: result.rowCount },
+                req
+            );
+
+            return result.rows;
+        } catch (error) {
+            throw new Error(`Batch update reserved_for failed: ${error.message}`);
+        }
+    }
+
+    /**
      * Update meter readings
      */
     async updateMeterReadings(roomId, electricReading, waterReading, adminId, req = null) {

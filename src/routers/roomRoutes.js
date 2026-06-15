@@ -25,6 +25,7 @@ router.get('/statistics', requireAdmin, RoomController.getStatistics);
 // Admin batch create routes
 router.post('/batch/floor', requireAdmin, RoomController.createFloorRooms);
 router.post('/batch/building', requireAdmin, RoomController.createBuildingRooms);
+router.put('/batch/reserved-for', requireAdmin, RoomController.updateBatchReservedFor);
 
 // Get room by ID
 router.get('/:id', RoomController.getById);
