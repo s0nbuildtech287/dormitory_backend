@@ -1871,7 +1871,9 @@ class RegistrationService {
             student_name: reg.student_name,
             student_id: reg.student_id,
             faculty: studentFaculty,
-            reason: "Hết chỉ tiêu toàn KTX"
+            reason: "Hết chỉ tiêu toàn KTX",
+            year: reg.year,
+            basket: this.determineBasket(reg.priority_reasons, reg.year)
           });
           skippedQuota++;
           continue;
