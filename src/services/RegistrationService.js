@@ -1487,7 +1487,11 @@ class RegistrationService {
 
       // Query dynamic list of faculties and their pending registration count
       const facultyQuery = `
-        SELECT faculty, COUNT(*) as count 
+        SELECT 
+          faculty, 
+          COUNT(*) as count,
+          COUNT(CASE WHEN year = 1 THEN 1 END) as freshmen_count,
+          COUNT(CASE WHEN year > 1 THEN 1 END) as seniors_count
         FROM register_forms 
         WHERE status = 'Chờ duyệt' AND faculty IS NOT NULL AND faculty != ''
         GROUP BY faculty
@@ -1496,7 +1500,9 @@ class RegistrationService {
       const facultyResults = await RegisterFormDAO.executeQuery(facultyQuery);
       const faculties = facultyResults.map(row => ({
         name: row.faculty,
-        count: parseInt(row.count || 0, 10)
+        count: parseInt(row.count || 0, 10),
+        freshmenCount: parseInt(row.freshmen_count || 0, 10),
+        seniorsCount: parseInt(row.seniors_count || 0, 10)
       }));
 
       return {
