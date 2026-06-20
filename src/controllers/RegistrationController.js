@@ -440,15 +440,19 @@ class RegistrationController {
      */
     async autoAllocate(req, res, next) {
         try {
-            const { faculty } = req.body;
+            const { faculty, simulate, allowOverflow } = req.body;
             const result = await RegistrationService.bulkApproveRegistrations({
                 faculty,
                 adminId: req.user.userId,
+                simulate: !!simulate,
+                allowOverflow: !!allowOverflow,
                 req
             });
             res.json({
                 success: true,
-                message: `Đã duyệt ${result.processed} hồ sơ. Chuyển sang Hợp đồng sinh viên (chờ gán phòng).`,
+                message: result.isSimulation 
+                    ? `Mô phỏng thành công: ${result.processed} hồ sơ đủ điều kiện duyệt.`
+                    : `Đã duyệt ${result.processed} hồ sơ. Chuyển sang Hợp đồng sinh viên (chờ gán phòng).`,
                 data: result
             });
         } catch (error) {

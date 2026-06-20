@@ -1485,7 +1485,24 @@ class RegistrationService {
         console.log("✅ Default scoring_weights created successfully");
       }
 
-      return setting;
+      // Query dynamic list of faculties and their pending registration count
+      const facultyQuery = `
+        SELECT faculty, COUNT(*) as count 
+        FROM register_forms 
+        WHERE status = 'Chờ duyệt' AND faculty IS NOT NULL AND faculty != ''
+        GROUP BY faculty
+        ORDER BY faculty
+      `;
+      const facultyResults = await RegisterFormDAO.executeQuery(facultyQuery);
+      const faculties = facultyResults.map(row => ({
+        name: row.faculty,
+        count: parseInt(row.count || 0, 10)
+      }));
+
+      return {
+        ...setting,
+        faculties
+      };
     } catch (error) {
       throw new Error(`Get scoring weights settings failed: ${error.message}`);
     }
@@ -1584,6 +1601,18 @@ class RegistrationService {
       const totalQuota = (policy_priority !== undefined ? policy_priority : 0) + freshmen + seniors;
       if (Math.abs(totalQuota - 100) > 0.1) {
         throw new Error(`Quotas must sum to 100% (current: ${totalQuota.toFixed(1)}%)`);
+      }
+
+      // Validate facultyQuotas if provided
+      if (config.quotas.facultyQuotas) {
+        if (typeof config.quotas.facultyQuotas !== 'object' || Array.isArray(config.quotas.facultyQuotas)) {
+          throw new Error("Invalid facultyQuotas: must be a valid key-value object");
+        }
+        for (const [key, value] of Object.entries(config.quotas.facultyQuotas)) {
+          if (typeof value !== 'number' || value < 0) {
+            throw new Error(`Invalid faculty quota for "${key}": must be a positive number`);
+          }
+        }
       }
     }
 
@@ -1722,7 +1751,7 @@ class RegistrationService {
    * Duyệt hàng loạt hồ sơ chờ duyệt → tạo hợp đồng Pending (chưa gán phòng).
    * Sắp xếp theo nhóm ưu tiên + điểm AI, tuân thủ chỉ tiêu từng giỏ.
    */
-  async bulkApproveRegistrations({ faculty, adminId, req = null }) {
+  async bulkApproveRegistrations({ faculty, adminId, simulate = false, allowOverflow = false, req = null }) {
     try {
       let query = "SELECT * FROM register_forms WHERE status = 'Chờ duyệt'";
       const params = [];
@@ -1735,11 +1764,15 @@ class RegistrationService {
       const setting = await RegisterFormDAO.getScoringWeightsSettings();
       let totalSlots = 1000;
       let quotas = { freshmen: 60, seniors: 40 };
+      let facultyQuotas = {};
 
       if (setting?.value?.quotas) {
         if (setting.value.quotas.totalSlots) totalSlots = setting.value.quotas.totalSlots;
         if (setting.value.quotas.freshmen !== undefined) quotas.freshmen = setting.value.quotas.freshmen;
         if (setting.value.quotas.seniors !== undefined) quotas.seniors = setting.value.quotas.seniors;
+        if (setting.value.quotas.facultyQuotas) {
+          facultyQuotas = { ...setting.value.quotas.facultyQuotas };
+        }
       }
 
       const slotsPerBasket = {
@@ -1752,6 +1785,14 @@ class RegistrationService {
         seniors: slotsPerBasket.seniors,
       };
 
+      const remainingFacultySlots = {};
+      const facultyQuotaEnabled = Object.keys(facultyQuotas).length > 0;
+      if (facultyQuotaEnabled) {
+        for (const [fac, cap] of Object.entries(facultyQuotas)) {
+          remainingFacultySlots[fac] = parseInt(cap, 10) || 0;
+        }
+      }
+
       // Vẫn sắp xếp theo thứ tự Basket (1 -> 2 -> 3) để đưa các bạn Chính sách lên đầu duyệt trước
       registrations.sort((a, b) => {
         const aBasket = this.determineBasket(a.priority_reasons, a.year);
@@ -1760,44 +1801,184 @@ class RegistrationService {
         return (b.ai_score || 0) - (a.ai_score || 0);
       });
 
+      let totalRemainingSlots = totalSlots;
       const approved = [];
+      const skipped = [];
+      const overflowCandidates = [];
       let processed = 0;
       let skippedQuota = 0;
 
       for (const reg of registrations) {
-        // Áp chỉ tiêu dựa trên năm học của sinh viên
         const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+        const studentFaculty = reg.faculty || "Không xác định";
         
-        if (remainingSlots[quotaKey] <= 0) {
+        if (totalRemainingSlots <= 0) {
+          skipped.push({
+            id: reg.id,
+            student_name: reg.student_name,
+            student_id: reg.student_id,
+            faculty: studentFaculty,
+            reason: "Hết chỉ tiêu toàn KTX"
+          });
           skippedQuota++;
           continue;
         }
 
-        await this.approveRegistration(reg.id, adminId, null, req);
+        const isGroupQuotaExceeded = remainingSlots[quotaKey] <= 0;
+        let isFacultyQuotaExceeded = false;
+        const facLimit = facultyQuotas[studentFaculty];
+        if (facultyQuotaEnabled && facLimit !== undefined) {
+          if (facLimit > 0 && remainingFacultySlots[studentFaculty] <= 0) {
+            isFacultyQuotaExceeded = true;
+          }
+        }
+
+        if (isGroupQuotaExceeded || isFacultyQuotaExceeded) {
+          if (allowOverflow) {
+            overflowCandidates.push(reg);
+          } else {
+            const reason = isGroupQuotaExceeded 
+              ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
+              : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${facLimit} chỗ)`;
+            skipped.push({
+              id: reg.id,
+              student_name: reg.student_name,
+              student_id: reg.student_id,
+              faculty: studentFaculty,
+              reason: reason,
+              year: reg.year,
+              basket: this.determineBasket(reg.priority_reasons, reg.year)
+            });
+            skippedQuota++;
+          }
+          continue;
+        }
+
+        if (!simulate) {
+          await this.approveRegistration(reg.id, adminId, null, req);
+        }
         processed++;
         remainingSlots[quotaKey]--;
+        totalRemainingSlots--;
+        if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
+          remainingFacultySlots[studentFaculty]--;
+        }
 
         approved.push({
+          id: reg.id,
           student_name: reg.student_name,
           student_id: reg.student_id,
-          faculty: reg.faculty,
-          status: "Pending",
+          faculty: studentFaculty,
+          status: simulate ? "Simulated-Approved" : "Pending",
+          source: "Phase 1: Đúng chỉ tiêu nhóm & khoa",
+          year: reg.year,
+          basket: this.determineBasket(reg.priority_reasons, reg.year)
         });
       }
 
-      if (adminId && adminId !== "system" && req) {
+      const overflowAllocations = [];
+      if (allowOverflow) {
+        for (const reg of overflowCandidates) {
+          const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+          const studentFaculty = reg.faculty || "Không xác định";
+
+          if (totalRemainingSlots <= 0) {
+            skipped.push({
+              id: reg.id,
+              student_name: reg.student_name,
+              student_id: reg.student_id,
+              faculty: studentFaculty,
+              reason: "Hết chỗ trống KTX (khi dồn chỉ tiêu)",
+              year: reg.year,
+              basket: this.determineBasket(reg.priority_reasons, reg.year)
+            });
+            skippedQuota++;
+            continue;
+          }
+
+          if (!simulate) {
+            await this.approveRegistration(reg.id, adminId, "Duyệt dồn chỉ tiêu", req);
+          }
+
+          processed++;
+          remainingSlots[quotaKey]--;
+          totalRemainingSlots--;
+          if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
+            remainingFacultySlots[studentFaculty]--;
+          }
+
+          const approvedItem = {
+            id: reg.id,
+            student_name: reg.student_name,
+            student_id: reg.student_id,
+            faculty: studentFaculty,
+            status: simulate ? "Simulated-Approved" : "Pending",
+            source: "Phase 2: Dồn chỉ tiêu",
+            year: reg.year,
+            basket: this.determineBasket(reg.priority_reasons, reg.year)
+          };
+          approved.push(approvedItem);
+          overflowAllocations.push(approvedItem);
+        }
+      } else {
+        for (const reg of overflowCandidates) {
+          const studentFaculty = reg.faculty || "Không xác định";
+          skipped.push({
+            id: reg.id,
+            student_name: reg.student_name,
+            student_id: reg.student_id,
+            faculty: studentFaculty,
+            reason: `Vượt quá chỉ tiêu khoa ${studentFaculty} (${facultyQuotas[studentFaculty]} chỗ)`,
+            year: reg.year,
+            basket: this.determineBasket(reg.priority_reasons, reg.year)
+          });
+          skippedQuota++;
+        }
+      }
+
+      const overflowDetails = {};
+      if (facultyQuotaEnabled) {
+        for (const fac of Object.keys(facultyQuotas)) {
+          const limit = facultyQuotas[fac];
+          const appliedList = registrations.filter(r => r.faculty === fac);
+          const applied = appliedList.length;
+          const approvedCount = approved.filter(r => r.faculty === fac).length;
+
+          overflowDetails[fac] = {
+            quota: limit,
+            applied: applied,
+            approved: approvedCount,
+            leftover: Math.max(0, limit - approvedCount),
+            excess: Math.max(0, applied - limit)
+          };
+        }
+      }
+
+      const isSimulation = !!simulate;
+
+      if (!isSimulation && adminId && adminId !== "system" && req) {
         await LogSystemDAO.log(
           adminId,
           "AUTO_APPROVE_REGISTRATIONS",
           "register_forms",
           null,
           null,
-          { processed, approvedCount: approved.length, skippedQuota },
+          { processed, approvedCount: approved.length, skippedQuota, allowOverflow },
           req
         );
       }
 
-      return { processed, approved, skippedQuota, allocations: approved };
+      return { 
+        processed, 
+        approved, 
+        skipped,
+        skippedQuota, 
+        allocations: approved,
+        isSimulation,
+        allowOverflow,
+        overflowDetails,
+        overflowAllocations
+      };
     } catch (error) {
       throw new Error(`Bulk approve registrations failed: ${error.message}`);
     }
