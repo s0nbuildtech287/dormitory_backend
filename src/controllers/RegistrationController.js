@@ -440,12 +440,13 @@ class RegistrationController {
      */
     async autoAllocate(req, res, next) {
         try {
-            const { faculty, simulate, allowOverflow } = req.body;
+            const { faculty, simulate, allowOverflow, tempQuotas } = req.body;
             const result = await RegistrationService.bulkApproveRegistrations({
                 faculty,
                 adminId: req.user.userId,
                 simulate: !!simulate,
                 allowOverflow: !!allowOverflow,
+                tempQuotas,
                 req
             });
             res.json({

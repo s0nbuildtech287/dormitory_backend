@@ -1751,7 +1751,7 @@ class RegistrationService {
    * Duyệt hàng loạt hồ sơ chờ duyệt → tạo hợp đồng Pending (chưa gán phòng).
    * Sắp xếp theo nhóm ưu tiên + điểm AI, tuân thủ chỉ tiêu từng giỏ.
    */
-  async bulkApproveRegistrations({ faculty, adminId, simulate = false, allowOverflow = false, req = null }) {
+  async bulkApproveRegistrations({ faculty, adminId, simulate = false, allowOverflow = false, tempQuotas = null, req = null }) {
     try {
       let query = "SELECT * FROM register_forms WHERE status = 'Chờ duyệt'";
       const params = [];
@@ -1772,6 +1772,39 @@ class RegistrationService {
         if (setting.value.quotas.seniors !== undefined) quotas.seniors = setting.value.quotas.seniors;
         if (setting.value.quotas.facultyQuotas) {
           facultyQuotas = { ...setting.value.quotas.facultyQuotas };
+        }
+      }
+
+      // Override with tempQuotas if provided
+      if (tempQuotas) {
+        if (tempQuotas.totalSlots !== undefined) totalSlots = parseInt(tempQuotas.totalSlots, 10) || 1000;
+        if (tempQuotas.freshmen !== undefined) quotas.freshmen = parseFloat(tempQuotas.freshmen) || 60;
+        if (tempQuotas.seniors !== undefined) quotas.seniors = parseFloat(tempQuotas.seniors) || 40;
+        if (tempQuotas.facultyQuotas) {
+          facultyQuotas = { ...tempQuotas.facultyQuotas };
+        }
+      }
+
+      // If committing (not simulate) and tempQuotas is provided, save it permanently to settings DB
+      if (!simulate && tempQuotas && setting) {
+        try {
+          const updatedQuotas = {
+            totalSlots,
+            policy_priority: 0,
+            freshmen: quotas.freshmen,
+            seniors: quotas.seniors,
+            waterfall_enabled: true,
+            facultyQuotas
+          };
+          const newConfig = {
+            quotas: updatedQuotas,
+            weights: setting.value.weights,
+            scoreMappings: setting.value.scoreMappings
+          };
+          this.validateScoringWeights(newConfig);
+          await RegisterFormDAO.updateScoringWeightsSettings(newConfig, adminId);
+        } catch (saveErr) {
+          console.error("⚠️ Failed to save tempQuotas to settings DB:", saveErr.message);
         }
       }
 
