@@ -1609,7 +1609,14 @@ class RegistrationService {
           throw new Error("Invalid facultyQuotas: must be a valid key-value object");
         }
         for (const [key, value] of Object.entries(config.quotas.facultyQuotas)) {
-          if (typeof value !== 'number' || value < 0) {
+          if (value && typeof value === 'object' && !Array.isArray(value)) {
+            if (value.freshmen !== undefined && (typeof value.freshmen !== 'number' || value.freshmen < 0)) {
+              throw new Error(`Invalid freshmen quota for "${key}": must be a positive number`);
+            }
+            if (value.seniors !== undefined && (typeof value.seniors !== 'number' || value.seniors < 0)) {
+              throw new Error(`Invalid seniors quota for "${key}": must be a positive number`);
+            }
+          } else if (typeof value !== 'number' || value < 0) {
             throw new Error(`Invalid faculty quota for "${key}": must be a positive number`);
           }
         }
@@ -1822,7 +1829,14 @@ class RegistrationService {
       const facultyQuotaEnabled = Object.keys(facultyQuotas).length > 0;
       if (facultyQuotaEnabled) {
         for (const [fac, cap] of Object.entries(facultyQuotas)) {
-          remainingFacultySlots[fac] = parseInt(cap, 10) || 0;
+          if (cap && typeof cap === 'object' && !Array.isArray(cap)) {
+            remainingFacultySlots[fac] = {
+              freshmen: parseInt(cap.freshmen, 10) || 0,
+              seniors: parseInt(cap.seniors, 10) || 0
+            };
+          } else {
+            remainingFacultySlots[fac] = parseInt(cap, 10) || 0;
+          }
         }
       }
 
@@ -1861,8 +1875,15 @@ class RegistrationService {
         let isFacultyQuotaExceeded = false;
         const facLimit = facultyQuotas[studentFaculty];
         if (facultyQuotaEnabled && facLimit !== undefined) {
-          if (facLimit > 0 && remainingFacultySlots[studentFaculty] <= 0) {
-            isFacultyQuotaExceeded = true;
+          if (facLimit && typeof facLimit === 'object' && !Array.isArray(facLimit)) {
+            const limitForGroup = facLimit[quotaKey];
+            if (limitForGroup > 0 && remainingFacultySlots[studentFaculty][quotaKey] <= 0) {
+              isFacultyQuotaExceeded = true;
+            }
+          } else {
+            if (facLimit > 0 && remainingFacultySlots[studentFaculty] <= 0) {
+              isFacultyQuotaExceeded = true;
+            }
           }
         }
 
@@ -1872,7 +1893,7 @@ class RegistrationService {
           } else {
             const reason = isGroupQuotaExceeded 
               ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
-              : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${facLimit} chỗ)`;
+              : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facLimit === 'object' ? facLimit[quotaKey] : facLimit} chỗ)`;
             skipped.push({
               id: reg.id,
               student_name: reg.student_name,
@@ -1894,7 +1915,11 @@ class RegistrationService {
         remainingSlots[quotaKey]--;
         totalRemainingSlots--;
         if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
-          remainingFacultySlots[studentFaculty]--;
+          if (typeof remainingFacultySlots[studentFaculty] === 'object') {
+            remainingFacultySlots[studentFaculty][quotaKey]--;
+          } else {
+            remainingFacultySlots[studentFaculty]--;
+          }
         }
 
         approved.push({
@@ -1937,7 +1962,11 @@ class RegistrationService {
           remainingSlots[quotaKey]--;
           totalRemainingSlots--;
           if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
-            remainingFacultySlots[studentFaculty]--;
+            if (typeof remainingFacultySlots[studentFaculty] === 'object') {
+              remainingFacultySlots[studentFaculty][quotaKey]--;
+            } else {
+              remainingFacultySlots[studentFaculty]--;
+            }
           }
 
           const approvedItem = {
@@ -1956,12 +1985,13 @@ class RegistrationService {
       } else {
         for (const reg of overflowCandidates) {
           const studentFaculty = reg.faculty || "Không xác định";
+          const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
           skipped.push({
             id: reg.id,
             student_name: reg.student_name,
             student_id: reg.student_id,
             faculty: studentFaculty,
-            reason: `Vượt quá chỉ tiêu khoa ${studentFaculty} (${facultyQuotas[studentFaculty]} chỗ)`,
+            reason: `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facultyQuotas[studentFaculty] === 'object' ? facultyQuotas[studentFaculty][quotaKey] : facultyQuotas[studentFaculty]} chỗ)`,
             year: reg.year,
             basket: this.determineBasket(reg.priority_reasons, reg.year)
           });
@@ -1973,17 +2003,42 @@ class RegistrationService {
       if (facultyQuotaEnabled) {
         for (const fac of Object.keys(facultyQuotas)) {
           const limit = facultyQuotas[fac];
-          const appliedList = registrations.filter(r => r.faculty === fac);
-          const applied = appliedList.length;
-          const approvedCount = approved.filter(r => r.faculty === fac).length;
+          if (limit && typeof limit === 'object' && !Array.isArray(limit)) {
+            // Tân SV
+            const appliedFreshmen = registrations.filter(r => r.faculty === fac && r.year === 1).length;
+            const approvedFreshmen = approved.filter(r => r.faculty === fac && r.year === 1).length;
+            const limF = limit.freshmen || 0;
+            overflowDetails[`${fac} (Tân SV)`] = {
+              quota: limF,
+              applied: appliedFreshmen,
+              approved: approvedFreshmen,
+              leftover: limF > 0 ? Math.max(0, limF - approvedFreshmen) : 0,
+              excess: limF > 0 ? Math.max(0, appliedFreshmen - limF) : 0
+            };
 
-          overflowDetails[fac] = {
-            quota: limit,
-            applied: applied,
-            approved: approvedCount,
-            leftover: Math.max(0, limit - approvedCount),
-            excess: Math.max(0, applied - limit)
-          };
+            // Khóa cũ
+            const appliedSeniors = registrations.filter(r => r.faculty === fac && r.year > 1).length;
+            const approvedSeniors = approved.filter(r => r.faculty === fac && r.year > 1).length;
+            const limS = limit.seniors || 0;
+            overflowDetails[`${fac} (Khóa cũ)`] = {
+              quota: limS,
+              applied: appliedSeniors,
+              approved: approvedSeniors,
+              leftover: limS > 0 ? Math.max(0, limS - approvedSeniors) : 0,
+              excess: limS > 0 ? Math.max(0, appliedSeniors - limS) : 0
+            };
+          } else {
+            const applied = registrations.filter(r => r.faculty === fac).length;
+            const approvedCount = approved.filter(r => r.faculty === fac).length;
+            const lim = limit || 0;
+            overflowDetails[fac] = {
+              quota: lim,
+              applied: applied,
+              approved: approvedCount,
+              leftover: lim > 0 ? Math.max(0, lim - approvedCount) : 0,
+              excess: lim > 0 ? Math.max(0, applied - lim) : 0
+            };
+          }
         }
       }
 
