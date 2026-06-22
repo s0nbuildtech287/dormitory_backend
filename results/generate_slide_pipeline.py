@@ -29,43 +29,43 @@ COLOR_TEXT5 = '#db2777'
 save_dir = os.path.dirname(os.path.abspath(__file__))
 image_path = os.path.join(save_dir, "slide_pipeline_xetduyet_ganphong.png")
 
-fig, ax = plt.subplots(figsize=(15, 5.8), dpi=300)
+fig, ax = plt.subplots(figsize=(15, 6.0), dpi=300)
 fig.patch.set_facecolor('white')
 ax.set_facecolor('white')
 ax.axis('off')
 
-# 5 Steps cards with updated details
+# 5 Steps cards with updated details and slightly wider width (0.165)
 cards = [
     {
-        'x': 0.02, 'y': 0.08, 'w': 0.155, 'h': 0.68,
+        'x': 0.02, 'y': 0.08, 'w': 0.165, 'h': 0.68,
         'step': 'BƯỚC 1',
         'title': 'Mở đợt đăng ký',
         'desc': '• Kiểm kê và dự báo giường trống\n• So khớp dự báo nhu cầu cung cầu\n• Gửi email nhắc gia hạn tự động',
         'bg': COLOR_BG1, 'border': COLOR_BORDER1, 'text': COLOR_TEXT1
     },
     {
-        'x': 0.22, 'y': 0.08, 'w': 0.155, 'h': 0.68,
+        'x': 0.22, 'y': 0.08, 'w': 0.165, 'h': 0.68,
         'step': 'BƯỚC 2',
         'title': 'Sinh viên đăng ký',
         'desc': '• Khai báo thông tin liên quan\n• Chọn diện chính sách ưu tiên nếu có\n• Tải ảnh chụp giấy tờ minh chứng',
         'bg': COLOR_BG4, 'border': COLOR_BORDER4, 'text': COLOR_TEXT4
     },
     {
-        'x': 0.42, 'y': 0.08, 'w': 0.155, 'h': 0.68,
+        'x': 0.42, 'y': 0.08, 'w': 0.165, 'h': 0.68,
         'step': 'BƯỚC 3',
         'title': 'Xét duyệt tự động\nvà đối soát',
         'desc': '• Quét OCR đối soát ảnh minh chứng\n• Chấm điểm xét duyệt theo công thức\n• Đề xuất gợi ý phê duyệt hồ sơ',
         'bg': COLOR_BG3, 'border': COLOR_BORDER3, 'text': COLOR_TEXT3
     },
     {
-        'x': 0.62, 'y': 0.08, 'w': 0.155, 'h': 0.68,
+        'x': 0.62, 'y': 0.08, 'w': 0.165, 'h': 0.68,
         'step': 'BƯỚC 4',
         'title': 'Gán phòng tự động',
         'desc': '• Ràng buộc đúng giới tính, sức chứa\n• Xếp cùng khóa học và khoa đào tạo\n• Phòng dành riêng cho đối tượng',
         'bg': COLOR_BG2, 'border': COLOR_BORDER2, 'text': COLOR_TEXT2
     },
     {
-        'x': 0.82, 'y': 0.08, 'w': 0.155, 'h': 0.68,
+        'x': 0.82, 'y': 0.08, 'w': 0.165, 'h': 0.68,
         'step': 'BƯỚC 5',
         'title': 'Thiết lập hợp đồng\ncho sinh viên',
         'desc': '• Tạo hợp đồng thuê phòng ở\n• Cấp tài khoản cho sinh viên\n• Gửi email thông báo và kích hoạt',
@@ -79,53 +79,54 @@ for card in cards:
     box = FancyBboxPatch(
         (card['x'], card['y']), card['w'], card['h'],
         boxstyle="round,pad=0.01",
-        facecolor=card['bg'], edgecolor=card['border'], linewidth=1.8, zorder=2
+        facecolor=card['bg'], edgecolor=card['border'], linewidth=2.0, zorder=2
     )
     ax.add_patch(box)
     
-    # Step title
+    # Step title (Larger Font Size)
     ax.text(
-        card['x'] + card['w']/2, card['y'] + card['h'] - 0.06,
+        card['x'] + card['w']/2, card['y'] + card['h'] - 0.07,
         card['step'],
-        ha='center', va='top', fontsize=12.5, fontweight='bold', color=card['text'], zorder=3
+        ha='center', va='top', fontsize=14.0, fontweight='bold', color=card['text'], zorder=3
     )
     
-    # Title
+    # Title (Larger Font Size)
     ax.text(
-        card['x'] + card['w']/2, card['y'] + card['h'] - 0.16,
+        card['x'] + card['w']/2, card['y'] + card['h'] - 0.18,
         card['title'],
-        ha='center', va='top', fontsize=11.0, fontweight='bold', color='#0f172a', linespacing=1.3, zorder=3
+        ha='center', va='top', fontsize=12.5, fontweight='bold', color='#0f172a', linespacing=1.3, zorder=3
     )
     
-    # Description
+    # Description (Larger Font Size, clean bullets)
     ax.text(
-        card['x'] + card['w']/2, card['y'] + 0.22,
+        card['x'] + card['w']/2, card['y'] + 0.20,
         card['desc'],
-        ha='center', va='center', fontsize=9.2, color='#334155', linespacing=1.6, zorder=3
+        ha='center', va='center', fontsize=10.0, color='#334155', linespacing=1.6, zorder=3
     )
 
-# Draw solid black arrows
+# Draw solid black arrows (with zorder=4 to stay ON TOP of the cards' background)
+# We set start/end coordinates slightly overlapping the boxes to show the arrowhead clearly pointing to the box border
 arrows = [
-    ((0.175, 0.42), (0.22, 0.42)),
-    ((0.375, 0.42), (0.42, 0.42)),
-    ((0.575, 0.42), (0.62, 0.42)),
-    ((0.775, 0.42), (0.82, 0.42))
+    ((0.185, 0.42), (0.22, 0.42)),
+    ((0.385, 0.42), (0.42, 0.42)),
+    ((0.585, 0.42), (0.62, 0.42)),
+    ((0.785, 0.42), (0.82, 0.42))
 ]
 
 for start, end in arrows:
     arrow = FancyArrowPatch(
         start, end,
         arrowstyle="-|>",
-        color='#000000', linewidth=2.2, zorder=1,
-        mutation_scale=20
+        color='#000000', linewidth=2.5, zorder=4,
+        mutation_scale=22
     )
     ax.add_patch(arrow)
 
-# Main Title
-ax.text(0.5, 0.95, 'LUỒNG QUY TRÌNH XÉT DUYỆT HỒ SƠ VÀ GÁN PHÒNG TỰ ĐỘNG KHÉP KÍN', 
-        ha='center', va='top', fontsize=14.5, fontweight='bold', color='#0f172a')
+# Main Title (Larger Font Size and removed "khép kín")
+ax.text(0.5, 0.95, 'LUỒNG QUY TRÌNH XÉT DUYỆT HỒ SƠ VÀ GÁN PHÒNG TỰ ĐỘNG', 
+        ha='center', va='top', fontsize=16.0, fontweight='bold', color='#0f172a')
 ax.text(0.5, 0.88, 'Quy trình liên thông tự động từ khâu mở đợt đến khi kích hoạt hợp đồng bàn giao phòng', 
-        ha='center', va='top', fontsize=10.5, color='#475569')
+        ha='center', va='top', fontsize=11.5, color='#475569')
 
 ax.set_xlim(0, 1)
 ax.set_ylim(0, 1)
@@ -133,4 +134,4 @@ ax.set_ylim(0, 1)
 plt.tight_layout()
 plt.savefig(image_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
 plt.close()
-print("Slide pipeline chart updated successfully with black arrows!")
+print("Slide pipeline chart updated successfully with larger text and visible black arrows!")
