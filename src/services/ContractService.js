@@ -522,6 +522,7 @@ class ContractService {
 
   /**
    * Gán phòng tự động cho các hợp đồng Pending (sau khi đã duyệt hồ sơ).
+   * Ưu tiên xếp cùng khoa và cùng năm học (khóa học).
    */
   async autoAssignPendingRooms({ faculty, adminId, req = null }) {
     try {
@@ -540,6 +541,26 @@ class ContractService {
         return (b.rf_ai_score || 0) - (a.rf_ai_score || 0);
       });
 
+      // Nạp danh sách các hợp đồng Active để làm bản đồ phân bổ sinh viên hiện tại trong bộ nhớ (Tránh N+1 query)
+      const activeContracts = await StudentContractDAO.searchAndFilter({ status: "Active" });
+      const roomOccupantsMap = {};
+      for (const c of activeContracts) {
+        if (c.room_id) {
+          if (!roomOccupantsMap[c.room_id]) {
+            roomOccupantsMap[c.room_id] = [];
+          }
+          const reasons = (c.rf_priority_reasons || "").toLowerCase();
+          const isOccupantInternational = reasons.includes("lưu học sinh") ||
+                                          reasons.includes("quốc tế") ||
+                                          reasons.includes("du học sinh");
+          roomOccupantsMap[c.room_id].push({
+            year: c.snapshot_year,
+            faculty: c.snapshot_faculty,
+            isInternational: isOccupantInternational
+          });
+        }
+      }
+
       const allocations = [];
       let processed = 0;
       let assigned = 0;
@@ -550,6 +571,7 @@ class ContractService {
         const priorityReasons = contract.rf_priority_reasons || "";
         const year = contract.snapshot_year;
         const gender = contract.snapshot_gender;
+        const studentFaculty = contract.snapshot_faculty;
 
         let studentCategory = "general";
         const lowerReason = priorityReasons.toLowerCase();
@@ -573,10 +595,37 @@ class ContractService {
           if (room.current_occupancy >= room.capacity) continue;
           if (room.reserved_for === "xung_kich") continue;
 
-          let score = 0;
-          if (room.reserved_for === studentCategory) score = 10;
-          else if (room.reserved_for === "general" || !room.reserved_for) score = 5;
+          let baseScore = 0;
+          if (room.reserved_for === studentCategory) baseScore = 10;
+          else if (room.reserved_for === "general" || !room.reserved_for) baseScore = 5;
           else continue;
+
+          // Tính điểm thưởng ghép phòng (cùng khóa, cùng khoa, cùng là du học sinh)
+          let sameYearCount = 0;
+          let sameFacultyCount = 0;
+          let sameYearFacultyCount = 0;
+          let sameInternationalCount = 0;
+
+          const occupants = roomOccupantsMap[room.id] || [];
+          for (const occupant of occupants) {
+            const isSameYear = occupant.year === year;
+            const isSameFaculty = studentFaculty && occupant.faculty === studentFaculty;
+            
+            if (isSameYear) sameYearCount++;
+            if (isSameFaculty) sameFacultyCount++;
+            if (isSameYear && isSameFaculty) sameYearFacultyCount++;
+
+            // Thưởng thêm điểm nếu cả hai đều là sinh viên quốc tế/nước ngoài
+            if (studentCategory === "international" && occupant.isInternational) {
+              sameInternationalCount++;
+            }
+          }
+
+          const score = baseScore + 
+                        (sameYearCount * 1.0) + 
+                        (sameFacultyCount * 2.0) + 
+                        (sameYearFacultyCount * 3.0) +
+                        (sameInternationalCount * 4.0);
 
           if (score > bestScore) {
             bestScore = score;
@@ -593,6 +642,17 @@ class ContractService {
             await this.assignRoom(contract.id, bestRoom.id, adminId, req);
             bestRoom.current_occupancy++;
             assigned++;
+
+            // Cập nhật động bản đồ phân bổ trong bộ nhớ để xếp bạn tiếp theo
+            if (!roomOccupantsMap[bestRoom.id]) {
+              roomOccupantsMap[bestRoom.id] = [];
+            }
+            roomOccupantsMap[bestRoom.id].push({
+              year,
+              faculty: studentFaculty,
+              isInternational: studentCategory === "international"
+            });
+
             allocations.push({
               student_name: contract.student_name,
               student_id: contract.snapshot_student_id,
