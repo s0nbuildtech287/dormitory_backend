@@ -451,8 +451,32 @@ class InvoiceService {
                 const curElectricAmount = parseFloat(latest.electric_amount || 0);
                 const curWaterAmount = parseFloat(latest.water_amount || 0);
 
-                const electricAnomaly = avgElectric > MIN_USAGE && curElectric > avgElectric * (1 + THRESHOLD);
-                const waterAnomaly = avgWater > MIN_USAGE && curWater > avgWater * (1 + THRESHOLD);
+                // 1. So sánh với trung bình 3 tháng trước (Baseline)
+                const electricAnomalyAvg = avgElectric > MIN_USAGE && (
+                    curElectric > avgElectric * (1 + THRESHOLD) || 
+                    curElectric < avgElectric * (1 - THRESHOLD)
+                );
+                const waterAnomalyAvg = avgWater > MIN_USAGE && (
+                    curWater > avgWater * (1 + THRESHOLD) || 
+                    curWater < avgWater * (1 - THRESHOLD)
+                );
+
+                // 2. So sánh trực tiếp với tháng liền kề trước
+                const prevInvoice = history[0];
+                const prevElectric = prevInvoice ? parseFloat(prevInvoice.electric_usage || 0) : 0;
+                const prevWater = prevInvoice ? parseFloat(prevInvoice.water_usage || 0) : 0;
+
+                const electricAnomalyPrev = prevInvoice && prevElectric > MIN_USAGE && (
+                    curElectric > prevElectric * (1 + THRESHOLD) || 
+                    curElectric < prevElectric * (1 - THRESHOLD)
+                );
+                const waterAnomalyPrev = prevInvoice && prevWater > MIN_USAGE && (
+                    curWater > prevWater * (1 + THRESHOLD) || 
+                    curWater < prevWater * (1 - THRESHOLD)
+                );
+
+                const electricAnomaly = electricAnomalyAvg || electricAnomalyPrev;
+                const waterAnomaly = waterAnomalyAvg || waterAnomalyPrev;
 
                 if (electricAnomaly || waterAnomaly) {
                     // Format billing_month thành "Tháng M/YYYY"
@@ -478,6 +502,10 @@ class InvoiceService {
                         electric_amount: Math.round(curElectricAmount),
                         electric_amount_avg: Math.round(avgElectricAmount),
                         electric_amount_diff: Math.round(curElectricAmount - avgElectricAmount),
+                        electric_prev: prevElectric,
+                        electric_change_prev_pct: prevElectric > 0
+                            ? Math.round(((curElectric - prevElectric) / prevElectric) * 100)
+                            : null,
                         // Nước
                         water_anomaly: waterAnomaly,
                         water_usage: curWater,
@@ -488,6 +516,10 @@ class InvoiceService {
                         water_amount: Math.round(curWaterAmount),
                         water_amount_avg: Math.round(avgWaterAmount),
                         water_amount_diff: Math.round(curWaterAmount - avgWaterAmount),
+                        water_prev: prevWater,
+                        water_change_prev_pct: prevWater > 0
+                            ? Math.round(((curWater - prevWater) / prevWater) * 100)
+                            : null,
                         // Tổng tiền
                         total_amount: latest.total_amount,
                         months_compared: history.length,
