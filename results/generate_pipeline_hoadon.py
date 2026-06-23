@@ -19,7 +19,7 @@ STEPS = [
     {"label": "1. Khởi tạo\nhóa đơn đầu kỳ\n(Tự động)", "color": "#1e40af", "text": "#ffffff"},
     {"label": "2. Sinh viên gửi\nsố điện, nước cuối kỳ\n(Hoặc tự điền ngày 6)", "color": "#3b82f6", "text": "#ffffff"},
     {"label": "3. Hệ thống\ntự động tính tiền\n(Điện, nước, phòng...)", "color": "#8b5cf6", "text": "#ffffff"},
-    {"label": "4. BQL kiểm tra,\nchỉnh sửa & duyệt\n(Có xem cảnh báo)", "color": "#f59e0b", "text": "#1e293b"},
+    {"label": "4. Kế toán kiểm tra,\nchỉnh sửa & duyệt\n(Có xem cảnh báo)", "color": "#f59e0b", "text": "#1e293b"},
     {"label": "5. Sinh viên\nthanh toán hóa đơn\n(Cổng VNPay/Tiền mặt)", "color": "#16a34a", "text": "#ffffff"},
 ]
 
@@ -73,7 +73,7 @@ for i, step in enumerate(STEPS):
             zorder=1
         )
 
-# Loop: BQL từ chối hoặc phát hiện số liệu sai -> Yêu cầu SV gửi lại/đo lại (index 3 -> index 1)
+# Loop: Kế toán từ chối hoặc phát hiện số liệu sai -> Yêu cầu SV gửi lại/đo lại (index 3 -> index 1)
 x_from = 0.9 + 3 * (BW + GAP) + BW / 2
 x_to   = 0.9 + 1 * (BW + GAP) + BW / 2
 y_bot  = cy - BH / 2 - 0.25
@@ -92,7 +92,7 @@ ax.text((x_from + x_to) / 2, y_bot - 0.10,
         ha="center", va="top", fontsize=8.5,
         color="#dc2626", fontweight="bold")
 
-# Anomaly Warning Block above Step 4 (BQL check)
+# Anomaly Warning Block above Step 4 (Kế toán check)
 x_alert = 0.9 + 3 * (BW + GAP)
 y_alert = cy + BH / 2 + 0.16
 bh_alert = 0.58
