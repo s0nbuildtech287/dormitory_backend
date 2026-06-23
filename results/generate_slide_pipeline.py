@@ -53,8 +53,8 @@ cards = [
     {
         'x': 0.42, 'y': 0.08, 'w': 0.165, 'h': 0.68,
         'step': 'BƯỚC 3',
-        'title': 'Xét duyệt tự động\nvà đối soát',
-        'desc': '• Quét OCR đối soát ảnh minh chứng\n• Chấm điểm xét duyệt theo công thức\n• Đề xuất gợi ý phê duyệt hồ sơ',
+        'title': 'Xét điểm xét tuyển từng hồ sơ,\nđối soát minh chứng và\ntự động duyệt theo chỉ tiêu',
+        'desc': '• Quét OCR đối soát ảnh minh chứng\n• Chấm điểm xét duyệt theo công thức\n• Duyệt tự động theo cấu hình chỉ tiêu\n• Đề xuất gợi ý phê duyệt hồ sơ',
         'bg': COLOR_BG3, 'border': COLOR_BORDER3, 'text': COLOR_TEXT3
     },
     {
@@ -99,13 +99,12 @@ for card in cards:
     
     # Description (Larger Font Size, clean bullets)
     ax.text(
-        card['x'] + card['w']/2, card['y'] + 0.20,
+        card['x'] + card['w']/2, card['y'] + 0.24,
         card['desc'],
-        ha='center', va='center', fontsize=10.8, fontweight='bold', color='#1e293b', linespacing=1.55, zorder=3
+        ha='center', va='center', fontsize=10.0, fontweight='bold', color='#1e293b', linespacing=1.45, zorder=3
     )
 
 # Draw solid black arrows (with zorder=4 to stay ON TOP of the cards' background)
-# We set start/end coordinates slightly overlapping the boxes to show the arrowhead clearly pointing to the box border
 arrows = [
     ((0.185, 0.42), (0.22, 0.42)),
     ((0.385, 0.42), (0.42, 0.42)),
