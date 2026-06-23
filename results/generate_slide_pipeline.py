@@ -101,7 +101,7 @@ for card in cards:
     ax.text(
         card['x'] + card['w']/2, card['y'] + 0.20,
         card['desc'],
-        ha='center', va='center', fontsize=10.0, color='#334155', linespacing=1.6, zorder=3
+        ha='center', va='center', fontsize=10.8, fontweight='bold', color='#1e293b', linespacing=1.55, zorder=3
     )
 
 # Draw solid black arrows (with zorder=4 to stay ON TOP of the cards' background)
