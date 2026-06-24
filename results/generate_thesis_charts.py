@@ -19,20 +19,25 @@ COLOR_RED = '#ef4444'          # Alert Red
 
 # Define save paths (using results folder)
 save_dir = os.path.dirname(os.path.abspath(__file__))
-artifact_dir = r"C:\Users\XUAN SON\.gemini\antigravity-ide\brain\e5242c4a-1718-4e96-aa59-370c52708dcd"
+user_home = os.path.expanduser("~")
+artifact_dir = os.path.join(user_home, ".gemini", "antigravity-ide", "brain", "855c31cf-5b3b-4f8f-aeef-3bae39b1f6b1")
 
 os.makedirs(save_dir, exist_ok=True)
-os.makedirs(artifact_dir, exist_ok=True)
+try:
+    os.makedirs(artifact_dir, exist_ok=True)
+    has_artifact_dir = True
+except Exception:
+    has_artifact_dir = False
 
 chart1_path = os.path.join(save_dir, "truc_quan_1_so_sanh.png")
 chart2_path = os.path.join(save_dir, "truc_quan_2_kiem_thu.png")
 chart3_path = os.path.join(save_dir, "truc_quan_3_ai_pipeline.png")
 chart5_path = os.path.join(save_dir, "truc_quan_5_workflow_lien_thong.png")
 
-art1_path = os.path.join(artifact_dir, "truc_quan_1_so_sanh.png")
-art2_path = os.path.join(artifact_dir, "truc_quan_2_kiem_thu.png")
-art3_path = os.path.join(artifact_dir, "truc_quan_3_ai_pipeline.png")
-art5_path = os.path.join(artifact_dir, "truc_quan_5_workflow_lien_thong.png")
+art1_path = os.path.join(artifact_dir, "truc_quan_1_so_sanh.png") if has_artifact_dir else None
+art2_path = os.path.join(artifact_dir, "truc_quan_2_kiem_thu.png") if has_artifact_dir else None
+art3_path = os.path.join(artifact_dir, "truc_quan_3_ai_pipeline.png") if has_artifact_dir else None
+art5_path = os.path.join(artifact_dir, "truc_quan_5_workflow_lien_thong.png") if has_artifact_dir else None
 
 # ==========================================
 # CHART 1: System Optimized Processing Time (Single Bar Chart)
@@ -92,7 +97,8 @@ def generate_chart_1():
     
     plt.tight_layout()
     plt.savefig(chart1_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
-    plt.savefig(art1_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
+    if art1_path:
+        plt.savefig(art1_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
     plt.close()
 
 # ==========================================
@@ -140,94 +146,126 @@ def generate_chart_2():
               
     plt.tight_layout()
     plt.savefig(chart2_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
-    plt.savefig(art2_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
+    if art2_path:
+        plt.savefig(art2_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
     plt.close()
 
 # ==========================================
 # DIAGRAM 3: Combined AI Integration Flowchart
 # ==========================================
 def generate_chart_3():
-    fig, ax = plt.subplots(figsize=(13, 8), dpi=300)
+    fig, ax = plt.subplots(figsize=(16, 11.5), dpi=300)
     fig.patch.set_facecolor('white')
     ax.set_facecolor('white')
     ax.axis('off')
     
     # Outer container border
     outer_box = FancyBboxPatch(
-        (0.01, 0.05), 0.98, 0.90,
+        (0.01, 0.02), 0.98, 0.93,
         boxstyle="round,pad=0.01",
         facecolor='none', edgecolor='#cbd5e1', linestyle='--', linewidth=1.5, zorder=1
     )
     ax.add_patch(outer_box)
     
-    # Main Titles
-    ax.text(0.5, 0.98, 'SƠ ĐỒ LUỒNG DỮ LIỆU TÍCH HỢP TRÍ TUỆ NHÂN TẠO (AI DATA PIPELINE)', 
-            ha='center', va='top', fontsize=13, fontweight='bold', color='#0f172a')
-    ax.text(0.5, 0.94, 'Quy trình tự động hóa phân tích phản ánh và tóm tắt tin tức bằng OpenAI API', 
-            ha='center', va='top', fontsize=10.5, fontweight='bold', color='#1e293b')
+    # Main Titles (increased size and y positioning)
+    ax.text(0.5, 1.01, 'SƠ ĐỒ LUỒNG DỮ LIỆU TÍCH HỢP TRÍ TUỆ NHÂN TẠO (AI DATA PIPELINE)', 
+            ha='center', va='top', fontsize=14, fontweight='bold', color='#0f172a')
+    ax.text(0.5, 0.98, 'Quy trình tích hợp AI tự động hóa phân tích phản ánh, tóm tắt bài viết và trợ lý ảo tư vấn 24/7', 
+            ha='center', va='top', fontsize=11.5, fontweight='bold', color='#1e293b')
             
-    # Headers
-    ax.text(0.03, 0.88, 'LUỒNG A: QUY TRÌNH PHÂN TÍCH CẢM XÚC PHẢN ÁNH CỦA SINH VIÊN', 
-            ha='left', va='top', fontsize=11, fontweight='bold', color='#dc2626')
-    ax.text(0.03, 0.45, 'LUỒNG B: QUY TRÌNH TỰ ĐỘNG CÀO TIN TỨC VÀ TÓM TẮT BÀI BÁO BẰNG AI', 
-            ha='left', va='top', fontsize=11, fontweight='bold', color='#047857')
+    # Headers (Swapped order: Chatbot -> Sentiment -> News)
+    ax.text(0.03, 0.89, 'QUY TRÌNH TRỢ LÝ ẢO CHAT TƯ VẤN THÔNG TIN KÝ TÚC XÁ', 
+            ha='left', va='top', fontsize=12, fontweight='bold', color='#2563eb')
+    ax.text(0.03, 0.59, 'QUY TRÌNH PHÂN TÍCH CẢM XÚC PHẢN ÁNH CỦA SINH VIÊN', 
+            ha='left', va='top', fontsize=12, fontweight='bold', color='#dc2626')
+    ax.text(0.03, 0.29, 'QUY TRÌNH TỰ ĐỘNG CÀO TIN TỨC VÀ TÓM TẮT BÀI BÁO BẰNG AI', 
+            ha='left', va='top', fontsize=12, fontweight='bold', color='#047857')
 
-    # Define cards
+    # Define cards (Wider rectangular shape: w=0.21, h=0.17, with adjusted y coordinates)
     cards = [
-        # --- FLOW A: SENTIMENT ANALYSIS ---
+        # --- ROW 1: CHATBOT Q&A ASSISTANCE (Top row) ---
         {
-            'x': 0.03, 'y': 0.55, 'w': 0.20, 'h': 0.28,
-            'step': 'A1: GỬI PHẢN ÁNH',
+            'x': 0.03, 'y': 0.67, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 1: GỬI THẮC MẮC',
+            'title': 'Sinh viên đặt câu hỏi',
+            'desc': 'Sinh viên nhập câu hỏi\nvề nội quy, phòng ở hoặc\ngiấy tờ chính sách tại\nkhung chat Trợ lý ảo.',
+            'bg': '#eff6ff', 'border': '#dbeafe', 'text': '#1d4ed8'
+        },
+        {
+            'x': 0.27, 'y': 0.67, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 2: CHUYỂN TIẾP YÊU CẦU',
+            'title': 'Truyền câu hỏi & Context',
+            'desc': 'Backend nhận câu hỏi cùng\nlịch sử chat từ Client gửi lên,\nsau đó chuyển tiếp dữ liệu đến\nmô hình AI để chuẩn bị xử lý.',
+            'bg': '#eff6ff', 'border': '#dbeafe', 'text': '#1d4ed8'
+        },
+        {
+            'x': 0.51, 'y': 0.67, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 3: AI XỬ LÝ NGỮ NGHĨA',
+            'title': 'Tra cứu & Soạn câu trả lời',
+            'desc': 'Mô hình AI đọc nội dung,\nkết hợp tài liệu quy chế KTX\ndể soạn câu trả lời đầy đủ,\nchính xác nhất.',
+            'bg': '#faf5ff', 'border': '#f3e8ff', 'text': '#6b21a8'
+        },
+        {
+            'x': 0.75, 'y': 0.67, 'w': 0.22, 'h': 0.17,
+            'step': 'Bước 4: HIỂN THỊ PHẢN HỒI',
+            'title': 'Phản hồi tin nhắn 24/7',
+            'desc': 'Hiển thị câu trả lời trực quan\ncho sinh viên trong giao diện\nchat, hỗ trợ giải quyết\nvấn đề tức thì.',
+            'bg': '#ecfdf5', 'border': '#d1fae5', 'text': '#047857'
+        },
+        # --- ROW 2: SENTIMENT ANALYSIS (Middle row) ---
+        {
+            'x': 0.03, 'y': 0.37, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 1: GỬI PHẢN ÁNH',
             'title': 'Gửi ý kiến phản ánh',
             'desc': 'Sinh viên gửi yêu cầu hỗ trợ\nhoặc khiếu nại sự cố\n(hỏng hóc điện nước,\nphàn nàn...) lên Portal.',
             'bg': '#fffbeb', 'border': '#fef3c7', 'text': '#b45309'
         },
         {
-            'x': 0.28, 'y': 0.55, 'w': 0.20, 'h': 0.28,
-            'step': 'A2: GỬI DỮ LIỆU NLP',
+            'x': 0.27, 'y': 0.37, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 2: GỬI DỮ LIỆU NLP',
             'title': 'Gọi OpenAI API',
             'desc': 'Backend chuyển dữ liệu\nphản ánh sang OpenAI API\nkèm prompt yêu cầu\nphân tích cảm xúc.',
             'bg': '#f0f9ff', 'border': '#e0f2fe', 'text': '#0284c7'
         },
         {
-            'x': 0.53, 'y': 0.55, 'w': 0.20, 'h': 0.28,
-            'step': 'A3: PHÂN LOẠI CẢM XÚC',
+            'x': 0.51, 'y': 0.37, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 3: PHÂN LOẠI CẢM XÚC',
             'title': 'AI Phân loại & Gán nhãn',
             'desc': 'OpenAI phân tích ngữ nghĩa\ntự động phân loại mức độ:\nTiêu cực / Bức xúc / Khẩn cấp\nkèm theo điểm số.',
             'bg': '#faf5ff', 'border': '#f3e8ff', 'text': '#6b21a8'
         },
         {
-            'x': 0.78, 'y': 0.55, 'w': 0.19, 'h': 0.28,
-            'step': 'A4: CẢNH BÁO ĐỎ',
+            'x': 0.75, 'y': 0.37, 'w': 0.22, 'h': 0.17,
+            'step': 'Bước 4: CẢNH BÁO ĐỎ',
             'title': 'Đẩy thông báo Admin',
             'desc': 'Hệ thống tự động gán độ\nưu tiên "CAO", hiển thị nhãn\ncảnh báo đỏ trên Dashboard\nđể xử lý kịp thời.',
             'bg': '#fef2f2', 'border': '#fee2e2', 'text': '#dc2626'
         },
-        # --- FLOW B: AUTOMATION CRAWL & NEWS SUMMARY ---
+        # --- ROW 3: AUTOMATION CRAWL & NEWS SUMMARY (Bottom row) ---
         {
-            'x': 0.03, 'y': 0.12, 'w': 0.20, 'h': 0.28,
-            'step': 'B1: CÀO TIN TỰ ĐỘNG',
+            'x': 0.03, 'y': 0.07, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 1: CÀO TIN TỰ ĐỘNG',
             'title': 'Crawl tin tlu.edu.vn',
             'desc': 'Hệ thống định kỳ tự động\ncào tin tức mới nhất từ website\ntrường Đại học Thủy Lợi\n(Axios + Cheerio).',
             'bg': '#f0fdf4', 'border': '#d1fae5', 'text': '#047857'
         },
         {
-            'x': 0.28, 'y': 0.12, 'w': 0.20, 'h': 0.28,
-            'step': 'B2: LƯU CACHE TẠM',
+            'x': 0.27, 'y': 0.07, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 2: LƯU CACHE TẠM',
             'title': 'Lưu In-Memory Cache',
             'desc': 'Lưu tạm dữ liệu vào bộ nhớ\nđệm (Memory Cache Map)\ntrong 15 phút để tối ưu\ntốc độ truy xuất.',
             'bg': '#f0fdf4', 'border': '#d1fae5', 'text': '#047857'
         },
         {
-            'x': 0.53, 'y': 0.12, 'w': 0.20, 'h': 0.28,
-            'step': 'B3: YÊU CẦU TÓM TẮT',
+            'x': 0.51, 'y': 0.07, 'w': 0.21, 'h': 0.17,
+            'step': 'Bước 3: YÊU CẦU TÓM TẮT',
             'title': 'Sinh viên chọn tin tức',
             'desc': 'Sinh viên xem danh sách tin\ntức và click chọn yêu cầu\ntóm tắt bằng AI ngay trên\ngiao diện Chatbot.',
             'bg': '#fdf2f8', 'border': '#fce7f3', 'text': '#db2777'
         },
         {
-            'x': 0.78, 'y': 0.12, 'w': 0.19, 'h': 0.28,
-            'step': 'B4: HIỂN THỊ TÓM TẮT',
+            'x': 0.75, 'y': 0.07, 'w': 0.22, 'h': 0.17,
+            'step': 'Bước 4: HIỂN THỊ TÓM TẮT',
             'title': 'AI phản hồi & tóm tắt',
             'desc': 'OpenAI API phân tích,\ntóm tắt các ý chính và\nphản hồi ngắn gọn ngay\ntrong khung chat.',
             'bg': '#fdf2f8', 'border': '#fce7f3', 'text': '#db2777'
@@ -244,37 +282,41 @@ def generate_chart_3():
         )
         ax.add_patch(box)
         
-        # Step badge text
+        # Step badge text (increased size to 11.5)
         ax.text(
-            card['x'] + card['w']/2, card['y'] + card['h'] - 0.05,
+            card['x'] + card['w']/2, card['y'] + card['h'] - 0.025,
             card['step'],
-            ha='center', va='top', fontsize=10.0, fontweight='bold', color=card['text'], zorder=3
+            ha='center', va='top', fontsize=11.5, fontweight='bold', color=card['text'], zorder=3
         )
         
-        # Title
+        # Title (increased size to 11.0)
         ax.text(
-            card['x'] + card['w']/2, card['y'] + card['h'] - 0.11,
+            card['x'] + card['w']/2, card['y'] + card['h'] - 0.06,
             card['title'],
-            ha='center', va='top', fontsize=9.5, fontweight='bold', color='#000000', zorder=3
+            ha='center', va='top', fontsize=11.0, fontweight='bold', color='#000000', zorder=3
         )
         
-        # Description
+        # Description (increased size to 10.0)
         ax.text(
-            card['x'] + card['w']/2, card['y'] + 0.08,
+            card['x'] + card['w']/2, card['y'] + 0.04,
             card['desc'],
-            ha='center', va='center', fontsize=9.5, fontweight='normal', color='#000000', zorder=3
+            ha='center', va='center', fontsize=10.0, fontweight='normal', color='#000000', zorder=3
         )
 
-    # Draw arrows
+    # Draw arrows (adjusted for new widths w=0.21/0.22 and h=0.17)
     arrows = [
-        # Flow A
-        ((0.23, 0.69), (0.275, 0.69), 'Gửi dữ liệu'),
-        ((0.48, 0.69), (0.525, 0.69), 'Gọi API NLP'),
-        ((0.73, 0.69), (0.775, 0.69), 'Trả kết quả'),
-        # Flow B
-        ((0.23, 0.26), (0.275, 0.26), 'Lưu Cache'),
-        ((0.48, 0.26), (0.525, 0.26), 'Click chọn'),
-        ((0.73, 0.26), (0.775, 0.26), 'Tóm tắt tin')
+        # Row 1 (Chatbot Q&A)
+        ((0.24, 0.755), (0.27, 0.755), 'Nhập câu hỏi'),
+        ((0.48, 0.755), (0.51, 0.755), 'Định tuyến'),
+        ((0.72, 0.755), (0.75, 0.755), 'Phản hồi'),
+        # Row 2 (Sentiment Analysis)
+        ((0.24, 0.455), (0.27, 0.455), 'Gửi dữ liệu'),
+        ((0.48, 0.455), (0.51, 0.455), 'Gọi API NLP'),
+        ((0.72, 0.455), (0.75, 0.455), 'Trả kết quả'),
+        # Row 3 (News Summary)
+        ((0.24, 0.155), (0.27, 0.155), 'Lưu Cache'),
+        ((0.48, 0.155), (0.51, 0.155), 'Click chọn'),
+        ((0.72, 0.155), (0.75, 0.155), 'Tóm tắt tin')
     ]
     
     for start, end, label in arrows:
@@ -286,19 +328,20 @@ def generate_chart_3():
         )
         ax.add_patch(arrow)
         
-        # Label placement
+        # Label placement (increased size to 8.5)
         ax.text(
-            (start[0] + end[0])/2, start[1] + 0.02,
+            (start[0] + end[0])/2, start[1] + 0.015,
             label,
-            ha='center', va='bottom', fontsize=7.5, color='#000000', fontweight='bold', fontstyle='italic'
+            ha='center', va='bottom', fontsize=8.5, color='#000000', fontweight='bold', fontstyle='italic'
         )
 
     ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0, 1.03)
     
     plt.tight_layout()
     plt.savefig(chart3_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
-    plt.savefig(art3_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
+    if art3_path:
+        plt.savefig(art3_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
     plt.close()
 
 # ==========================================
@@ -445,7 +488,8 @@ def generate_chart_5():
     
     plt.tight_layout()
     plt.savefig(chart5_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
-    plt.savefig(art5_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
+    if art5_path:
+        plt.savefig(art5_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
     plt.close()
 
 if __name__ == '__main__':
