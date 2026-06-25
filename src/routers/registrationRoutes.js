@@ -3,11 +3,9 @@ const router = express.Router();
 const RegistrationController = require('../controllers/RegistrationController');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
-
 // Public route — không cần token (sinh viên đăng ký ngoài đợt)
 router.post('/', RegistrationController.create);
-
-// All routes below require authentication
+router.get('/status', RegistrationController.getStatus);
 router.use(authenticate);
 
 // Import from Excel (only authenticated users - remove requireAdmin for testing)

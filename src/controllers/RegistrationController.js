@@ -48,6 +48,15 @@ class RegistrationController {
      */
     async create(req, res, next) {
         try {
+            // Check if registration is open
+            const setting = await RegistrationService.getScoringWeightsSettings();
+            if (setting && setting.value && setting.value.quotas && setting.value.quotas.registration_open === false) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Đợt đăng ký trực tuyến hiện đang đóng. Vui lòng liên hệ ban quản lý!'
+                });
+            }
+
             const registration = await RegistrationService.createRegistration(req.body, req);
             res.status(201).json({
                 success: true,
@@ -455,6 +464,24 @@ class RegistrationController {
                     ? `Mô phỏng thành công: ${result.processed} hồ sơ đủ điều kiện duyệt.`
                     : `Đã duyệt ${result.processed} hồ sơ. Chuyển sang Hợp đồng sinh viên (chờ gán phòng).`,
                 data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Get registration period open status
+     */
+    async getStatus(req, res, next) {
+        try {
+            const setting = await RegistrationService.getScoringWeightsSettings();
+            const isOpen = setting && setting.value && setting.value.quotas && setting.value.quotas.registration_open !== false;
+            res.json({
+                success: true,
+                data: {
+                    registration_open: isOpen
+                }
             });
         } catch (error) {
             next(error);
