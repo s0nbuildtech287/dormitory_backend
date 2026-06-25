@@ -1,9 +1,7 @@
 const pool = require('../config/database');
 
 class AssetDAO {
-    /**
-     * Get all assets with optional filters
-     */
+    // Lấy danh sách toàn bộ tài sản theo các bộ lọc
     async findAll(filters = {}) {
         try {
             let query = `
@@ -52,9 +50,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get asset summary grouped by asset_code
-     */
+    // Lấy bảng tổng hợp tài sản nhóm theo mã tài sản (asset_code)
     async getAssetSummary() {
         try {
             const query = `
@@ -64,7 +60,7 @@ class AssetDAO {
                     MAX(category_name) as category_name,
                     MAX(unit) as unit,
                     MAX(purchase_date) as purchase_date,
-                    -- Calculate average price per unit
+                    -- Tính toán đơn giá trung bình mỗi đơn vị tài sản
                     ROUND(
                         SUM(purchase_price * quantity) / NULLIF(SUM(quantity), 0), 
                         2
@@ -87,9 +83,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get asset by ID
-     */
+    // Tìm kiếm tài sản theo ID
     async findById(id) {
         try {
             const query = `
@@ -110,9 +104,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Create new asset
-     */
+    // Thêm mới tài sản
     async create(assetData) {
         try {
             const query = `
@@ -155,9 +147,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Update asset
-     */
+    // Cập nhật thông tin tài sản
     async update(id, assetData) {
         try {
             const query = `
@@ -209,9 +199,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Delete asset
-     */
+    // Xóa tài sản theo ID
     async delete(id) {
         try {
             const query = 'DELETE FROM assets WHERE id = $1 RETURNING *';
@@ -222,9 +210,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get asset distribution by building
-     */
+    // Thống kê tài sản phân bổ theo tòa nhà
     async getAssetsByBuilding() {
         try {
             const query = `
@@ -264,9 +250,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get asset statistics
-     */
+    // Lấy số liệu thống kê chung về tài sản (tổng loại, tổng số lượng, giá trị...)
     async getStatistics() {
         try {
             const query = `
@@ -287,15 +271,13 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Import asset to warehouse (Nhập kho)
-     */
+    // Nhập kho tài sản mới (tự động cộng dồn số lượng nếu trùng mã và vị trí kho)
     async importAsset(importData) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
 
-            // Check if asset with same code exists
+            // Kiểm tra xem tài sản cùng mã đã tồn tại ở kho chưa
             const checkQuery = `
                 SELECT id, quantity FROM assets 
                 WHERE asset_code = $1 AND room_id IS NULL AND status = 'Sẵn sàng'
@@ -305,7 +287,7 @@ class AssetDAO {
 
             let result;
             if (existingAsset.rows.length > 0) {
-                // Update existing asset quantity
+                // Cộng dồn số lượng tài sản hiện tại trong kho
                 const updateQuery = `
                     UPDATE assets
                     SET 
@@ -327,7 +309,7 @@ class AssetDAO {
                     existingAsset.rows[0].id
                 ]);
             } else {
-                // Create new asset in warehouse
+                // Tạo mới dòng tài sản trong kho
                 const insertQuery = `
                     INSERT INTO assets (
                         id, asset_code, name, category_name, unit,
@@ -355,7 +337,7 @@ class AssetDAO {
                 ]);
             }
 
-            // Create log entry
+            // Ghi nhật ký hệ thống log_system
             const logQuery = `
                 INSERT INTO log_system (
                     id, user_id, action, entity_type, entity_id,
@@ -393,9 +375,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get assets by room
-     */
+    // Lấy danh sách tài sản của phòng được chọn
     async findByRoom(roomId) {
         try {
             const query = `
@@ -417,15 +397,13 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Export asset from warehouse to room (Xuất kho)
-     */
+    // Xuất kho tài sản chuyển giao đến phòng (kiểm tra giới hạn số lượng mỗi phòng trước khi xuất)
     async exportAsset(exportData) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
 
-            // Check if asset exists in warehouse with enough quantity
+            // Kiểm tra số lượng tài sản sẵn sàng trong kho
             const checkQuery = `
                 SELECT id, quantity FROM assets 
                 WHERE asset_code = $1 AND room_id IS NULL AND status = 'Sẵn sàng'
@@ -442,10 +420,10 @@ class AssetDAO {
                 throw new Error(`Không đủ số lượng trong kho. Tồn kho: ${availableQty} ${exportData.unit}`);
             }
 
-            // CHECK ASSET LIMITS FROM SETTINGS
+            // Kiểm tra giới hạn số lượng tài sản tối đa được phép xếp vào phòng từ settings
             const limits = await this.getAssetLimits();
             
-            // Get current asset count in target room
+            // Đếm số lượng tài sản cùng loại đang có ở phòng
             const currentCountQuery = `
                 SELECT COALESCE(SUM(quantity), 0) as current_count
                 FROM assets
@@ -455,7 +433,7 @@ class AssetDAO {
             const currentQty = parseInt(currentCount.rows[0].current_count) || 0;
             const newTotalQty = currentQty + exportData.quantity;
 
-            // Map asset_code to limit key
+            // Ánh xạ mã tài sản tương ứng trong settings
             const assetCodeToLimitKey = {
                 'GIUONG': 'GIUONG',
                 'TU': 'TU',
@@ -473,19 +451,19 @@ class AssetDAO {
                 }
             }
 
-            // Reduce quantity in warehouse
+            // Giảm số lượng tài sản trong kho
             if (availableQty === exportData.quantity) {
-                // Delete if quantity becomes 0
+                // Xóa khỏi kho nếu số lượng giảm về 0
                 await client.query('DELETE FROM assets WHERE id = $1', [warehouseAsset.rows[0].id]);
             } else {
-                // Reduce quantity
+                // Giảm bớt số lượng
                 await client.query(
                     'UPDATE assets SET quantity = quantity - $1, updated_at = NOW() WHERE id = $2',
                     [exportData.quantity, warehouseAsset.rows[0].id]
                 );
             }
 
-            // Check if asset already exists in target room
+            // Kiểm tra xem tài sản này đã có dòng dữ liệu nào trong phòng đích chưa
             const roomAssetQuery = `
                 SELECT id, quantity FROM assets 
                 WHERE asset_code = $1 AND room_id = $2
@@ -495,7 +473,7 @@ class AssetDAO {
 
             let result;
             if (roomAsset.rows.length > 0) {
-                // Update existing asset in room
+                // Cộng dồn vào dòng tài sản đã có trong phòng
                 const updateQuery = `
                     UPDATE assets
                     SET 
@@ -507,7 +485,7 @@ class AssetDAO {
                 `;
                 result = await client.query(updateQuery, [exportData.quantity, roomAsset.rows[0].id]);
             } else {
-                // Create new asset in room
+                // Tạo mới dòng tài sản trong phòng
                 const insertQuery = `
                     INSERT INTO assets (
                         id, asset_code, name, category_name, unit,
@@ -529,7 +507,7 @@ class AssetDAO {
                     `Tòa ${exportData.building} - ${exportData.room_number}`,
                     exportData.quantity,
                     exportData.export_date,
-                    0, // purchase_price
+                    0, // Giá mua khi xuất là 0 (đã hạch toán ở kho)
                     'Kho nội bộ',
                     `Xuất kho đến ${exportData.building}-${exportData.room_number}`,
                     exportData.notes,
@@ -537,7 +515,7 @@ class AssetDAO {
                 ]);
             }
 
-            // Create log entry
+            // Ghi nhật ký hệ thống log_system
             const logQuery = `
                 INSERT INTO log_system (
                     id, user_id, action, entity_type, entity_id,
@@ -574,9 +552,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get import/export history from log_system
-     */
+    // Lấy lịch sử nhập/xuất kho tài sản từ nhật ký hệ thống log_system
     async getHistory(filters = {}) {
         try {
             let query = `
@@ -628,16 +604,14 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get asset limits from settings
-     */
+    // Lấy thông tin giới hạn số lượng tài sản tối đa của phòng/tầng từ settings
     async getAssetLimits() {
         try {
             const query = 'SELECT value FROM settings WHERE id = $1 AND is_active = TRUE';
             const result = await pool.query(query, ['asset_limits']);
             
             if (result.rows.length === 0) {
-                // Return default values if not found
+                // Giá trị mặc định nếu chưa cấu hình
                 return {
                     perRoom: {
                         GIUONG: 5,
@@ -660,9 +634,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Update asset limits
-     */
+    // Cập nhật giới hạn số lượng tài sản tối đa trong settings
     async updateAssetLimits(limits, updatedBy) {
         try {
             const query = `
@@ -670,9 +642,9 @@ class AssetDAO {
                 VALUES ($1, $2, $3, $4, $5, TRUE, $6, CURRENT_TIMESTAMP)
                 ON CONFLICT (id) 
                 DO UPDATE SET 
-                    value = $4,
-                    updated_by = $6,
-                    updated_at = CURRENT_TIMESTAMP
+                     value = $4,
+                     updated_by = $6,
+                     updated_at = CURRENT_TIMESTAMP
                 RETURNING *
             `;
             
@@ -692,9 +664,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Get asset regulations
-     */
+    // Lấy các điều lệ quy định về bảo quản sử dụng tài sản
     async getAssetRegulations() {
         try {
             const query = 'SELECT value FROM settings WHERE id = $1 AND is_active = TRUE';
@@ -710,9 +680,7 @@ class AssetDAO {
         }
     }
 
-    /**
-     * Update asset regulations
-     */
+    // Cập nhật các điều lệ quy định sử dụng tài sản
     async updateAssetRegulations(regulations, updatedBy) {
         try {
             const query = `

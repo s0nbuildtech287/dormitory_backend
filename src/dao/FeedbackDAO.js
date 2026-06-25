@@ -5,30 +5,22 @@ class FeedbackDAO extends BaseDAO {
         super('feedbacks');
     }
 
-    /**
-     * Find feedbacks by user ID
-     */
+    // Tìm kiếm các phản ánh theo ID sinh viên
     async findByUserId(userId) {
         return this.findAll({ user_id: userId }, ['created_at DESC']);
     }
 
-    /**
-     * Find feedbacks by status
-     */
+    // Tìm kiếm các phản ánh theo trạng thái xử lý
     async findByStatus(status) {
         return this.findAll({ status }, ['created_at DESC']);
     }
 
-    /**
-     * Find feedbacks by room
-     */
+    // Tìm kiếm các phản ánh theo ID phòng
     async findByRoom(roomId) {
         return this.findAll({ room_id: roomId }, ['created_at DESC']);
     }
 
-    /**
-     * Search and filter feedbacks
-     */
+    // Tìm kiếm và lọc các phản ánh kèm thông tin sinh viên, phòng và người xử lý
     async searchAndFilter(filters = {}) {
         let query = `
             SELECT 
@@ -85,9 +77,7 @@ class FeedbackDAO extends BaseDAO {
         return this.executeQuery(query, values);
     }
 
-    /**
-     * Update feedback status
-     */
+    // Cập nhật trạng thái xử lý phản ánh kèm người xử lý và phản hồi của admin
     async updateStatus(feedbackId, status, resolvedBy = null, adminResponse = null) {
         const data = { status };
         
@@ -102,11 +92,7 @@ class FeedbackDAO extends BaseDAO {
         return this.update(feedbackId, data);
     }
 
-    /**
-     * Update AI analysis result for a feedback
-     * @param {string} feedbackId - The feedback ID
-     * @param {Object} aiResult - AI analysis result
-     */
+    // Cập nhật kết quả phân tích sắc thái bằng AI (sentiment, độ ưu tiên, keywords...) cho phản ánh
     async updateAIResult(feedbackId, aiResult) {
         const query = `
             UPDATE ${this.tableName}
@@ -133,10 +119,7 @@ class FeedbackDAO extends BaseDAO {
         return result;
     }
 
-    /**
-     * Get AI-related statistics
-     * @returns {{ sentimentDistribution, topEmotions, highPriorityUnresolved }}
-     */
+    // Lấy số liệu thống kê phân tích AI (tỷ lệ sắc thái, các cảm xúc phổ biến, các phản ánh ưu tiên chưa xử lý)
     async getAIStatistics() {
         const [sentimentDistribution, topEmotions, highPriorityUnresolved] = await Promise.all([
             this.executeQuery(
@@ -168,9 +151,7 @@ class FeedbackDAO extends BaseDAO {
         return { sentimentDistribution, topEmotions, highPriorityUnresolved };
     }
 
-    /**
-     * Get feedback statistics
-     */
+    // Thống kê phản ánh theo trạng thái, danh mục và sắc thái cảm xúc
     async getStatistics() {
         const query = `
             SELECT 
@@ -188,9 +169,7 @@ class FeedbackDAO extends BaseDAO {
         return this.executeQuery(query, []);
     }
 
-    /**
-     * Get pending feedbacks count
-     */
+    // Đếm số lượng phản ánh mới nhận (chưa xử lý)
     async getPendingCount() {
         return this.count({ status: 'New' });
     }

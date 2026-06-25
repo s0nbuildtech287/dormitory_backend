@@ -3,35 +3,35 @@ const router = express.Router();
 const ContractController = require("../controllers/ContractController");
 const { authenticate, requireAdmin } = require("../middlewares/auth");
 
-// All routes require authentication
+// Yêu cầu đăng nhập đối với tất cả các API hợp đồng
 router.use(authenticate);
 
-// Stats
+// Lấy thống kê chung về các hợp đồng
 router.get("/stats", requireAdmin, ContractController.getStats);
 
-// Get all contracts (with optional ?status=Pending|Active|...)
+// Lấy danh sách toàn bộ hợp đồng (có hỗ trợ filter qua query ?status=...)
 router.get("/", ContractController.getAll);
 
-// Get pending contracts (waiting for room assignment)
+// Lấy danh sách hợp đồng đang chờ xếp phòng
 router.get("/pending", requireAdmin, ContractController.getPending);
 
-// Get expiring contracts
+// Lấy danh sách hợp đồng sắp hết hạn
 router.get("/expiring", requireAdmin, ContractController.getExpiring);
 
-// Send renewal reminder emails
+// Gửi email nhắc nhở gia hạn hợp đồng
 router.post("/send-renewal-emails", requireAdmin, ContractController.sendRenewalEmails);
 
-// Get contracts by user
+// Lấy danh sách hợp đồng của sinh viên
 router.get("/user", ContractController.getByUser);
 router.get("/user/:userId", ContractController.getByUser);
 
-// Get contract by ID
+// Lấy thông tin chi tiết một hợp đồng theo ID
 router.get("/:id", ContractController.getById);
 
-// Suggest rooms for a Pending contract
+// Đề xuất phòng phù hợp cho hợp đồng đang chờ xếp phòng
 router.get("/:id/suggest-rooms", requireAdmin, ContractController.suggestRooms);
 
-// Admin only write routes
+// Các API quản trị viên (Tự động xếp phòng, tạo mới, tạo từ đơn đăng ký, cập nhật, chuyển phòng, chấm dứt, v.v...)
 router.post("/auto-assign", requireAdmin, ContractController.autoAssign);
 router.post("/", requireAdmin, ContractController.create);
 router.post("/from-registration", requireAdmin, ContractController.createFromRegistration);

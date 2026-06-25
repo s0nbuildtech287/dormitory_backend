@@ -42,7 +42,7 @@ class RegistrationService {
    */
 
   /**
-   * Fetch scoring weights from settings with default values
+   * Lấy cấu hình các trọng số điểm ưu tiên kèm giá trị mặc định
    */
   async getScoringWeights() {
     try {
@@ -73,7 +73,7 @@ class RegistrationService {
   }
 
   /**
-   * Fetch score mappings from settings
+   * Lấy bảng điểm quy đổi từ cấu hình
    */
   async getScoreMappings() {
     try {
@@ -120,10 +120,10 @@ class RegistrationService {
   }
 
   /**
-   * Calculate Priority Score based on priority_reasons (CUMULATIVE SCORING)
-   * @param {string} priorityReasons - Priority reason string
-   * @param {object} scoreMappings - Score mappings from settings
-   * @returns {number} Priority score (0-150, capped at 100 in final calculation)
+   * Tính toán điểm ưu tiên cộng dồn dựa trên các lý do/diện ưu tiên
+   * @param {string} priorityReasons - Chuỗi lý do ưu tiên
+   * @param {object} scoreMappings - Bảng điểm quy đổi
+   * @returns {number} Điểm ưu tiên (tối đa 100 điểm)
    */
   calculatePriorityScore(priorityReasons, scoreMappings = null) {
     // Use detailed mappings or defaults
@@ -204,10 +204,10 @@ class RegistrationService {
   }
 
   /**
-   * Calculate Year Score based on student year
-   * @param {number} year - Student year (1-4)
-   * @param {object} scoreMappings - Score mappings from settings
-   * @returns {number} Year score (0-100)
+   * Tính toán điểm năm học
+   * @param {number} year - Năm học (1-4)
+   * @param {object} scoreMappings - Bảng điểm quy đổi
+   * @returns {number} Điểm năm học (0-100)
    */
   calculateYearScore(year, scoreMappings = null) {
     // Use defaults if no mappings provided
@@ -233,12 +233,12 @@ class RegistrationService {
   }
 
   /**
-   * Calculate GPA Score
-   * Formula: GPA × conversion_factor (default 25 for 4.0 system)
-   * Special case: Year 1 students with GPA = 0 get score = 50 (haven't taken courses yet)
-   * @param {number} gpa - Student GPA
-   * @param {number} year - Student year (1-4)
-   * @param {object} scoreMappings - Score mappings from settings
+   * Tính toán điểm tích lũy GPA
+   * Công thức: GPA × hệ số quy đổi (mặc định 25 cho hệ 4.0)
+   * Trường hợp đặc biệt: Sinh viên năm 1 chưa có điểm GPA sẽ được mặc định 50 điểm
+   * @param {number} gpa - Điểm GPA tích lũy
+   * @param {number} year - Năm học (1-4)
+   * @param {object} scoreMappings - Bảng điểm quy đổi
    * @returns {object} { score: number, isFiltered: boolean }
    */
   calculateGPAScore(gpa, year = null, scoreMappings = null) {
@@ -284,10 +284,10 @@ class RegistrationService {
   }
 
   /**
-   * Determine basket for registration (3-basket system)
-   * @param {string} priorityReasons - Priority reasons
-   * @param {number} year - Student year
-   * @returns {number} Basket number (1, 2, or 3)
+   * Phân nhóm hồ sơ xét tuyển (Hệ thống 3 nhóm - 3 Baskets)
+   * @param {string} priorityReasons - Các lý do ưu tiên
+   * @param {number} year - Năm học
+   * @returns {number} Nhóm hồ sơ (1, 2, hoặc 3)
    */
   determineBasket(priorityReasons, year) {
     // Nhóm 1: Chính sách - chỉ khi priority_reasons chứa keyword ưu tiên thực sự
@@ -325,13 +325,13 @@ class RegistrationService {
   }
 
   /**
-   * Get basket-specific scoring weights
-   * Each basket has different priorities:
-   * - Nhóm 1 (Chính sách): Priority > Year > GPA
-   * - Nhóm 2 (Tân SV): Year > Priority, GPA ít quan trọng
-   * - Nhóm 3 (Khóa cũ): GPA > Year > Priority
-   * @param {number} basket - Basket number (1, 2, or 3)
-   * @returns {object} Weights { w1_priority, w2_year, w3_gpa }
+   * Lấy cấu hình các trọng số đặc thù cho từng nhóm hồ sơ
+   * Mỗi nhóm có sự ưu tiên khác nhau:
+   * - Nhóm 1 (Chính sách): Ưu tiên gia cảnh > Năm học > GPA
+   * - Nhóm 2 (Tân SV): Năm học > Ưu tiên gia cảnh > GPA
+   * - Nhóm 3 (Khóa cũ): GPA > Năm học > Ưu tiên gia cảnh
+   * @param {number} basket - Số hiệu nhóm hồ sơ (1, 2, hoặc 3)
+   * @returns {object} Trọng số { w1_priority, w2_year, w3_gpa }
    */
   async getBasketWeights(basket) {
     try {
@@ -366,10 +366,10 @@ class RegistrationService {
   }
 
   /**
-   * Calculate final AI Score (0-100 scale)
-   * Formula uses basket-specific weights
+   * Tính toán điểm AI xét tuyển cuối cùng (thang điểm 100)
+   * Sử dụng các trọng số tương ứng của từng nhóm
    * @param {object} params - { priorityScore, yearScore, gpaScore, basket, weights }
-   * @returns {number} Final AI score (0-100)
+   * @returns {number} Điểm AI tổng hợp (0-100)
    */
   calculateFinalAIScore(params) {
     const { priorityScore, yearScore, gpaScore, weights } = params;
@@ -381,11 +381,11 @@ class RegistrationService {
   }
 
   /**
-   * Determine AI Suggestion based on score and basket
-   * Different baskets have different thresholds
-   * @param {number} score - AI score (0-100)
-   * @param {number} basket - Basket number (1, 2, or 3)
-   * @returns {string} AI suggestion
+   * Đưa ra đề xuất AI (AI Suggestion) dựa trên điểm số và nhóm hồ sơ
+   * Mỗi nhóm có ngưỡng điểm sàn đề xuất khác nhau
+   * @param {number} score - Điểm xét tuyển AI (0-100)
+   * @param {number} basket - Nhóm hồ sơ (1, 2, hoặc 3)
+   * @returns {string} Đề xuất xét duyệt của AI
    */
   determineAISuggestion(score, basket) {
     // Nhóm 1 (Chính sách): Nới lỏng tiêu chuẩn vì ưu tiên hoàn cảnh
@@ -408,9 +408,9 @@ class RegistrationService {
     }
   }
   /**
-   * Get all registrations with filters
-   * Results are sorted by: Basket (1 → 2 → 3) then AI Score within each basket
-   * Also marks registrations as "full" if they exceed available slots
+   * Lấy danh sách toàn bộ hồ sơ đăng ký kèm bộ lọc
+   * Kết quả sắp xếp theo: Nhóm (1 → 2 → 3) rồi đến Điểm AI xét tuyển từ cao xuống thấp
+   * Đánh dấu hồ sơ vượt quá chỉ tiêu là "isFull = true"
    */
   async getRegistrations(filters = {}) {
     try {
@@ -532,20 +532,20 @@ class RegistrationService {
   }
 
   /**
-   * Create new registration with complete validation and AI scoring
+   * Tạo mới một hồ sơ đăng ký (xác thực dữ liệu và chấm điểm AI tự động)
    *
-   * Flow:
-   * 1. Validate input data
-   * 2. Check for duplicate student_id
-   * 3. Calculate AI scores
-   * 4. Determine basket and AI suggestion
-   * 5. Create AI reasoning object
-   * 6. Save to database
-   * 7. Log action
+   * Quy trình:
+   * 1. Kiểm tra tính hợp lệ của dữ liệu đầu vào
+   * 2. Kiểm tra trùng lặp mã sinh viên (student_id)
+   * 3. Tính toán các điểm số thành phần
+   * 4. Phân nhóm hồ sơ và đưa ra gợi ý AI
+   * 5. Tạo đối tượng giải trình lý do chấm điểm AI
+   * 6. Lưu vào cơ sở dữ liệu
+   * 7. Ghi nhật ký hoạt động hệ thống
    *
-   * @param {object} data - Registration data from admin form
-   * @param {object} req - Express request object
-   * @returns {object} Created registration with AI scores and suggestion
+   * @param {object} data - Dữ liệu hồ sơ
+   * @param {object} req - Đối tượng request Express
+   * @returns {object} Hồ sơ được tạo kèm điểm số và gợi ý AI
    */
   async createRegistration(data, req = null) {
     try {
@@ -750,7 +750,7 @@ class RegistrationService {
   }
 
   /**
-   * Approve registration
+   * Phê duyệt hồ sơ đăng ký phòng
    */
   async approveRegistration(id, adminId, note = null, req = null) {
     try {
@@ -841,7 +841,7 @@ class RegistrationService {
   }
 
   /**
-   * Reject registration
+   * Từ chối hồ sơ đăng ký phòng
    */
   async rejectRegistration(id, adminId, note, req = null) {
     try {
@@ -862,11 +862,11 @@ class RegistrationService {
   }
 
   /**
-   * Delete registration
-   * @param {string} id - Registration ID
-   * @param {string} adminId - Admin ID performing the action
-   * @param {object} req - Request object for logging
-   * @returns {object} Deleted registration data
+   * Xóa hồ sơ đăng ký phòng
+   * @param {string} id - ID hồ sơ
+   * @param {string} adminId - ID người thực hiện
+   * @param {object} req - Đối tượng request Express để ghi nhật ký
+   * @returns {object} Dữ liệu hồ sơ bị xóa
    */
   async deleteRegistration(id, adminId, req = null) {
     try {

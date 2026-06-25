@@ -5,31 +5,29 @@ class NotificationDAO extends BaseDAO {
         super('notifications');
     }
 
-    /**
-     * Find notifications by type
-     */
+    // Tìm kiếm thông báo theo thể loại (loại)
     async findByType(type) {
         return this.findAll({ type }, ['created_at DESC']);
     }
 
-    /**
-     * Get published notifications
-     */
+    // Lấy danh sách các thông báo đã xuất bản công khai
     async getPublished(limit = null) {
-        const query = `
+        let query = `
             SELECT n.*, u.full_name as creator_name
             FROM ${this.tableName} n
             LEFT JOIN users u ON n.created_by = u.id
             WHERE n.is_published = TRUE
             ORDER BY n.created_at DESC
-            ${limit ? 'LIMIT ?' : ''}
         `;
-        return this.executeQuery(query, limit ? [limit] : []);
+        const values = [];
+        if (limit) {
+            query += ` LIMIT $1`;
+            values.push(limit);
+        }
+        return this.executeQuery(query, values);
     }
 
-    /**
-     * Get notifications for specific user
-     */
+    // Lấy danh sách thông báo dành riêng cho một người dùng (chung toàn trường, nhóm sinh viên hoặc gửi riêng)
     async getForUser(userId) {
         const query = `
             SELECT n.*, u.full_name as creator_name
@@ -38,17 +36,18 @@ class NotificationDAO extends BaseDAO {
             WHERE n.is_published = TRUE
             AND (
                 n.target_audience = 'ALL'
-                OR (n.target_audience = 'STUDENTS' AND ? IN (SELECT id FROM users WHERE role = 'STUDENT'))
-                OR (n.target_audience = 'SPECIFIC' AND JSON_CONTAINS(n.target_users, JSON_QUOTE(?)))
+                OR n.target_audience = 'STUDENTS'
+                OR (
+                    n.target_audience = 'SPECIFIC'
+                    AND n.target_users @> to_jsonb($1::text)
+                )
             )
             ORDER BY n.created_at DESC
         `;
-        return this.executeQuery(query, [userId, userId]);
+        return this.executeQuery(query, [userId]);
     }
 
-    /**
-     * Create notification with creator
-     */
+    // Tạo thông báo mới kèm ID người tạo
     async createNotification(data, createdBy) {
         const notificationData = {
             ...data,
@@ -58,9 +57,7 @@ class NotificationDAO extends BaseDAO {
         return this.create(notificationData);
     }
 
-    /**
-     * Send to all students
-     */
+    // Gửi thông báo đến toàn bộ sinh viên
     async sendToAllStudents(title, content, type, createdBy) {
         return this.createNotification({
             title,
@@ -70,9 +67,7 @@ class NotificationDAO extends BaseDAO {
         }, createdBy);
     }
 
-    /**
-     * Send to specific users
-     */
+    // Gửi thông báo đến danh sách người nhận cụ thể
     async sendToSpecificUsers(title, content, type, userIds, createdBy) {
         return this.createNotification({
             title,

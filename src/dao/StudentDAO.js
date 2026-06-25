@@ -1,35 +1,15 @@
-/**
- * StudentDAO.js
- * ─────────────────────────────────────────────────────────────────────────────
- * Data Access Object cho phía sinh viên.
- * Tập hợp tất cả các truy vấn DB mà sinh viên cần:
- *   - Hồ sơ cá nhân (register_forms + rooms + contracts)
- *   - Hợp đồng của sinh viên
- *   - Hóa đơn của sinh viên
- *   - Thông báo dành cho sinh viên
- *   - Phản hồi (feedback) của sinh viên
- *   - Phiếu kỷ luật của sinh viên
- * ─────────────────────────────────────────────────────────────────────────────
- */
+// StudentDAO.js - Lớp truy cập dữ liệu dành cho phân hệ sinh viên
 
 const db = require('../config/database');
 
 class StudentDAO {
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PROFILE
-    // ─────────────────────────────────────────────────────────────────────────
+    // === HỒ SƠ CÁ NHÂN ===
 
-    /**
-     * Lấy toàn bộ thông tin hồ sơ sinh viên theo email.
-     * JOIN với student_contracts (Active/Pending) và rooms để lấy thông tin phòng.
-     * Nếu không tìm thấy register_form, fallback sang users + contracts.
-     *
-     * @param {string} email - Email đăng nhập của sinh viên
-     * @returns {Object|null} Hồ sơ đầy đủ hoặc null
-     */
+    // Lấy thông tin hồ sơ sinh viên theo email (kèm thông tin phòng và hợp đồng đang hoạt động)
+    // Nếu chưa có đơn đăng ký phòng, tự động fallback lấy thông tin từ tài khoản user và hợp đồng
     async getProfile(email) {
-        // Truy vấn chính: lấy từ register_forms
+        // Lấy thông tin từ đơn đăng ký phòng
         const query = `
             SELECT
                 rf.*,
@@ -76,7 +56,7 @@ class StudentDAO {
         const result = await db.query(query, [email]);
         if (result.rows[0]) return result.rows[0];
 
-        // Fallback: không có register_form, lấy từ users + contracts
+        // Fallback: Lấy trực tiếp từ bảng users và hợp đồng nếu chưa có đơn đăng ký
         const fallback = `
             SELECT
                 NULL::varchar        AS id,
@@ -149,17 +129,9 @@ class StudentDAO {
         return fb.rows[0] || null;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HỢP ĐỒNG
-    // ─────────────────────────────────────────────────────────────────────────
+    // === HỢP ĐỒNG ===
 
-    /**
-     * Lấy danh sách hợp đồng của sinh viên (theo userId).
-     * JOIN với rooms để hiển thị thông tin phòng.
-     *
-     * @param {string} userId - ID người dùng
-     * @returns {Array} Danh sách hợp đồng
-     */
+    // Lấy danh sách hợp đồng của sinh viên kèm thông tin phòng tương ứng
     async getContracts(userId) {
         const query = `
             SELECT
@@ -189,17 +161,9 @@ class StudentDAO {
         return result.rows;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HÓA ĐƠN
-    // ─────────────────────────────────────────────────────────────────────────
+    // === HÓA ĐƠN ===
 
-    /**
-     * Lấy danh sách hóa đơn của sinh viên.
-     * Tìm phòng qua hợp đồng Active của sinh viên, sau đó lấy hóa đơn của phòng đó.
-     *
-     * @param {string} userId - ID người dùng
-     * @returns {Array} Danh sách hóa đơn
-     */
+    // Lấy danh sách hóa đơn phòng của sinh viên dựa trên hợp đồng Active
     async getInvoices(userId) {
         const query = `
             SELECT
@@ -221,17 +185,9 @@ class StudentDAO {
         return result.rows;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // THÔNG BÁO
-    // ─────────────────────────────────────────────────────────────────────────
+    // === THÔNG BÁO ===
 
-    /**
-     * Lấy thông báo dành cho sinh viên.
-     * Bao gồm: thông báo cho ALL, cho STUDENTS, và SPECIFIC (có userId trong target_users).
-     *
-     * @param {string} userId - ID người dùng
-     * @returns {Array} Danh sách thông báo
-     */
+    // Lấy danh sách thông báo sinh viên được phép xem (chung toàn trường, cho SV hoặc gửi riêng)
     async getNotifications(userId) {
         const query = `
             SELECT
@@ -254,16 +210,9 @@ class StudentDAO {
         return result.rows;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PHẢN HỒI (FEEDBACK)
-    // ─────────────────────────────────────────────────────────────────────────
+    // === PHẢN HỒI (FEEDBACK) ===
 
-    /**
-     * Lấy danh sách phản hồi của sinh viên.
-     *
-     * @param {string} userId - ID người dùng
-     * @returns {Array} Danh sách feedback
-     */
+    // Lấy danh sách phản ánh của sinh viên
     async getFeedbacks(userId) {
         const query = `
             SELECT
@@ -281,13 +230,7 @@ class StudentDAO {
         return result.rows;
     }
 
-    /**
-     * Tạo phản hồi mới từ sinh viên.
-     *
-     * @param {Object} data - Dữ liệu feedback { category, content, room_id, images }
-     * @param {string} userId - ID người dùng
-     * @returns {Object} Feedback vừa tạo
-     */
+    // Gửi phản ánh mới
     async createFeedback(data, userId) {
         const id = `fb-${Date.now()}`;
         const query = `
@@ -306,17 +249,9 @@ class StudentDAO {
         return result.rows[0];
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // KỶ LUẬT
-    // ─────────────────────────────────────────────────────────────────────────
+    // === KỶ LUẬT ===
 
-    /**
-     * Lấy danh sách phiếu kỷ luật của sinh viên.
-     * Chỉ trả về các phiếu chưa bị hủy.
-     *
-     * @param {string} userId - ID người dùng
-     * @returns {Array} Danh sách phiếu kỷ luật
-     */
+    // Lấy danh sách phiếu kỷ luật của sinh viên (không lấy phiếu đã hủy)
     async getDisciplinaryRecords(userId) {
         const query = `
             SELECT

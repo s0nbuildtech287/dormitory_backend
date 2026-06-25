@@ -6,7 +6,7 @@ const { SERVICE_ACCOUNT_EMAILS } = GoogleSheetsService;
 
 class RegistrationController {
     /**
-     * Get all registrations
+     * Lấy danh sách tất cả hồ sơ đăng ký
      */
     async getAll(req, res, next) {
         try {
@@ -29,7 +29,7 @@ class RegistrationController {
     }
 
     /**
-     * Get registration by ID
+     * Lấy thông tin chi tiết một hồ sơ đăng ký theo ID
      */
     async getById(req, res, next) {
         try {
@@ -44,11 +44,11 @@ class RegistrationController {
     }
 
     /**
-     * Create new registration with validation and scoring
+     * Tạo hồ sơ đăng ký mới (kiểm tra trạng thái đợt đăng ký và tính điểm ưu tiên)
      */
     async create(req, res, next) {
         try {
-            // Check if registration is open
+            // Kiểm tra xem cổng đăng ký trực tuyến có mở hay không
             const setting = await RegistrationService.getScoringWeightsSettings();
             if (setting && setting.value && setting.value.quotas && setting.value.quotas.registration_open === false) {
                 return res.status(400).json({
@@ -64,7 +64,7 @@ class RegistrationController {
                 data: registration
             });
         } catch (error) {
-            // Check for validation errors
+            // Kiểm tra lỗi dữ liệu đầu vào không hợp lệ hoặc đã tồn tại
             if (error.message.includes('Missing required fields') ||
                 error.message.includes('Invalid') ||
                 error.message.includes('already exists')) {
@@ -74,13 +74,13 @@ class RegistrationController {
                 });
             }
             
-            // Pass other errors to error handler
+            // Chuyển tiếp lỗi cho middleware xử lý lỗi tập trung
             next(error);
         }
     }
 
     /**
-     * Update registration
+     * Cập nhật thông tin hồ sơ đăng ký phòng
      */
     async update(req, res, next) {
         try {
@@ -101,7 +101,7 @@ class RegistrationController {
     }
 
     /**
-     * Approve registration
+     * Phê duyệt hồ sơ đăng ký phòng
      */
     async approve(req, res, next) {
         try {
@@ -123,7 +123,7 @@ class RegistrationController {
     }
 
     /**
-     * Reject registration
+     * Từ chối hồ sơ đăng ký phòng
      */
     async reject(req, res, next) {
         try {
@@ -152,23 +152,23 @@ class RegistrationController {
     }
 
     /**
-     * Delete registration
+     * Xóa hồ sơ đăng ký phòng
      */
     async delete(req, res, next) {
         try {
-            // Validate authentication
+            // Xác thực thông tin đăng nhập
             if (!req.user) {
                 return res.status(401).json({
                     success: false,
-                    message: 'Not authenticated'
+                    message: 'Yêu cầu đăng nhập tài khoản'
                 });
             }
 
-            // Validate authorization (only admin can delete)
+            // Kiểm tra phân quyền (chỉ ADMIN/STAFF mới được xóa hồ sơ đăng ký)
             if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'STAFF') {
                 return res.status(403).json({
                     success: false,
-                    message: 'Only admins can delete registrations'
+                    message: 'Bạn không có quyền thực hiện chức năng này'
                 });
             }
 
@@ -194,18 +194,18 @@ class RegistrationController {
     }
 
     /**
-     * Import registrations from Excel
+     * Nhập danh sách hồ sơ từ file Excel
      */
     async importExcel(req, res, next) {
         try {
             if (!req.file) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Excel file is required'
+                    message: 'Vui lòng chọn file Excel để nhập dữ liệu'
                 });
             }
 
-            // Use 'system' as userId if no authentication (for testing)
+            // Dùng 'system' nếu chưa đăng nhập (phục vụ viết test)
             const userId = req.user?.userId || 'system';
 
             const result = await RegistrationService.importFromExcel(
@@ -224,7 +224,7 @@ class RegistrationController {
     }
 
     /**
-     * Get statistics
+     * Lấy số liệu thống kê hồ sơ đăng ký
      */
     async getStatistics(req, res, next) {
         try {
@@ -239,8 +239,8 @@ class RegistrationController {
     }
 
     /**
-     * Recalculate scores for all registrations
-     * Used when admin updates scoring weights/settings
+     * Tính toán lại điểm số ưu tiên cho toàn bộ hồ sơ
+     * Được gọi khi quản trị viên thay đổi cài đặt trọng số ưu tiên
      */
     async recalculateScores(req, res, next) {
         try {
@@ -259,7 +259,7 @@ class RegistrationController {
     }
 
     /**
-     * Get scoring weights
+     * Lấy cấu hình các trọng số điểm ưu tiên hiện tại
      */
     async getScoringWeights(req, res, next) {
         try {
@@ -274,7 +274,7 @@ class RegistrationController {
     }
 
     /**
-     * Update scoring weights
+     * Cập nhật cấu hình các trọng số điểm ưu tiên
      */
     async updateScoringWeights(req, res, next) {
         try {
@@ -299,7 +299,7 @@ class RegistrationController {
     }
 
     /**
-     * Import registrations from Google Sheets URL
+     * Nhập danh sách hồ sơ từ đường dẫn Google Sheets
      */
     async importGoogleSheets(req, res, next) {
         try {
@@ -308,11 +308,11 @@ class RegistrationController {
             if (!sheetUrl || typeof sheetUrl !== 'string' || !sheetUrl.trim()) {
                 return res.status(400).json({
                     success: false,
-                    message: 'URL Google Sheets là bắt buộc'
+                    message: 'Đường dẫn Google Sheets là bắt buộc'
                 });
             }
 
-            // Basic URL validation
+            // Kiểm tra định dạng cơ bản của URL
             const trimmedUrl = sheetUrl.trim();
             if (!trimmedUrl.includes('docs.google.com/spreadsheets') && !trimmedUrl.match(/^[a-zA-Z0-9_-]+$/)) {
                 return res.status(400).json({
@@ -359,7 +359,7 @@ class RegistrationController {
     }
 
     /**
-     * Get service account emails (for admin to share the sheet with)
+     * Lấy danh sách email tài khoản dịch vụ Google để chia sẻ Sheet
      */
     async getServiceAccountEmails(req, res, next) {
         try {
@@ -407,12 +407,12 @@ class RegistrationController {
     }
 
     /**
-     * CAMPAIGN LAUNCHER ENDPOINTS
+     * CÁC ENDPOINT DỰ BÁO VÀ THỐNG KÊ PHỤC VỤ AUTO-ALLOCATE (DÙNG CHO AI)
      */
 
     /**
      * GET /api/registrations/room-forecast?days=30
-     * Dự báo phòng trống
+     * Dự báo phòng trống trong số ngày tới
      */
     async getRoomForecast(req, res, next) {
         try {
@@ -471,7 +471,7 @@ class RegistrationController {
     }
 
     /**
-     * Get registration period open status
+     * Lấy trạng thái đóng/mở đợt đăng ký trực tuyến hiện tại
      */
     async getStatus(req, res, next) {
         try {

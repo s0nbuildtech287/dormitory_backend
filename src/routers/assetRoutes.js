@@ -3,48 +3,48 @@ const router = express.Router();
 const AssetController = require('../controllers/AssetController');
 const { authenticate } = require('../middlewares/auth');
 
-// All routes require authentication
+// Tất cả các route bên dưới đều yêu cầu xác thực
 router.use(authenticate);
 
-// Get all assets or asset summary
+// Lấy danh sách toàn bộ tài sản hoặc tóm tắt tài sản
 router.get('/', AssetController.getAll.bind(AssetController));
 
-// Get asset statistics
+// Lấy số liệu thống kê tài sản
 router.get('/statistics', AssetController.getStatistics.bind(AssetController));
 
-// Get assets by building
+// Lấy danh sách tài sản theo tòa nhà
 router.get('/buildings', AssetController.getAssetsByBuilding.bind(AssetController));
 
-// Get import/export history
+// Lấy lịch sử nhập/xuất tài sản
 router.get('/history', AssetController.getHistory.bind(AssetController));
 
-// Asset settings - limits
+// Cấu hình tài sản - giới hạn định mức
 router.get('/settings/limits', AssetController.getAssetLimits.bind(AssetController));
 router.put('/settings/limits', AssetController.updateAssetLimits.bind(AssetController));
 
-// Asset settings - regulations
+// Cấu hình tài sản - nội quy quy định
 router.get('/settings/regulations', AssetController.getAssetRegulations.bind(AssetController));
 router.put('/settings/regulations', AssetController.updateAssetRegulations.bind(AssetController));
 
-// Get assets by room
+// Lấy danh sách tài sản của một phòng cụ thể
 router.get('/room/:roomId', AssetController.getAssetsByRoom.bind(AssetController));
 
-// Import asset to warehouse
+// Nhập thêm tài sản vào kho
 router.post('/import', AssetController.importAsset.bind(AssetController));
 
-// Export asset from warehouse to room
+// Xuất tài sản từ kho bàn giao về phòng
 router.post('/export', AssetController.exportAsset.bind(AssetController));
 
-// Get asset by ID
+// Lấy thông tin chi tiết tài sản theo ID
 router.get('/:id', AssetController.getById.bind(AssetController));
 
-// Create new asset
+// Khởi tạo tài sản mới
 router.post('/', AssetController.create.bind(AssetController));
 
-// Update asset
+// Cập nhật thông tin tài sản
 router.put('/:id', AssetController.update.bind(AssetController));
 
-// Delete asset
+// Xóa tài sản
 router.delete('/:id', AssetController.delete.bind(AssetController));
 
 module.exports = router;

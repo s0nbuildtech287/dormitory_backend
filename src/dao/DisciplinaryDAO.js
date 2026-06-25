@@ -1,9 +1,8 @@
 const pool = require('../config/database');
 
 class DisciplinaryDAO {
-  /**
-   * Get all disciplinary records with filters + join user/room info
-   */
+  
+  // Lấy danh sách phiếu kỷ luật kèm các bộ lọc và thông tin sinh viên/phòng tương ứng
   async findAll(filters = {}) {
     let query = `
       SELECT
@@ -76,6 +75,7 @@ class DisciplinaryDAO {
     return result.rows;
   }
 
+  // Lấy thông tin chi tiết một phiếu kỷ luật theo ID
   async findById(id) {
     const query = `
       SELECT
@@ -113,7 +113,7 @@ class DisciplinaryDAO {
     return result.rows[0] || null;
   }
 
-  /** Đếm số lần vi phạm cùng loại của 1 sinh viên (dùng để tính violation_count) */
+  // Đếm số lần vi phạm cùng loại của một sinh viên (để theo dõi tái phạm)
   async countByUserAndType(userId, violationType) {
     const result = await pool.query(
       `SELECT COUNT(*) AS cnt FROM disciplinary_records
@@ -123,16 +123,13 @@ class DisciplinaryDAO {
     return parseInt(result.rows[0].cnt, 10);
   }
 
-  /**
-   * Tạo phiếu vi phạm + trừ conduct_score + gửi email nếu đủ ngưỡng
-   * Toàn bộ trong 1 transaction
-   */
+  // Lập phiếu kỷ luật mới (trừ điểm rèn luyện và tự động chấm dứt hợp đồng nếu buộc thôi ở)
   async create(data) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Insert record
+      // Thêm mới phiếu kỷ luật
       const insertQ = `
         INSERT INTO disciplinary_records (
           id, user_id, room_id, contract_id,
@@ -175,7 +172,7 @@ class DisciplinaryDAO {
       const inserted = await client.query(insertQ, vals);
       const record = inserted.rows[0];
 
-      // Trừ conduct_score (trừ 0 nếu Buộc thôi ở)
+      // Tự động trừ điểm rèn luyện (không trừ nếu vi phạm buộc thôi ở)
       if (data.score_deducted > 0) {
         await client.query(
           `UPDATE users
@@ -185,7 +182,7 @@ class DisciplinaryDAO {
         );
       }
 
-      // Nếu Buộc thôi ở → terminate contract
+      // Nếu kỷ luật buộc thôi ở, chấm dứt hợp đồng tương ứng
       if (data.disciplinary_level === 'Buộc thôi ở' && data.contract_id) {
         await client.query(
           `UPDATE student_contracts
@@ -205,6 +202,7 @@ class DisciplinaryDAO {
     }
   }
 
+  // Cập nhật thông tin phiếu kỷ luật
   async update(id, data) {
     const fields = Object.keys(data);
     const setClause = fields.map((f, idx) => `${f} = $${idx + 2}`).join(', ');
@@ -216,6 +214,7 @@ class DisciplinaryDAO {
     return result.rows[0];
   }
 
+  // Xóa phiếu kỷ luật theo ID
   async delete(id) {
     const result = await pool.query(
       'DELETE FROM disciplinary_records WHERE id = $1 RETURNING *',
@@ -224,6 +223,7 @@ class DisciplinaryDAO {
     return result.rows[0];
   }
 
+  // Lấy số liệu thống kê kỷ luật (tổng số, đang xử lý, đã xử lý, phạt chưa thanh toán)
   async getStatistics() {
     const result = await pool.query(`
       SELECT
@@ -238,7 +238,7 @@ class DisciplinaryDAO {
     return result.rows[0];
   }
 
-  /** Lấy config điểm trừ từ settings (nếu admin đã lưu override) */
+  // Lấy cấu hình điểm trừ tương ứng cho các loại vi phạm từ settings
   async getScoreConfig() {
     const result = await pool.query(
       `SELECT value FROM settings WHERE id = 'disciplinary_score_config' AND is_active = TRUE`
@@ -246,7 +246,7 @@ class DisciplinaryDAO {
     return result.rows[0]?.value || null;
   }
 
-  /** Lưu config điểm trừ vào settings */
+  // Lưu cấu hình điểm trừ vi phạm vào settings
   async saveScoreConfig(config, updatedBy) {
     const result = await pool.query(
       `INSERT INTO settings (id, category, name, value, description, is_active, updated_by, updated_at)

@@ -1,4 +1,4 @@
-// In-memory OTP store: { email: { code, expiresAt } }
+// Lưu trữ OTP tạm thời trong bộ nhớ RAM: { email: { code, expiresAt } }
 const store = new Map();
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 phút
