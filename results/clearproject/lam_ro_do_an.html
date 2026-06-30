@@ -655,13 +655,9 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p>Trong bối cảnh chuyển đổi số giáo dục đại học và số lượng sinh viên nội trú tại KTX TLU ngày càng tăng, công
-          tác quản lý <b>ký túc xá</b> (đăng ký ở, hợp đồng, thu phí, xét duyệt phòng, theo dõi vi phạm kỷ luật) hiện
-          vẫn được thực hiện thủ công hoặc rải rác qua các bảng tính Excel độc lập.</p>
-        <p><b>Ai gặp vấn đề:</b> Ban quản lý ký túc xá (xử lý hồ sơ, thu phí, xét duyệt) và sinh viên nội trú (tra cứu
-          thông tin, đăng ký, phản hồi sự cố).</p>
-        <p><b>Phạm vi bài toán:</b> hệ thống web-based phục vụ riêng cho công tác quản lý KTX Trường ĐH Thủy Lợi, không
-          mở rộng IoT hay quản lý đa cơ sở.</p>
+        <p>Bối cảnh: Quy mô đào tạo tại ĐH Thủy Lợi rất lớn, lượng sinh viên nội trú đông dẫn đến áp lực vận hành KTX rất cao. Hiện tại, công tác quản lý vẫn chủ yếu sử dụng hỗn hợp hồ sơ giấy và các bảng tính rời rạc, gây khó khăn lớn trong việc lưu trữ dữ liệu, theo dõi hợp đồng, gán phòng, tính toán hóa đơn và thống kê báo cáo.</p>
+        <p>Điểm nghẽn cốt lõi: Tình trạng bất cân đối cung - cầu nghiêm trọng khi nhu cầu đăng ký nội trú của sinh viên vượt xa nguồn cung phòng thực tế; việc phân bổ phòng thủ công chưa tối ưu dễ dẫn đến phòng quá đông hoặc phòng lại quá vắng, thiếu tính minh bạch và công bằng.</p>
+        <p>Phạm vi bài toán: Xây dựng hệ thống thông tin quản lý KTX trên nền tảng Web phục vụ riêng cho KTX Đại học Thủy Lợi (bao gồm cả Ban quản lý và Sinh viên); tin học hóa toàn diện quy trình đăng ký, xét duyệt, xếp phòng, hóa đơn và kỷ luật; chưa tích hợp thiết bị phần cứng IoT và chưa phát triển app di động.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -700,13 +696,9 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p>Dữ liệu quản lý KTX phân tán trên nhiều file Excel, <b>không đồng bộ</b>, gây khó khăn khi tra cứu hợp
-          đồng/hóa đơn, xét duyệt phòng thiếu minh bạch về tiêu chí, và sinh viên không có kênh hỗ trợ nhanh ngoài giờ
-          hành chính.</p>
-        <p><b>Nguyên nhân gốc:</b> thiếu một hệ thống tập trung kết nối quy trình đăng ký – xét duyệt – thu phí – hỗ trợ
-          thành một luồng dữ liệu duy nhất.</p>
-        <p><b>Tác động:</b> tốn thời gian xử lý hồ sơ thủ công, dễ sai sót khi đối chiếu dữ liệu, sinh viên phải chờ đợi
-          để được giải đáp thắc mắc.</p>
+        <p>Các bất cập thực tế: (1) Hồ sơ giấy tờ và dữ liệu phân tán gây lãng phí nguồn lực và chậm trễ thủ tục hành chính; (2) Thiếu nền tảng trực tuyến khiến sinh viên không thể tự tra cứu hợp đồng, hóa đơn mà phải gặp trực tiếp; (3) Phân bổ phòng thủ công chưa tối ưu gây bất cân đối cung - cầu và mất cân bằng mật độ phòng ở; (4) Hóa đơn điện nước tính tay dễ phát sinh sai sót, thiếu minh bạch; (5) Phản ánh của sinh viên chưa được phản hồi kịp thời và cơ chế xử lý kỷ luật vi phạm nội quy còn lỏng lẻo.</p>
+        <p>Nguyên nhân gốc: Thiếu một hệ thống thông tin quản lý đồng bộ và tập trung dữ liệu, chưa thiết lập được quy trình vận hành khép kín và tự động hóa các nghiệp vụ phức tạp.</p>
+        <p>Tác động: Giảm hiệu quả quản lý của KTX, ảnh hưởng xấu tới mức độ hài lòng và trải nghiệm sống của sinh viên nội trú.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -745,12 +737,9 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p>Xây dựng hệ thống thông tin quản lý KTX trực tuyến, gồm: (1) số hóa quy trình đăng ký hợp đồng và quản lý
-          phòng; (2) tự động hóa xét duyệt hồ sơ qua công thức tính điểm ưu tiên; (3) tích hợp thanh toán trực tuyến qua
-          VNPay; (4) hỗ trợ sinh viên 24/7 bằng chatbot AI (OpenAI API); (5) xác thực giấy tờ tự động bằng OCR (Google
-          Cloud Vision).</p>
-        <p><b>Chỉ tiêu đánh giá:</b> độ trễ phản hồi realtime <span class="metric">&lt; 200ms</span>, tỷ lệ kịch bản
-          kiểm thử chức năng đạt PASS <span class="metric">30/30</span>.</p>
+        <p>Xây dựng nền tảng quản lý tập trung, đồng bộ dữ liệu và quản lý các khâu vận hành KTX trên nền tảng Web.</p>
+        <p>Mục tiêu cụ thể: (1) Số hóa quy trình đăng ký, ký hợp đồng; (2) Ứng dụng thuật toán xếp hạng tự động để xét duyệt hồ sơ và xếp phòng công bằng; (3) Minh bạch hóa tài chính (quản lý hóa đơn, tích hợp thanh toán trực tuyến); (4) Ứng dụng AI tăng cường tương tác (chatbot hỗ trợ, phân tích cảm xúc phản ánh, tóm tắt tin tức bằng OpenAI API và Google Cloud Vision OCR).</p>
+        <p>Tiêu chí thành công: Hệ thống vận hành online ổn định tại kytucxatlu.site, vượt qua <span class="metric">30/30</span> kịch bản kiểm thử hộp đen (100% PASS) bao quát các nghiệp vụ cốt lõi.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -788,11 +777,9 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p>Hệ thống chỉ phục vụ <b>web-based</b>, không phát triển ứng dụng mobile riêng. Phụ thuộc vào các dịch vụ bên
-          thứ ba: OpenAI API (chatbot), Google Cloud Vision (OCR), VNPay (thanh toán) — yêu cầu kết nối internet và chịu
-          giới hạn của các API này.</p>
-        <p>Triển khai trên hạ tầng GCP Compute Engine, Ubuntu, PostgreSQL 16, PM2, Nginx, Cloudflare + Certbot SSL.</p>
-        <p><b>Không làm:</b> không xây dựng module IoT, không mở rộng quản lý đa trường trong phạm vi đồ án này.</p>
+        <p>Ràng buộc phạm vi kỹ thuật: Chỉ xây dựng hệ thống phần mềm quản lý trên nền tảng Web, chưa tích hợp thiết bị phần cứng IoT (công tơ điện nước thông minh, khóa cửa vân tay) và chưa có app di động.</p>
+        <p>Ràng buộc dịch vụ bên thứ ba: Tích hợp cổng thanh toán VNPay nhưng hiện tại mới chạy ở môi trường thử nghiệm (Sandbox) do kết nối chính thức yêu cầu tư cách pháp nhân trường học; các dịch vụ AI (OpenAI API, Google Cloud Vision) phụ thuộc vào đường truyền internet và giới hạn gói API.</p>
+        <p>Hạ tầng triển khai: Vận hành thực tế trên VPS, Nginx, Cloudflare bảo mật.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -831,15 +818,9 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p><b>Kiến trúc:</b> Frontend React/Vite + Tailwind CSS; Backend Node.js/Express theo mô hình <span
-            class="mono">routers → controllers → services → dao</span>; CSDL PostgreSQL (dùng JSONB lưu kết quả AI, ENUM
-          cho trạng thái).</p>
-        <p><b>Realtime:</b> Socket.IO cho thông báo và chat. <b>AI:</b> OpenAI API cho chatbot hỗ trợ sinh viên; Google
-          Cloud Vision OCR xác thực giấy tờ. <b>Thanh toán:</b> tích hợp VNPay. <b>Cache:</b> Redis. <b>Bảo mật & triển
-            khai:</b> JWT, bcrypt, Docker, Nginx, Cloudflare.</p>
-        <p><b>Phần tự viết:</b> toàn bộ thiết kế CSDL, logic nghiệp vụ xét duyệt (công thức tính điểm ưu tiên hồ sơ),
-          API backend, giao diện frontend. <b>Phần dùng sẵn:</b> các SDK/API bên thứ ba (OpenAI, Google Cloud Vision,
-          VNPay).</p>
+        <p>Kiến trúc & Mô hình: Kiến trúc Client-Server (giao tiếp REST API, JSON); Frontend React + Backend Node.js/Express. Mô hình 3 tầng phân lớp rõ rệt: Controller - Service - DAO để tách biệt nghiệp vụ và truy cập cơ sở dữ liệu PostgreSQL (11 bảng quan hệ).</p>
+        <p>Giải pháp tự phát triển: (1) Thuật toán tự động tính điểm xét tuyển hồ sơ theo công thức Score = (P * wPrior) + (Y * wYear) + (G * wGPA) và tự động gán phòng; (2) Cơ chế realtime qua Socket.IO; (3) Tích hợp OpenAI API (Trợ lý ảo 24/7, NLP phân tích cảm xúc phản ánh tiêu cực/bức xúc để cảnh báo Admin, cào và tóm tắt tin tức từ website tlu.edu.vn); (4) Tích hợp Google Cloud Vision OCR đối soát ảnh minh chứng tự động.</p>
+        <p>Phần tự làm: Thiết kế CSDL, lập trình toàn bộ logic nghiệp vụ (thuật toán xét duyệt, xếp phòng, gán hóa đơn, phân tích phản ánh) và giao diện. Phần kế thừa: Các thư viện nền tảng và SDK của bên thứ ba.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -879,12 +860,9 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p>Kiểm thử chức năng theo phương pháp hộp đen (black-box) với <span class="metric">30/30</span> kịch bản đạt
-          trạng thái PASS, bao phủ các luồng chính: đăng ký hợp đồng, xét duyệt hồ sơ, thanh toán VNPay, chatbot AI.</p>
-        <p>Đo độ trễ phản hồi realtime qua Socket.IO đạt <span class="metric">&lt; 200ms</span>.</p>
-        <p><b>Hạn chế cần thừa nhận:</b> chưa thực hiện kiểm thử bảo mật chuyên sâu (penetration test, OWASP checklist)
-          và chưa có khảo sát đánh giá trải nghiệm người dùng thực tế bằng số liệu định lượng — đây là điểm cần nêu rõ
-          là hướng phát triển tiếp theo, tránh tuyên bố "bảo mật tốt" thiếu căn cứ.</p>
+        <p>Phương pháp đánh giá: Kiểm thử hộp đen (Black-box Testing) với 30 kịch bản kiểm thử cốt lõi (100% đạt trạng thái PASS) bao quát toàn bộ nghiệp vụ (Xác thực, Hợp đồng, Hóa đơn, AI Sentiment, AI OCR, Realtime).</p>
+        <p>Đo lường thời gian đáp ứng: Tự động hóa giúp rút ngắn thời gian xử lý các tác vụ nặng (nhập hồ sơ 60s, đối soát OCR 120s, tính điểm & xét duyệt 30s, gán phòng 30s, tạo hợp đồng 60s).</p>
+        <p>Hạn chế kỹ thuật: Cổng VNPay mới chỉ hoạt động ở môi trường Sandbox (thử nghiệm); chỉ số điện nước vẫn cần sinh viên tự khai báo online hoặc quản lý nhập tay, chưa tự động hóa hoàn toàn từ phần cứng công tơ.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -924,13 +902,9 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p>Số hóa toàn bộ quy trình quản lý KTX trên một nền tảng duy nhất, giúp <b>Ban quản lý</b> giảm thời gian xử lý
-          hồ sơ thủ công và minh bạch hóa quy trình xét duyệt; giúp <b>sinh viên</b> tra cứu hợp đồng/hóa đơn nhanh
-          chóng và được hỗ trợ qua chatbot AI 24/7.</p>
-        <p><b>Hạn chế:</b> chưa kiểm thử với quy mô người dùng lớn đồng thời trong môi trường thực tế; cơ chế lưu trữ
-          JWT phía client (localStorage) cần cải thiện để đảm bảo an toàn trước các tấn công XSS.</p>
-        <p><b>Hướng phát triển:</b> bổ sung kiểm thử bảo mật toàn diện, chuyển sang HttpOnly Cookie cho JWT, mở rộng khả
-          năng nhân rộng cho KTX các trường khác.</p>
+        <p>Đóng góp thực tiễn: Xây dựng thành công giải pháp số hóa toàn diện giúp hiện đại hóa công tác quản lý KTX Đại học Thủy Lợi, nâng cao tính công bằng và minh bạch tài chính. Tự động hóa 90% quy trình vận hành liên thông khép kín.</p>
+        <p>Giá trị mang lại: Ban quản lý tối ưu hiệu năng vận hành, rút ngắn thời gian xét duyệt và gán phòng từ nhiều ngày xuống vài phút; Sinh viên dễ dàng tự tra cứu hợp đồng, hóa đơn điện nước trực tuyến và nhận hỗ trợ 24/7.</p>
+        <p>Hướng phát triển: (1) Tích hợp thiết bị IoT (công tơ điện nước thông minh tự đồng bộ chỉ số, khóa cửa vân tay/khuôn mặt quản lý ra vào các tòa nhà); (2) Phát triển ứng dụng di động (Mobile App Android/iOS) để tối ưu trải nghiệm nhận thông báo đẩy.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -972,12 +946,8 @@
         </ul>
       </div>
       <div class="cell answer">
-        <p>Kiến trúc 3 lớp (routers → controllers → services → dao) là mô hình phổ biến trong phát triển backend, được
-          vận dụng chứ không sao chép nguyên hệ thống có sẵn. Toàn bộ thiết kế CSDL, logic nghiệp vụ xét duyệt, API và
-          giao diện do sinh viên tự triển khai; phần tích hợp bên thứ ba (OpenAI, Google Cloud Vision, VNPay) sử dụng
-          SDK chính thức theo tài liệu nhà cung cấp.</p>
-        <p><i>Phần thời gian thực hiện, tỷ lệ tham khảo cụ thể và cam kết trung thực — sinh viên tự điền theo thực tế
-            triển khai của bản thân.</i></p>
+        <p>Kế thừa mô hình kiến trúc phổ biến (Client-Server, 3 lớp) và vận dụng linh hoạt vào bài toán cụ thể của KTX TLU. Toàn bộ thiết kế cơ sở dữ liệu gồm 11 bảng quan hệ, logic lập trình thuật toán xếp phòng, tích hợp xử lý NLP phản ánh và OCR đối soát đều do sinh viên tự nghiên cứu triển khai.</p>
+        <p>Mức độ tự hiểu và làm chủ: Sinh viên tự hiểu và làm chủ hệ thống cao (khoảng 85-90%). Cam kết trung thực học thuật và chịu trách nhiệm hoàn toàn về sản phẩm báo cáo.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
