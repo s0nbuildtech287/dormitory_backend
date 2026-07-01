@@ -1821,27 +1821,50 @@ class RegistrationService {
         }
       }
 
+      // Lấy danh sách hợp đồng ở trạng thái 'Pending' (đã được duyệt trong đợt này nhưng chưa gán phòng)
+      const alreadyApproved = await RegisterFormDAO.executeQuery(
+        "SELECT snapshot_faculty AS faculty, snapshot_year AS year FROM student_contracts WHERE status = 'Pending'"
+      );
+
+      let approvedFreshmen = 0;
+      let approvedSeniors = 0;
+      const approvedFacultyCounts = {};
+
+      for (const reg of alreadyApproved) {
+        const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+        if (quotaKey === "freshmen") approvedFreshmen++;
+        else approvedSeniors++;
+
+        const studentFaculty = reg.faculty || "Không xác định";
+        if (!approvedFacultyCounts[studentFaculty]) {
+          approvedFacultyCounts[studentFaculty] = { freshmen: 0, seniors: 0, total: 0 };
+        }
+        approvedFacultyCounts[studentFaculty][quotaKey]++;
+        approvedFacultyCounts[studentFaculty].total++;
+      }
+
       const slotsPerBasket = {
         freshmen: Math.round((quotas.freshmen / 100) * totalSlots),
         seniors: Math.round((quotas.seniors / 100) * totalSlots),
       };
 
       const remainingSlots = {
-        freshmen: slotsPerBasket.freshmen,
-        seniors: slotsPerBasket.seniors,
+        freshmen: Math.max(0, slotsPerBasket.freshmen - approvedFreshmen),
+        seniors: Math.max(0, slotsPerBasket.seniors - approvedSeniors),
       };
 
       const remainingFacultySlots = {};
       const facultyQuotaEnabled = Object.keys(facultyQuotas).length > 0;
       if (facultyQuotaEnabled) {
         for (const [fac, cap] of Object.entries(facultyQuotas)) {
+          const approvedFac = approvedFacultyCounts[fac] || { freshmen: 0, seniors: 0, total: 0 };
           if (cap && typeof cap === 'object' && !Array.isArray(cap)) {
             remainingFacultySlots[fac] = {
-              freshmen: parseInt(cap.freshmen, 10) || 0,
-              seniors: parseInt(cap.seniors, 10) || 0
+              freshmen: Math.max(0, (parseInt(cap.freshmen, 10) || 0) - approvedFac.freshmen),
+              seniors: Math.max(0, (parseInt(cap.seniors, 10) || 0) - approvedFac.seniors)
             };
           } else {
-            remainingFacultySlots[fac] = parseInt(cap, 10) || 0;
+            remainingFacultySlots[fac] = Math.max(0, (parseInt(cap, 10) || 0) - approvedFac.total);
           }
         }
       }
@@ -1854,7 +1877,7 @@ class RegistrationService {
         return (b.ai_score || 0) - (a.ai_score || 0);
       });
 
-      let totalRemainingSlots = totalSlots;
+      let totalRemainingSlots = Math.max(0, totalSlots - alreadyApproved.length);
       const approved = [];
       const skipped = [];
       const overflowCandidates = [];
@@ -1866,15 +1889,19 @@ class RegistrationService {
         const studentFaculty = reg.faculty || "Không xác định";
         
         if (totalRemainingSlots <= 0) {
+          const reason = "Hết chỉ tiêu toàn KTX";
           skipped.push({
             id: reg.id,
             student_name: reg.student_name,
             student_id: reg.student_id,
             faculty: studentFaculty,
-            reason: "Hết chỉ tiêu toàn KTX",
+            reason: reason,
             year: reg.year,
             basket: this.determineBasket(reg.priority_reasons, reg.year)
           });
+          if (!simulate) {
+            await RegisterFormDAO.update(reg.id, { note: reason });
+          }
           skippedQuota++;
           continue;
         }
@@ -1911,6 +1938,9 @@ class RegistrationService {
               year: reg.year,
               basket: this.determineBasket(reg.priority_reasons, reg.year)
             });
+            if (!simulate) {
+              await RegisterFormDAO.update(reg.id, { note: reason });
+            }
             skippedQuota++;
           }
           continue;
@@ -1949,15 +1979,19 @@ class RegistrationService {
           const studentFaculty = reg.faculty || "Không xác định";
 
           if (totalRemainingSlots <= 0) {
+            const reason = "Hết chỗ trống KTX (khi dồn chỉ tiêu)";
             skipped.push({
               id: reg.id,
               student_name: reg.student_name,
               student_id: reg.student_id,
               faculty: studentFaculty,
-              reason: "Hết chỗ trống KTX (khi dồn chỉ tiêu)",
+              reason: reason,
               year: reg.year,
               basket: this.determineBasket(reg.priority_reasons, reg.year)
             });
+            if (!simulate) {
+              await RegisterFormDAO.update(reg.id, { note: reason });
+            }
             skippedQuota++;
             continue;
           }
@@ -1994,15 +2028,19 @@ class RegistrationService {
         for (const reg of overflowCandidates) {
           const studentFaculty = reg.faculty || "Không xác định";
           const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+          const reason = `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facultyQuotas[studentFaculty] === 'object' ? facultyQuotas[studentFaculty][quotaKey] : facultyQuotas[studentFaculty]} chỗ)`;
           skipped.push({
             id: reg.id,
             student_name: reg.student_name,
             student_id: reg.student_id,
             faculty: studentFaculty,
-            reason: `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facultyQuotas[studentFaculty] === 'object' ? facultyQuotas[studentFaculty][quotaKey] : facultyQuotas[studentFaculty]} chỗ)`,
+            reason: reason,
             year: reg.year,
             basket: this.determineBasket(reg.priority_reasons, reg.year)
           });
+          if (!simulate) {
+            await RegisterFormDAO.update(reg.id, { note: reason });
+          }
           skippedQuota++;
         }
       }
