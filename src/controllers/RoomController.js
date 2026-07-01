@@ -244,6 +244,27 @@ class RoomController {
             next(error);
         }
     }
+
+    async updateBatchGender(req, res, next) {
+        try {
+            const { building, floor, gender } = req.body;
+            const updatedRooms = await RoomService.updateBatchGender(
+                building,
+                floor,
+                gender,
+                req.user.userId,
+                req
+            );
+            res.json({
+                success: true,
+                message: 'Batch updated gender successfully',
+                count: updatedRooms.length,
+                data: updatedRooms
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new RoomController();

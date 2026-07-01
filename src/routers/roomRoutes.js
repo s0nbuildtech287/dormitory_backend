@@ -26,6 +26,7 @@ router.get('/statistics', requireAdmin, RoomController.getStatistics);
 router.post('/batch/floor', requireAdmin, RoomController.createFloorRooms);
 router.post('/batch/building', requireAdmin, RoomController.createBuildingRooms);
 router.put('/batch/reserved-for', requireAdmin, RoomController.updateBatchReservedFor);
+router.put('/batch/gender', requireAdmin, RoomController.updateBatchGender);
 
 // Lấy thông tin chi tiết một phòng theo ID
 router.get('/:id', RoomController.getById);

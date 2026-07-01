@@ -180,6 +180,12 @@ class RoomService {
                 throw new Error('Không có trường dữ liệu hợp lệ nào được cung cấp để cập nhật');
             }
 
+            if (sanitizedData.gender_type && sanitizedData.gender_type !== oldData.gender_type) {
+                if (oldData.current_occupancy > 0) {
+                    throw new Error('Không thể thay đổi giới tính của phòng đang có sinh viên lưu trú');
+                }
+            }
+
             if (sanitizedData.reserved_for && !RESERVED_FOR_VALUES.includes(sanitizedData.reserved_for)) {
                 throw new Error(`Đối tượng ưu tiên không hợp lệ. Cho phép: ${RESERVED_FOR_VALUES.join(', ')}`);
             }
@@ -598,6 +604,69 @@ class RoomService {
             return await RoomDAO.findById(roomId);
         } catch (error) {
             throw new Error(`Cập nhật chỉ số điện nước thất bại: ${error.message}`);
+        }
+    }
+
+    /**
+     * Cập nhật hàng loạt giới tính cho các phòng thuộc tòa nhà/tầng
+     */
+    async updateBatchGender(building, floor, genderType, adminId, req = null) {
+        try {
+            if (!building) {
+                throw new Error("Yêu cầu nhập tên tòa nhà để thực hiện cập nhật hàng loạt");
+            }
+            if (!genderType || !['Nam', 'Nữ'].includes(genderType)) {
+                throw new Error("Giới tính không hợp lệ. Chỉ cho phép: Nam, Nữ");
+            }
+
+            // Kiểm tra xem có phòng nào thuộc phạm vi cập nhật đang có người ở không
+            let checkQuery = `
+                SELECT COUNT(*) as active_count
+                FROM rooms
+                WHERE building = $1 AND current_occupancy > 0
+            `;
+            const checkParams = [building];
+            if (floor !== undefined && floor !== null) {
+                checkQuery += " AND floor = $2";
+                checkParams.push(Number(floor));
+            }
+            
+            const checkRes = await db.query(checkQuery, checkParams);
+            const activeCount = parseInt(checkRes.rows[0].active_count, 10);
+            if (activeCount > 0) {
+                throw new Error("Không thể thay đổi giới tính vì tòa/tầng đang có sinh viên lưu trú.");
+            }
+
+            let query = `
+                UPDATE rooms 
+                SET gender_type = $1, updated_at = NOW() 
+                WHERE building = $2
+            `;
+            const params = [genderType, building];
+
+            if (floor !== undefined && floor !== null) {
+                query += " AND floor = $3";
+                params.push(Number(floor));
+            }
+
+            query += " RETURNING *";
+
+            const result = await db.query(query, params);
+
+            // Ghi nhật ký hoạt động hệ thống
+            await LogSystemDAO.log(
+                adminId,
+                'BATCH_UPDATE_ROOMS_GENDER',
+                'rooms',
+                null,
+                null,
+                { building, floor, gender_type: genderType, affected_count: result.rowCount },
+                req
+            );
+
+            return result.rows;
+        } catch (error) {
+            throw new Error(`Cập nhật hàng loạt giới tính thất bại: ${error.message}`);
         }
     }
 }
