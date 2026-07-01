@@ -608,7 +608,7 @@
           <div class="info-row"><span class="label">Sinh viên:</span><span class="value prefilled">Bùi Xuân Sơn</span>
           </div>
           <div class="info-row"><span class="label">MSSV:</span><span class="value prefilled">2251162139</span></div>
-          <div class="info-row"><span class="label">Lớp:</span><span class="value prefilled">K64HTTT4</span></div>
+          <div class="info-row"><span class="label">Lớp:</span><span class="value prefilled">64HTTT4</span></div>
           <div class="info-row"><span class="label">GVHD:</span><span class="value prefilled">ThS. Kiều Tuấn Dũng</span>
           </div>
         </div>
@@ -662,7 +662,7 @@
       </div>
       <div class="cell answer">
         <p>Bối cảnh: Quy mô đào tạo tại ĐH Thủy Lợi rất lớn, lượng sinh viên nội trú đông dẫn đến áp lực vận hành KTX
-          rất cao. Hiện tại, công tác quản lý vẫn chủ yếu dựa trên hồ sơ giấy tờ truyền thống và các quy trình thủ công
+          rất cao. Hiện tại, công tác quản lý vẫn chủ yếu dựa trên hồ sơ giấy tờ, bảng tính và các quy trình thủ công
           (từ việc tiếp nhận thông tin cho đến thông báo qua các kênh liên lạc trực tiếp), gây khó khăn lớn trong việc
           lưu trữ dữ liệu, theo dõi hợp đồng, gán phòng, tính toán hóa đơn và thống kê báo cáo. Về phía sinh viên, việc
           thiếu một nền tảng chuyên biệt trực tuyến khiến họ gặp khó khăn khi muốn chủ động tự tra cứu thông tin hợp
@@ -715,7 +715,7 @@
         <p>Các bất cập thực tế: (1) Hồ sơ giấy tờ và dữ liệu phân tán gây lãng phí nguồn lực và chậm trễ thủ tục hành
           chính; (2) Thiếu nền tảng trực tuyến khiến sinh viên không thể tự tra cứu hợp đồng, hóa đơn mà phải gặp trực
           tiếp; (3) Phân bổ phòng thủ công chưa tối ưu gây bất cân đối cung - cầu và mất cân bằng mật độ phòng ở; (4)
-          Hóa đơn điện nước tính tay dễ phát sinh sai sót, thiếu minh bạch; (5) Phản ánh của sinh viên chưa được phản
+          Hóa đơn điện nước nhập tay dễ phát sinh sai sót, thiếu minh bạch; (5) Phản ánh của sinh viên chưa được phản
           hồi kịp thời và cơ chế xử lý kỷ luật vi phạm nội quy còn lỏng lẻo.</p>
         <p>Nguyên nhân gốc: Thiếu một hệ thống thông tin quản lý đồng bộ và tập trung dữ liệu, chưa thiết lập được quy
           trình vận hành khép kín và tự động hóa các nghiệp vụ phức tạp.</p>
@@ -762,10 +762,9 @@
         <p>Xây dựng nền tảng quản lý tập trung, đồng bộ dữ liệu và quản lý các khâu vận hành KTX trên nền tảng Web.</p>
         <p>Mục tiêu cụ thể: (1) Số hóa quy trình đăng ký, ký hợp đồng; (2) Ứng dụng thuật toán xếp hạng tự động để xét
           duyệt hồ sơ và xếp phòng công bằng; (3) Minh bạch hóa tài chính (quản lý hóa đơn, tích hợp thanh toán trực
-          tuyến); (4) Ứng dụng AI tăng cường tương tác (chatbot hỗ trợ, phân tích cảm xúc phản ánh, tóm tắt tin tức bằng
+          tuyến); (4) Ứng dụng AI tăng cường tương tác và hỗ trợ quản lý (chatbot hỗ trợ, phân tích cảm xúc phản ánh, tóm tắt tin tức bằng
           OpenAI API và Google Cloud Vision OCR).</p>
-        <p>Tiêu chí thành công: Hệ thống vận hành online ổn định tại kytucxatlu.site, vượt qua <span
-            class="metric">30/30</span> kịch bản kiểm thử hộp đen (100% PASS) bao quát các nghiệp vụ cốt lõi.</p>
+        <p>Tiêu chí thành công: Hệ thống vận hành online ổn định tại kytucxatlu.site, vượt qua 30/30 kịch bản kiểm thử hộp đen (100% PASS) bao quát các nghiệp vụ cốt lõi.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -808,7 +807,7 @@
         <p>Ràng buộc dịch vụ bên thứ ba: Tích hợp cổng thanh toán VNPay nhưng hiện tại mới chạy ở môi trường thử nghiệm
           (Sandbox) do kết nối chính thức yêu cầu tư cách pháp nhân trường học; các dịch vụ AI (OpenAI API, Google Cloud
           Vision) phụ thuộc vào đường truyền internet và giới hạn gói API.</p>
-        <p>Hạ tầng triển khai: Vận hành thực tế trên VPS, Nginx, Cloudflare bảo mật.</p>
+        <p>Hạ tầng triển khai: Vận hành thực tế trên VPS (VM Instance), Nginx, Cloudflare bảo mật.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -851,11 +850,11 @@
           Node.js/Express. Mô hình 3 tầng phân lớp rõ rệt: Controller - Service - DAO để tách biệt nghiệp vụ và truy cập
           cơ sở dữ liệu PostgreSQL (11 bảng quan hệ).</p>
         <p>Giải pháp tự phát triển: (1) Thuật toán tự động tính điểm xét tuyển hồ sơ theo công thức Score = (P * wPrior)
-          + (Y * wYear) + (G * wGPA) và tự động gán phòng; (2) Cơ chế realtime qua Socket.IO; (3) Tích hợp OpenAI API
-          (Trợ lý ảo 24/7, NLP phân tích cảm xúc phản ánh tiêu cực/bức xúc để cảnh báo Admin, cào và tóm tắt tin tức từ
+          + (Y * wYear) + (G * wGPA) và tự động gán phòng theo cơ chế ưu tiên theo từng tiêu chí; (2) Cơ chế thông báo realtime qua Socket.IO; (3) Tích hợp OpenAI API
+          (Trợ lý ảo 24/7, NLP phân tích cảm xúc phản ánh tiêu cực/bức xúc để cảnh báo BQL, cào và tóm tắt tin tức từ
           website tlu.edu.vn); (4) Tích hợp Google Cloud Vision OCR đối soát ảnh minh chứng tự động.</p>
         <p>Phần tự làm: Thiết kế CSDL, lập trình toàn bộ logic nghiệp vụ (thuật toán xét duyệt, xếp phòng, gán hóa đơn,
-          phân tích phản ánh) và giao diện. Phần kế thừa: Các thư viện nền tảng và SDK của bên thứ ba.</p>
+          phân tích phản ánh) và giao diện. Phần kế thừa: Các thư viện nền tảng và API của bên thứ ba.</p>
       </div>
       <div class="cell">
         <ul class="check-list">
@@ -897,8 +896,7 @@
       <div class="cell answer">
         <p>Phương pháp đánh giá: Kiểm thử hộp đen (Black-box Testing) với 30 kịch bản kiểm thử cốt lõi (100% đạt trạng
           thái PASS) bao quát toàn bộ nghiệp vụ (Xác thực, Hợp đồng, Hóa đơn, AI Sentiment, AI OCR, Realtime).</p>
-        <p>Đo lường thời gian đáp ứng: Tự động hóa giúp rút ngắn thời gian xử lý các tác vụ nặng (nhập hồ sơ 60s, đối
-          soát OCR 120s, tính điểm & xét duyệt 30s, gán phòng 30s, tạo hợp đồng 60s).</p>
+        <p>Đo lường thời gian đáp ứng: Tự động hóa giúp rút ngắn thời gian xử lý các tác vụ nặng như tự động duyệt hồ sơ đăng ký, tự động gán phòng, tự động sinh hoá đơn thanh toán hằng tháng.</p>
         <p>Hạn chế kỹ thuật: Cổng VNPay mới chỉ hoạt động ở môi trường Sandbox (thử nghiệm); chỉ số điện nước vẫn cần
           sinh viên tự khai báo online hoặc quản lý nhập tay, chưa tự động hóa hoàn toàn từ phần cứng công tơ.</p>
       </div>
@@ -943,8 +941,8 @@
         <p>Đóng góp thực tiễn: Xây dựng thành công giải pháp số hóa toàn diện giúp hiện đại hóa công tác quản lý KTX Đại
           học Thủy Lợi, nâng cao tính công bằng và minh bạch tài chính. Tự động hóa 90% quy trình vận hành liên thông
           khép kín.</p>
-        <p>Giá trị mang lại: Ban quản lý tối ưu hiệu năng vận hành, rút ngắn thời gian xét duyệt và gán phòng từ nhiều
-          ngày xuống vài phút; Sinh viên dễ dàng tự tra cứu hợp đồng, hóa đơn điện nước trực tuyến và nhận hỗ trợ 24/7.
+        <p>Giá trị mang lại: Ban quản lý tối ưu hiệu năng vận hành, rút ngắn thời gian xét duyệt và gán phòng xuống đáng kể
+          ; Sinh viên dễ dàng tự tra cứu hợp đồng, hóa đơn điện nước trực tuyến và nhận hỗ trợ 24/7.
         </p>
         <p>Hướng phát triển: (1) Tích hợp thiết bị IoT (công tơ điện nước thông minh tự đồng bộ chỉ số, khóa cửa vân
           tay/khuôn mặt quản lý ra vào các tòa nhà); (2) Phát triển ứng dụng di động (Mobile App Android/iOS) để tối ưu
