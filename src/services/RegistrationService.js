@@ -763,6 +763,20 @@ class RegistrationService {
         throw new Error("Chỉ duyệt được hồ sơ ở trạng thái Chờ duyệt");
       }
 
+      // Kiểm tra chỗ trống khả dụng thực tế của KTX trước khi duyệt
+      const RoomDAO = require("../dao/RoomDAO");
+      const availableNow = await RoomDAO.countAvailableRooms();
+      
+      const pendingContractsCountRes = await StudentContractDAO.executeQuery(
+        "SELECT COUNT(*) AS count FROM student_contracts WHERE status = 'Pending'"
+      );
+      const pendingCount = parseInt(pendingContractsCountRes[0]?.count || 0, 10);
+      
+      const realAvailableSlots = availableNow - pendingCount;
+      if (realAvailableSlots <= 0) {
+        throw new Error("Không thể duyệt thêm hồ sơ. Ký túc xá đã hết chỗ trống khả dụng (đã đầy hoặc toàn bộ chỗ trống còn lại đã được đặt trước bởi các hồ sơ chờ gán phòng).");
+      }
+
       await RegisterFormDAO.updateStatus(id, "Chấp nhận", adminId, note);
 
       // ================================================================
@@ -1666,6 +1680,14 @@ class RegistrationService {
       `);
       const totalCapacity = parseInt(totalCapacityRes[0]?.total_capacity || 0, 10);
       
+      // Số hợp đồng Pending (chờ gán phòng)
+      const pendingContractsRes = await StudentContractDAO.executeQuery(`
+        SELECT COUNT(*) AS count 
+        FROM student_contracts 
+        WHERE status = 'Pending'
+      `);
+      const pendingContractsCount = parseInt(pendingContractsRes[0]?.count || 0, 10);
+
       return {
         available_now: availableNow,
         available_soon: availableSoon,
@@ -1673,7 +1695,8 @@ class RegistrationService {
         rooms_affected: roomIdsSoon.length,
         by_building: byBuilding,
         forecast_days: days,
-        total_capacity: totalCapacity
+        total_capacity: totalCapacity,
+        pending_contracts_count: pendingContractsCount
       };
     } catch (error) {
       throw new Error(`Get room forecast failed: ${error.message}`);
@@ -1881,7 +1904,13 @@ class RegistrationService {
         return String(a.student_id || "").localeCompare(String(b.student_id || ""));
       });
 
-      let totalRemainingSlots = Math.max(0, totalSlots - alreadyApproved.length);
+      const RoomDAO = require("../dao/RoomDAO");
+      const availableNow = await RoomDAO.countAvailableRooms();
+
+      // Chỉ tiêu còn lại thực tế là giá trị nhỏ nhất giữa cấu hình chỉ tiêu đợt tuyển và chỗ trống thực tế trong KTX
+      let totalRemainingSlots = Math.min(totalSlots - alreadyApproved.length, availableNow - alreadyApproved.length);
+      totalRemainingSlots = Math.max(0, totalRemainingSlots);
+
       const approved = [];
       const skipped = [];
       const overflowCandidates = [];
