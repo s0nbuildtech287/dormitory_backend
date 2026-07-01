@@ -1874,7 +1874,11 @@ class RegistrationService {
         const aBasket = this.determineBasket(a.priority_reasons, a.year);
         const bBasket = this.determineBasket(b.priority_reasons, b.year);
         if (aBasket !== bBasket) return aBasket - bBasket;
-        return (b.ai_score || 0) - (a.ai_score || 0);
+        const aScore = a.ai_score || 0;
+        const bScore = b.ai_score || 0;
+        if (aScore !== bScore) return bScore - aScore;
+        // Tiêu chí phụ cố định: sắp xếp theo student_id tăng dần để đảm bảo kết quả luôn ổn định
+        return String(a.student_id || "").localeCompare(String(b.student_id || ""));
       });
 
       let totalRemainingSlots = Math.max(0, totalSlots - alreadyApproved.length);
