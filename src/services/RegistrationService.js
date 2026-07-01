@@ -777,6 +777,29 @@ class RegistrationService {
         throw new Error("Không thể duyệt thêm hồ sơ. Ký túc xá đã hết chỗ trống khả dụng (đã đầy hoặc toàn bộ chỗ trống còn lại đã được đặt trước bởi các hồ sơ chờ gán phòng).");
       }
 
+      // Kiểm tra chỉ tiêu giới tính nếu được cấu hình
+      const setting = await RegisterFormDAO.getScoringWeightsSettings();
+      const genderQuotas = setting?.value?.quotas?.genderQuotas || { male: 0, female: 0 };
+      const studentGender = oldData.gender; // "Nam" hoặc "Nữ"
+
+      if (studentGender === "Nam" && genderQuotas.male > 0) {
+        const activeMaleContractsRes = await StudentContractDAO.executeQuery(
+          "SELECT COUNT(*) AS count FROM student_contracts WHERE snapshot_gender = 'Nam' AND status IN ('Active', 'Pending')"
+        );
+        const currentMaleCount = parseInt(activeMaleContractsRes[0]?.count || 0, 10);
+        if (currentMaleCount >= genderQuotas.male) {
+          throw new Error(`Không thể duyệt. Đã đạt giới hạn chỉ tiêu tối đa cho sinh viên Nam (${genderQuotas.male} chỉ tiêu)!`);
+        }
+      } else if (studentGender === "Nữ" && genderQuotas.female > 0) {
+        const activeFemaleContractsRes = await StudentContractDAO.executeQuery(
+          "SELECT COUNT(*) AS count FROM student_contracts WHERE snapshot_gender = 'Nữ' AND status IN ('Active', 'Pending')"
+        );
+        const currentFemaleCount = parseInt(activeFemaleContractsRes[0]?.count || 0, 10);
+        if (currentFemaleCount >= genderQuotas.female) {
+          throw new Error(`Không thể duyệt. Đã đạt giới hạn chỉ tiêu tối đa cho sinh viên Nữ (${genderQuotas.female} chỉ tiêu)!`);
+        }
+      }
+
       await RegisterFormDAO.updateStatus(id, "Chấp nhận", adminId, note);
 
       // ================================================================
@@ -1454,6 +1477,7 @@ class RegistrationService {
               freshmen: 60,
               seniors: 40,
               waterfall_enabled: true,
+              genderQuotas: { male: 0, female: 0 },
             },
             weights: {
               basket1: {
@@ -1801,6 +1825,7 @@ class RegistrationService {
       let totalSlots = 1000;
       let quotas = { freshmen: 60, seniors: 40 };
       let facultyQuotas = {};
+      let genderQuotas = { male: 0, female: 0 };
 
       if (setting?.value?.quotas) {
         if (setting.value.quotas.totalSlots) totalSlots = setting.value.quotas.totalSlots;
@@ -1808,6 +1833,9 @@ class RegistrationService {
         if (setting.value.quotas.seniors !== undefined) quotas.seniors = setting.value.quotas.seniors;
         if (setting.value.quotas.facultyQuotas) {
           facultyQuotas = { ...setting.value.quotas.facultyQuotas };
+        }
+        if (setting.value.quotas.genderQuotas) {
+          genderQuotas = { ...setting.value.quotas.genderQuotas };
         }
       }
 
@@ -1818,6 +1846,9 @@ class RegistrationService {
         if (tempQuotas.seniors !== undefined) quotas.seniors = parseFloat(tempQuotas.seniors) || 40;
         if (tempQuotas.facultyQuotas) {
           facultyQuotas = { ...tempQuotas.facultyQuotas };
+        }
+        if (tempQuotas.genderQuotas) {
+          genderQuotas = { ...tempQuotas.genderQuotas };
         }
       }
 
@@ -1830,7 +1861,8 @@ class RegistrationService {
             freshmen: quotas.freshmen,
             seniors: quotas.seniors,
             waterfall_enabled: true,
-            facultyQuotas
+            facultyQuotas,
+            genderQuotas
           };
           const newConfig = {
             quotas: updatedQuotas,
@@ -1846,17 +1878,22 @@ class RegistrationService {
 
       // Lấy danh sách hợp đồng ở trạng thái 'Pending' (đã được duyệt trong đợt này nhưng chưa gán phòng)
       const alreadyApproved = await RegisterFormDAO.executeQuery(
-        "SELECT snapshot_faculty AS faculty, snapshot_year AS year FROM student_contracts WHERE status = 'Pending'"
+        "SELECT snapshot_faculty AS faculty, snapshot_year AS year, snapshot_gender AS gender FROM student_contracts WHERE status = 'Pending'"
       );
 
       let approvedFreshmen = 0;
       let approvedSeniors = 0;
+      let approvedMale = 0;
+      let approvedFemale = 0;
       const approvedFacultyCounts = {};
 
       for (const reg of alreadyApproved) {
         const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
         if (quotaKey === "freshmen") approvedFreshmen++;
         else approvedSeniors++;
+
+        if (reg.gender === "Nam") approvedMale++;
+        else if (reg.gender === "Nữ") approvedFemale++;
 
         const studentFaculty = reg.faculty || "Không xác định";
         if (!approvedFacultyCounts[studentFaculty]) {
@@ -1911,6 +1948,12 @@ class RegistrationService {
       let totalRemainingSlots = Math.min(totalSlots - alreadyApproved.length, availableNow - alreadyApproved.length);
       totalRemainingSlots = Math.max(0, totalRemainingSlots);
 
+      // Khởi tạo các bộ đếm và hạn mức còn lại cho giới tính Nam/Nữ
+      const remainingGenderSlots = {
+        male: genderQuotas.male > 0 ? Math.max(0, genderQuotas.male - approvedMale) : 999999,
+        female: genderQuotas.female > 0 ? Math.max(0, genderQuotas.female - approvedFemale) : 999999,
+      };
+
       const approved = [];
       const skipped = [];
       const overflowCandidates = [];
@@ -1920,6 +1963,7 @@ class RegistrationService {
       for (const reg of registrations) {
         const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
         const studentFaculty = reg.faculty || "Không xác định";
+        const studentGender = reg.gender === "Nam" ? "male" : "female";
         
         if (totalRemainingSlots <= 0) {
           const reason = "Hết chỉ tiêu toàn KTX";
@@ -1955,13 +1999,22 @@ class RegistrationService {
           }
         }
 
-        if (isGroupQuotaExceeded || isFacultyQuotaExceeded) {
+        // Kiểm tra chỉ tiêu giới tính
+        let isGenderQuotaExceeded = false;
+        if ((studentGender === "male" && genderQuotas.male > 0 && remainingGenderSlots.male <= 0) ||
+            (studentGender === "female" && genderQuotas.female > 0 && remainingGenderSlots.female <= 0)) {
+          isGenderQuotaExceeded = true;
+        }
+
+        if (isGroupQuotaExceeded || isFacultyQuotaExceeded || isGenderQuotaExceeded) {
           if (allowOverflow) {
             overflowCandidates.push(reg);
           } else {
-            const reason = isGroupQuotaExceeded 
-              ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
-              : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facLimit === 'object' ? facLimit[quotaKey] : facLimit} chỗ)`;
+            const reason = isGenderQuotaExceeded
+              ? `Hết chỉ tiêu giới tính ${reg.gender === "Nam" ? "Nam" : "Nữ"}`
+              : isGroupQuotaExceeded 
+                ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
+                : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facLimit === 'object' ? facLimit[quotaKey] : facLimit} chỗ)`;
             skipped.push({
               id: reg.id,
               student_name: reg.student_name,
@@ -1984,6 +2037,9 @@ class RegistrationService {
         }
         processed++;
         remainingSlots[quotaKey]--;
+        if (studentGender === "male" && genderQuotas.male > 0) remainingGenderSlots.male--;
+        else if (studentGender === "female" && genderQuotas.female > 0) remainingGenderSlots.female--;
+        
         totalRemainingSlots--;
         if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
           if (typeof remainingFacultySlots[studentFaculty] === 'object') {
@@ -2010,9 +2066,35 @@ class RegistrationService {
         for (const reg of overflowCandidates) {
           const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
           const studentFaculty = reg.faculty || "Không xác định";
+          const studentGender = reg.gender === "Nam" ? "male" : "female";
 
           if (totalRemainingSlots <= 0) {
             const reason = "Hết chỗ trống KTX (khi dồn chỉ tiêu)";
+            skipped.push({
+              id: reg.id,
+              student_name: reg.student_name,
+              student_id: reg.student_id,
+              faculty: studentFaculty,
+              reason: reason,
+              year: reg.year,
+              basket: this.determineBasket(reg.priority_reasons, reg.year)
+            });
+            if (!simulate) {
+              await RegisterFormDAO.update(reg.id, { note: reason });
+            }
+            skippedQuota++;
+            continue;
+          }
+
+          // Kể cả dồn chỉ tiêu vẫn phải tôn trọng giới hạn giới tính Nam/Nữ
+          let isGenderQuotaExceeded = false;
+          if ((studentGender === "male" && genderQuotas.male > 0 && remainingGenderSlots.male <= 0) ||
+              (studentGender === "female" && genderQuotas.female > 0 && remainingGenderSlots.female <= 0)) {
+            isGenderQuotaExceeded = true;
+          }
+
+          if (isGenderQuotaExceeded) {
+            const reason = `Hết chỉ tiêu giới tính ${reg.gender === "Nam" ? "Nam" : "Nữ"} (khi dồn chỉ tiêu)`;
             skipped.push({
               id: reg.id,
               student_name: reg.student_name,
@@ -2035,6 +2117,9 @@ class RegistrationService {
 
           processed++;
           remainingSlots[quotaKey]--;
+          if (studentGender === "male" && genderQuotas.male > 0) remainingGenderSlots.male--;
+          else if (studentGender === "female" && genderQuotas.female > 0) remainingGenderSlots.female--;
+          
           totalRemainingSlots--;
           if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
             if (typeof remainingFacultySlots[studentFaculty] === 'object') {
