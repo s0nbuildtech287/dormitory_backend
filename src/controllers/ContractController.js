@@ -100,6 +100,18 @@ class ContractController {
   }
 
   /**
+   * Unassign room: đưa hợp đồng Active về Pending
+   */
+  async unassignRoom(req, res, next) {
+    try {
+      const contract = await ContractService.unassignRoom(req.params.id, req.user.userId, req);
+      res.json({ success: true, message: "Đã rút phòng, hợp đồng về trạng thái chờ gán phòng", data: contract });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Create new contract
    */
   async create(req, res, next) {

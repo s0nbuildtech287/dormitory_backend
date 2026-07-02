@@ -60,7 +60,6 @@ class ContractService {
     try {
       const contractDetails = await StudentContractDAO.getContractDetails(contractId);
       if (!contractDetails) throw new Error("Contract not found");
-      if (contractDetails.status !== "Pending") throw new Error("Contract is not Pending");
 
       const gender = contractDetails.snapshot_gender;
       const year = contractDetails.snapshot_year;
@@ -293,6 +292,32 @@ class ContractService {
       return await StudentContractDAO.getContractDetails(id);
     } catch (error) {
       throw new Error(`Terminate contract failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Unassign room: đưa hợp đồng Active về Pending, giải phóng chỗ phòng cũ
+   */
+  async unassignRoom(id, adminId, req = null) {
+    try {
+      const contract = await StudentContractDAO.findById(id);
+      if (!contract) throw new Error("Contract not found");
+      if (contract.status !== "Active") throw new Error("Chỉ có thể rút phòng khi hợp đồng đang Active");
+      if (!contract.room_id) throw new Error("Hợp đồng chưa được gán phòng");
+
+      const oldRoomId = contract.room_id;
+
+      await StudentContractDAO.unassignRoom(id);
+
+      await LogSystemDAO.log(adminId, "UNASSIGN_ROOM", "student_contracts", id,
+        { status: "Active", room_id: oldRoomId },
+        { status: "Pending", room_id: null },
+        req
+      );
+
+      return await StudentContractDAO.getContractDetails(id);
+    } catch (error) {
+      throw new Error(`Unassign room failed: ${error.message}`);
     }
   }
 

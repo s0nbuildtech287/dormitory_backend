@@ -127,6 +127,47 @@ class StudentContractDAO extends BaseDAO {
   }
 
   // Xếp sinh viên vào phòng (cập nhật trạng thái hợp đồng thành Active và tăng số người trong phòng)
+  // Rút phòng: đưa hợp đồng Active về Pending, giảm current_occupancy phòng cũ
+  async unassignRoom(contractId) {
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Lấy room_id hiện tại
+      const contractRes = await client.query(
+        `SELECT room_id, status FROM ${this.tableName} WHERE id = $1 FOR UPDATE`,
+        [contractId]
+      );
+      if (contractRes.rows.length === 0) throw new Error("Không tìm thấy hợp đồng");
+      const { room_id, status } = contractRes.rows[0];
+      if (status !== "Active") throw new Error("Hợp đồng không ở trạng thái Active");
+      if (!room_id) throw new Error("Hợp đồng chưa có phòng");
+
+      // Đưa hợp đồng về Pending, xóa room_id và signed_at
+      await client.query(
+        `UPDATE ${this.tableName}
+         SET room_id = NULL, status = 'Pending', signed_at = NULL, contract_number = NULL,
+             rent_price = NULL, volunteer_role = NULL, updated_at = NOW()
+         WHERE id = $1`,
+        [contractId]
+      );
+
+      // Giảm current_occupancy phòng cũ
+      await client.query(
+        `UPDATE rooms SET current_occupancy = GREATEST(current_occupancy - 1, 0), updated_at = NOW() WHERE id = $1`,
+        [room_id]
+      );
+
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async assignRoom(contractId, roomId) {
     const client = await db.connect();
     try {

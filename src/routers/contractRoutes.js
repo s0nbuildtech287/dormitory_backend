@@ -38,6 +38,7 @@ router.post("/from-registration", requireAdmin, ContractController.createFromReg
 router.put("/:id", requireAdmin, ContractController.update);
 router.post("/:id/assign-room", requireAdmin, ContractController.assignRoom);
 router.post("/:id/transfer-room", requireAdmin, ContractController.transferRoom);
+router.post("/:id/unassign-room", requireAdmin, ContractController.unassignRoom);
 router.post("/:id/terminate", requireAdmin, ContractController.terminate);
 router.post("/:id/revert", requireAdmin, ContractController.revert);
 router.post("/:id/set-volunteer-role", requireAdmin, ContractController.setVolunteerRole);
