@@ -4,6 +4,15 @@ const UserDAO = require("../dao/UserDAO");
 const RegisterFormDAO = require("../dao/RegisterFormDAO");
 const LogSystemDAO = require("../dao/LogSystemDAO");
 
+function checkIsInternational(priorityReasons) {
+  if (!priorityReasons) return false;
+  const normalized = priorityReasons
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return ["luu hoc sinh", "quoc te", "nuoc ngoai", "du hoc sinh", "du hoc", "lao", "campuchia"].some(kw => normalized.includes(kw));
+}
+
 class ContractService {
   /**
    * Get all contracts with filters
@@ -48,18 +57,47 @@ class ContractService {
    */
   async suggestRooms(contractId) {
     try {
-      const contract = await StudentContractDAO.findById(contractId);
-      if (!contract) throw new Error("Contract not found");
-      if (contract.status !== "Pending") throw new Error("Contract is not Pending");
+      const contractDetails = await StudentContractDAO.getContractDetails(contractId);
+      if (!contractDetails) throw new Error("Contract not found");
+      if (contractDetails.status !== "Pending") throw new Error("Contract is not Pending");
 
-      const gender = contract.snapshot_gender;
-      const year = contract.snapshot_year;
-      const faculty = contract.snapshot_faculty;
+      const gender = contractDetails.snapshot_gender;
+      const year = contractDetails.snapshot_year;
+      const faculty = contractDetails.snapshot_faculty;
 
       if (!gender) throw new Error("Contract missing gender information");
 
-      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, faculty, 5);
-      return suggested;
+      // Tăng limit để sau khi lọc vẫn đảm bảo đủ kết quả trả về
+      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, faculty, 50);
+
+      const isStudentInternational = checkIsInternational(contractDetails.rf_priority_reasons);
+
+      // Lấy danh sách các hợp đồng active kèm priority_reasons
+      const activeContracts = await StudentContractDAO.searchAndFilter({ status: "Active" });
+      const roomOccupantsMap = {};
+      for (const c of activeContracts) {
+        if (c.room_id) {
+          if (!roomOccupantsMap[c.room_id]) {
+            roomOccupantsMap[c.room_id] = [];
+          }
+          roomOccupantsMap[c.room_id].push(c.rf_priority_reasons || "");
+        }
+      }
+
+      // Lọc các phòng đảm bảo không vi phạm quy tắc quốc tịch
+      const filtered = suggested.filter(room => {
+        const occupantsReasons = roomOccupantsMap[room.id] || [];
+        if (occupantsReasons.length === 0) return true; // Phòng trống -> Hợp lệ
+
+        const hasInternationalOccupant = occupantsReasons.some(r => checkIsInternational(r));
+        if (isStudentInternational) {
+          return hasInternationalOccupant; // SV quốc tế chỉ ở phòng có SV quốc tế
+        } else {
+          return !hasInternationalOccupant; // SV Việt Nam chỉ ở phòng KHÔNG có SV quốc tế
+        }
+      });
+
+      return filtered.slice(0, 5);
     } catch (error) {
       throw new Error(`Suggest rooms failed: ${error.message}`);
     }
@@ -600,13 +638,20 @@ class ContractService {
           else if (room.reserved_for === "general" || !room.reserved_for) baseScore = 5;
           else continue;
 
+          // Ràng buộc cứng diện quốc tịch (quốc tế vs Việt Nam)
+          const occupants = roomOccupantsMap[room.id] || [];
+          if (occupants.length > 0) {
+            const hasInternational = occupants.some(o => o.isInternational);
+            if (studentCategory === "international" && !hasInternational) continue;
+            if (studentCategory !== "international" && hasInternational) continue;
+          }
+
           // Tính điểm thưởng ghép phòng (cùng khóa, cùng khoa, cùng là du học sinh)
           let sameYearCount = 0;
           let sameFacultyCount = 0;
           let sameYearFacultyCount = 0;
           let sameInternationalCount = 0;
 
-          const occupants = roomOccupantsMap[room.id] || [];
           for (const occupant of occupants) {
             const isSameYear = occupant.year === year;
             const isSameFaculty = studentFaculty && occupant.faculty === studentFaculty;

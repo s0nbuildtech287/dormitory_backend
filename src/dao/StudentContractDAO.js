@@ -1,6 +1,15 @@
 const BaseDAO = require("./BaseDAO");
 const db = require("../config/database");
 
+function checkIsInternational(priorityReasons) {
+  if (!priorityReasons) return false;
+  const normalized = priorityReasons
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return ["luu hoc sinh", "quoc te", "nuoc ngoai", "du hoc sinh", "du hoc", "lao", "campuchia"].some(kw => normalized.includes(kw));
+}
+
 class StudentContractDAO extends BaseDAO {
   constructor() {
     super("student_contracts");
@@ -131,14 +140,47 @@ class StudentContractDAO extends BaseDAO {
       if (room.current_occupancy >= room.capacity) throw new Error("Phòng đã đầy");
 
       // Khóa và kiểm tra trạng thái hợp đồng
-      const contractRes = await client.query(`SELECT status, snapshot_gender FROM ${this.tableName} WHERE id = $1 FOR UPDATE`, [contractId]);
+      const contractRes = await client.query(
+        `SELECT status, snapshot_gender, register_form_id 
+         FROM ${this.tableName} 
+         WHERE id = $1 FOR UPDATE`,
+        [contractId]
+      );
       if (contractRes.rows.length === 0) throw new Error("Không tìm thấy hợp đồng");
       const contract = contractRes.rows[0];
       if (contract.status !== "Pending") throw new Error("Hợp đồng không ở trạng thái chờ xếp phòng");
 
+      // Lấy thông tin lý do ưu tiên từ register_forms
+      let priorityReasons = "";
+      if (contract.register_form_id) {
+        const rfRes = await client.query(`SELECT priority_reasons FROM register_forms WHERE id = $1`, [contract.register_form_id]);
+        if (rfRes.rows.length > 0) {
+          priorityReasons = rfRes.rows[0].priority_reasons || "";
+        }
+      }
+
       // Kiểm tra sự phù hợp về giới tính
       if (contract.snapshot_gender && room.gender_type !== contract.snapshot_gender) {
         throw new Error(`Giới tính không phù hợp: Phòng dành cho ${room.gender_type}, Sinh viên giới tính ${contract.snapshot_gender}`);
+      }
+
+      // Ràng buộc cứng diện quốc tịch (quốc tế vs Việt Nam)
+      const isStudentInternational = checkIsInternational(priorityReasons);
+      const occupantsRes = await client.query(
+        `SELECT rf.priority_reasons
+         FROM ${this.tableName} sc
+         LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
+         WHERE sc.room_id = $1 AND sc.status = 'Active'`,
+        [roomId]
+      );
+      if (occupantsRes.rows.length > 0) {
+        const hasInternationalOccupant = occupantsRes.rows.some(o => checkIsInternational(o.priority_reasons));
+        if (isStudentInternational && !hasInternationalOccupant) {
+          throw new Error("Không thể xếp sinh viên quốc tế ở chung phòng với sinh viên Việt Nam");
+        }
+        if (!isStudentInternational && hasInternationalOccupant) {
+          throw new Error("Không thể xếp sinh viên Việt Nam ở chung phòng với sinh viên quốc tế");
+        }
       }
 
       // Cập nhật hợp đồng sang Active và điền thông tin phòng
@@ -167,6 +209,35 @@ class StudentContractDAO extends BaseDAO {
     const client = await db.connect();
     try {
       await client.query("BEGIN");
+
+      // Ràng buộc cứng diện quốc tịch (quốc tế vs Việt Nam) cho phòng mới
+      const contractRes = await client.query(
+        `SELECT rf.priority_reasons 
+         FROM ${this.tableName} sc
+         LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
+         WHERE sc.id = $1`,
+        [contractId]
+      );
+      if (contractRes.rows.length === 0) throw new Error("Không tìm thấy hợp đồng");
+      const contract = contractRes.rows[0];
+      const isStudentInternational = checkIsInternational(contract.priority_reasons);
+
+      const occupantsRes = await client.query(
+        `SELECT rf.priority_reasons
+         FROM ${this.tableName} sc
+         LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
+         WHERE sc.room_id = $1 AND sc.status = 'Active'`,
+        [newRoomId]
+      );
+      if (occupantsRes.rows.length > 0) {
+        const hasInternationalOccupant = occupantsRes.rows.some(o => checkIsInternational(o.priority_reasons));
+        if (isStudentInternational && !hasInternationalOccupant) {
+          throw new Error("Không thể chuyển sinh viên quốc tế vào phòng có sinh viên Việt Nam");
+        }
+        if (!isStudentInternational && hasInternationalOccupant) {
+          throw new Error("Không thể chuyển sinh viên Việt Nam vào phòng có sinh viên quốc tế");
+        }
+      }
 
       // Giảm số người phòng cũ
       if (oldRoomId) {
