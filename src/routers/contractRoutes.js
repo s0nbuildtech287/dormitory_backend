@@ -28,6 +28,9 @@ router.get("/user/:userId", ContractController.getByUser);
 // Lấy thông tin chi tiết một hợp đồng theo ID
 router.get("/:id", ContractController.getById);
 
+// Yêu cầu gia hạn hợp đồng (tạo link thanh toán VNPay)
+router.post("/:id/request-renewal", ContractController.requestRenewal);
+
 // Đề xuất phòng phù hợp cho hợp đồng đang chờ xếp phòng
 router.get("/:id/suggest-rooms", requireAdmin, ContractController.suggestRooms);
 
