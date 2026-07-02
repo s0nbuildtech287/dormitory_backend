@@ -95,16 +95,16 @@ class RegistrationService {
         non_priority: 0,
       },
       priority_detailed: {
-        ho_ngheo: 40,
-        can_ngheo: 35,
-        khuyet_tat: 30,
-        liet_sy: 50,
-        thuong_binh: 45,
-        luu_hoc_sinh: 40,
-        vung_sau_xa: 20,
-        hai_dao: 25,
-        hoan_canh_kho_khan: 30,
-        giay_xac_nhan: 15,
+        ho_ngheo: 80,
+        can_ngheo: 80,
+        khuyet_tat: 60,
+        liet_sy: 100,
+        thuong_binh: 100,
+        luu_hoc_sinh: 80,
+        vung_sau_xa: 40,
+        hai_dao: 40,
+        hoan_canh_kho_khan: 60,
+        giay_xac_nhan: 20,
       },
       year: {
         year1: 100,
@@ -128,16 +128,16 @@ class RegistrationService {
   calculatePriorityScore(priorityReasons, scoreMappings = null) {
     // Use detailed mappings or defaults
     const detailedMappings = scoreMappings?.priority_detailed || {
-      ho_ngheo: 40,
-      can_ngheo: 35,
-      khuyet_tat: 30,
-      liet_sy: 50,
-      thuong_binh: 45,
-      luu_hoc_sinh: 40,
-      vung_sau_xa: 20,
-      hai_dao: 25,
-      hoan_canh_kho_khan: 30,
-      giay_xac_nhan: 15,
+      ho_ngheo: 80,
+      can_ngheo: 80,
+      khuyet_tat: 60,
+      liet_sy: 100,
+      thuong_binh: 100,
+      luu_hoc_sinh: 80,
+      vung_sau_xa: 40,
+      hai_dao: 40,
+      hoan_canh_kho_khan: 60,
+      giay_xac_nhan: 20,
     };
 
     if (!priorityReasons || priorityReasons.trim() === "") {
