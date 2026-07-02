@@ -53,6 +53,7 @@ class ContractService {
 
   /**
    * Get suggested rooms for a pending contract
+   * Returns { suggested: [...5 top rooms], all: [...all valid rooms] }
    * Based on gender + year-cohort + faculty matching
    */
   async suggestRooms(contractId) {
@@ -67,10 +68,20 @@ class ContractService {
 
       if (!gender) throw new Error("Contract missing gender information");
 
-      // Tăng limit để sau khi lọc vẫn đảm bảo đủ kết quả trả về
-      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, faculty, 50);
+      // Lấy toàn bộ phòng hợp lệ, không giới hạn
+      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, faculty);
 
       const isStudentInternational = checkIsInternational(contractDetails.rf_priority_reasons);
+
+      // Xác định studentCategory giống Auto Assign
+      let studentCategory = "general";
+      if (isStudentInternational) {
+        studentCategory = "international";
+      } else if ((year || 1) === 1) {
+        studentCategory = "freshmen";
+      } else {
+        studentCategory = "returning_students";
+      }
 
       // Lấy danh sách các hợp đồng active kèm priority_reasons
       const activeContracts = await StudentContractDAO.searchAndFilter({ status: "Active" });
@@ -84,20 +95,31 @@ class ContractService {
         }
       }
 
-      // Lọc các phòng đảm bảo không vi phạm quy tắc quốc tịch
+      // Lọc: reserved_for + quốc tịch (nhất quán với Auto Assign)
       const filtered = suggested.filter(room => {
+        // Lọc reserved_for: phải khớp đúng loại hoặc là general (chỉ cho SV Việt Nam)
+        if (room.reserved_for === "xung_kich") return false;
+        if (room.reserved_for === "international" && studentCategory !== "international") return false;
+        if (studentCategory === "international" && room.reserved_for !== "international") return false;
+        if (room.reserved_for && room.reserved_for !== "general" && room.reserved_for !== studentCategory) return false;
+
+        // Lọc quốc tịch
         const occupantsReasons = roomOccupantsMap[room.id] || [];
-        if (occupantsReasons.length === 0) return true; // Phòng trống -> Hợp lệ
+        if (occupantsReasons.length === 0) return true;
 
         const hasInternationalOccupant = occupantsReasons.some(r => checkIsInternational(r));
         if (isStudentInternational) {
-          return hasInternationalOccupant; // SV quốc tế chỉ ở phòng có SV quốc tế
+          return hasInternationalOccupant;
         } else {
-          return !hasInternationalOccupant; // SV Việt Nam chỉ ở phòng KHÔNG có SV quốc tế
+          return !hasInternationalOccupant;
         }
       });
 
-      return filtered.slice(0, 5);
+      // Top 5 gợi ý + toàn bộ danh sách hợp lệ
+      return {
+        suggested: filtered.slice(0, 5),
+        all: filtered
+      };
     } catch (error) {
       throw new Error(`Suggest rooms failed: ${error.message}`);
     }
@@ -635,7 +657,7 @@ class ContractService {
 
           let baseScore = 0;
           if (room.reserved_for === studentCategory) baseScore = 10;
-          else if (room.reserved_for === "general" || !room.reserved_for) baseScore = 5;
+          else if ((room.reserved_for === "general" || !room.reserved_for) && studentCategory !== "international") baseScore = 5;
           else continue;
 
           // Ràng buộc cứng diện quốc tịch (quốc tế vs Việt Nam)

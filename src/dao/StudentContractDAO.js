@@ -319,7 +319,7 @@ class StudentContractDAO extends BaseDAO {
   }
 
   // Đề xuất danh sách phòng phù hợp cho sinh viên (dựa trên giới tính, số khóa học, cùng khoa...)
-  async getSuggestedRooms(gender, year, faculty = null, limit = 5) {
+  async getSuggestedRooms(gender, year, faculty = null) {
     const query = `
             SELECT
                 r.id,
@@ -329,31 +329,44 @@ class StudentContractDAO extends BaseDAO {
                 r.capacity,
                 r.current_occupancy,
                 r.rent_price,
+                r.reserved_for,
                 r.capacity - r.current_occupancy AS available_slots,
                 COUNT(sc.id) FILTER (
                     WHERE sc.status = 'Active' AND sc.snapshot_year = $2
                 ) AS same_year_count,
                 COUNT(sc.id) FILTER (
-                    WHERE sc.status = 'Active' AND sc.snapshot_faculty = $4
+                    WHERE sc.status = 'Active' AND sc.snapshot_faculty = $3
                 ) AS same_faculty_count,
                 COUNT(sc.id) FILTER (
-                    WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $4
+                    WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $3
                 ) AS same_year_faculty_count,
                 ROUND(
                     (COUNT(sc.id) FILTER (
-                        WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $4
+                        WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $3
                     ) * 100.0 / NULLIF(r.capacity, 0))
-                , 1) AS match_score
+                , 1) AS match_score,
+                COALESCE(
+                    JSON_AGG(
+                        JSON_BUILD_OBJECT(
+                            'name',     u.full_name,
+                            'year',     sc.snapshot_year,
+                            'faculty',  sc.snapshot_faculty,
+                            'priority', rf.priority_reasons
+                        ) ORDER BY u.full_name
+                    ) FILTER (WHERE sc.id IS NOT NULL AND sc.status = 'Active'),
+                    '[]'
+                ) AS occupants
             FROM rooms r
             LEFT JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
+            LEFT JOIN users u ON sc.user_id = u.id
+            LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
             WHERE r.gender_type = $1
               AND r.status = 'Active'
               AND r.current_occupancy < r.capacity
             GROUP BY r.id
             ORDER BY match_score DESC, same_year_faculty_count DESC, r.current_occupancy DESC
-            LIMIT $3
         `;
-    return this.executeQuery(query, [gender, year, limit, faculty]);
+    return this.executeQuery(query, [gender, year, faculty]);
   }
 
   // Tìm kiếm danh sách các hợp đồng sắp hết hạn (trong vòng N ngày)
