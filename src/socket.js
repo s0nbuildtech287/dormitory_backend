@@ -81,7 +81,15 @@ function getIO() {
  * @param {Object} notification - Notification object từ DB
  */
 function emitNotification(notification) {
-    if (!io) return;
+    const fs = require('fs');
+    try {
+        fs.appendFileSync('socket_debug.log', `[WS Debug] emitNotification entry: ${JSON.stringify(notification)}\n`);
+    } catch (e) {}
+
+    if (!io) {
+        try { fs.appendFileSync('socket_debug.log', `[WS Debug] IO is NULL, return\n`); } catch (e) {}
+        return;
+    }
     const payload = {
         id:               notification.id,
         title:            notification.title,
@@ -93,18 +101,27 @@ function emitNotification(notification) {
 
     if (notification.target_audience === "ALL") {
         io.emit("notification", payload);
+        try { fs.appendFileSync('socket_debug.log', `[WS Debug] Emitted to ALL\n`); } catch (e) {}
     } else if (notification.target_audience === "STUDENTS") {
         io.to("students").emit("notification", payload);
+        try { fs.appendFileSync('socket_debug.log', `[WS Debug] Emitted to students room\n`); } catch (e) {}
     } else if (notification.target_audience === "SPECIFIC") {
         // target_users là JSON array of userIds
         let userIds = notification.target_users;
+        try { fs.appendFileSync('socket_debug.log', `[WS Debug] target_users type: ${typeof userIds}, value: ${JSON.stringify(userIds)}\n`); } catch (e) {}
         if (typeof userIds === "string") {
             try { userIds = JSON.parse(userIds); } catch { userIds = []; }
         }
         if (Array.isArray(userIds)) {
             userIds.forEach((uid) => {
-                io.to(`user:${uid}`).emit("notification", payload);
+                const roomName = `user:${uid}`;
+                const clientsInRoom = io.sockets.adapter.rooms.get(roomName);
+                const count = clientsInRoom ? clientsInRoom.size : 0;
+                try { fs.appendFileSync('socket_debug.log', `[WS Debug] Emitting to room ${roomName} (active clients: ${count})\n`); } catch (e) {}
+                io.to(roomName).emit("notification", payload);
             });
+        } else {
+            try { fs.appendFileSync('socket_debug.log', `[WS Debug] target_users is not an array!\n`); } catch (e) {}
         }
     }
 }

@@ -50,6 +50,7 @@ class NotificationDAO extends BaseDAO {
     // Tạo thông báo mới kèm ID người tạo
     async createNotification(data, createdBy) {
         const notificationData = {
+            id: data.id || `notif-${Date.now()}`,
             ...data,
             created_by: createdBy,
             is_published: data.is_published !== undefined ? data.is_published : true
