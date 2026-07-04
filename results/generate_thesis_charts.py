@@ -44,39 +44,52 @@ art5_path = os.path.join(artifact_dir, "truc_quan_5_workflow_lien_thong.png") if
 # ==========================================
 def generate_chart_1():
     operations = [
-        'Nhập liệu & đăng ký hồ sơ',
-        'OCR & Xác thực minh chứng',
-        'Tính điểm & xét duyệt tự động',
-        'Gợi ý gán phòng thông minh',
-        'Tạo hợp đồng & gửi thông báo',
-        'Khai báo chỉ số điện, nước',
-        'Tính toán & phát hiện bất thường',
-        'Gửi & phân tích phản ánh (AI)'
+        'Thu nhận hồ sơ và tính điểm xét tuyển',
+        'Duyệt tự động cho các hồ sơ',
+        'Gán phòng tự động cho các hợp đồng',
+        'Tạo hoá đơn và thanh toán',
+        'Phân tích cảm xúc phản ánh (AI)',
+        'Trợ lý ảo Chatbot AI',
+        'Phân tích tóm tắt bài báo (AI)'
     ]
     
-    system_times_seconds = [60, 120, 30, 30, 60, 60, 60, 30]  # times in seconds
+    # Giá trị đo đạc thực tế của hệ thống (ms)
+    raw_values = [3.05, 0.21, 0.02, 5.51, 3034.55, 2164.55, 4357.73]
+    
+    labels = [
+        '3.05 ms (Tổng: 3.06 giây)',
+        '0.21 ms (Tổng: 0.21 giây)',
+        '0.02 ms (Tổng: 0.02 giây)',
+        '5.51 ms (Tổng: 0.01 giây)',
+        '3034.55 ms (Tổng: 3.03 giây)',
+        '2164.55 ms (Tổng: 2.16 giây)',
+        '4357.73 ms (Tổng: 4.36 giây)'
+    ]
+    
+    # Scale width theo log10 để cột biểu diễn cân xứng
+    display_widths = [np.log10(val) + 2.5 for val in raw_values]
     
     y = np.arange(len(operations))
     height = 0.5
     
-    fig, ax = plt.subplots(figsize=(10, 6.5), dpi=300)
+    fig, ax = plt.subplots(figsize=(11, 7), dpi=300)
     fig.patch.set_facecolor('#ffffff')
     ax.set_facecolor('#ffffff')
     
     # Plot horizontal bars
-    rects = ax.barh(y, system_times_seconds, height, color=COLOR_SYSTEM, edgecolor='#0284c7', linewidth=0.5, zorder=3)
+    rects = ax.barh(y, display_widths, height, color=COLOR_SYSTEM, edgecolor='#0284c7', linewidth=0.5, zorder=3)
     
     # Add values at the end of each bar
-    for rect in rects:
+    for rect, label in zip(rects, labels):
         width = rect.get_width()
-        ax.annotate(f' {width} giây',
+        ax.annotate(f' {label}',
                     xy=(width, rect.get_y() + rect.get_height() / 2),
                     xytext=(5, 0),  # 5 points horizontal offset
                     textcoords="offset points",
                     ha='left', va='center', fontsize=9.5, fontweight='bold', color='#0369a1')
     
     # Labels and titles
-    ax.set_xlabel('Thời gian xử lý trung bình hệ thống (giây)', fontsize=11, fontweight='bold', labelpad=10, color='#1e293b')
+    ax.set_xlabel('Thời gian đáp ứng của từng nghiệp vụ (Thang đo tương đối Logarithm)', fontsize=11, fontweight='bold', labelpad=25, color='#1e293b')
     ax.set_title('ĐO LƯỜNG THỜI GIAN ĐÁP ỨNG TRUNG BÌNH CỦA CÁC NGHIỆP VỤ\nSau khi tối ưu hóa quy trình trên hệ thống thông tin', fontsize=12.5, fontweight='bold', pad=25, color='#0f172a')
     ax.set_yticks(y)
     ax.set_yticklabels(operations, fontsize=9.5, fontweight='bold', color='#334155')
@@ -85,15 +98,19 @@ def generate_chart_1():
     ax.invert_yaxis()
     
     # Adjust axes limits
-    ax.set_xlim(0, 140)
+    ax.set_xlim(0, 11)
+    ax.set_xticks([]) # Ẩn các vạch chia do đã ghi số liệu trực tiếp
     
-    # Grid lines
-    ax.grid(axis='x', linestyle='--', alpha=0.5, zorder=0)
+    # Đặt giới hạn cho trục y để có khoảng trống dưới cùng tránh đè chữ
+    ax.set_ylim(7.2, -0.8)
+    
+    # Add Note at the bottom, đặt thấp hơn để không đè
+    ax.text(-0.5, 6.9, "* Ghi chú: Các nghiệp vụ xét tuyển và phân bổ phòng được kiểm thử áp dụng trên tập mẫu ~1000 hồ sơ.", 
+            fontsize=9, fontstyle='italic', color='#64748b', fontweight='medium')
     
     # Hide spines
-    for spine in ['top', 'right', 'left']:
+    for spine in ['top', 'right', 'left', 'bottom']:
         ax.spines[spine].set_visible(False)
-    ax.spines['bottom'].set_color('#cbd5e1')
     
     plt.tight_layout()
     plt.savefig(chart1_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
