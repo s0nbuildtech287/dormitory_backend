@@ -1945,8 +1945,8 @@ class RegistrationService {
         const aScore = a.ai_score || 0;
         const bScore = b.ai_score || 0;
         if (aScore !== bScore) return bScore - aScore;
-        // Tiêu chí phụ cố định: sắp xếp theo student_id tăng dần để đảm bảo kết quả luôn ổn định
-        return String(a.student_id || "").localeCompare(String(b.student_id || ""));
+        // Tiêu chí phụ: nộp trước được ưu tiên hơn khi điểm bằng nhau
+        return new Date(a.created_at) - new Date(b.created_at);
       });
 
       const RoomDAO = require("../dao/RoomDAO");

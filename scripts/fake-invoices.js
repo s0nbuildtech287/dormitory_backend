@@ -180,11 +180,7 @@ async function generateFakeInvoices() {
     console.log(`   - 170 đã thanh toán  → ${fmtMonth(billingMain)} (hạn ${fmtDate(dueDateMain)})`);
     console.log(`   -  20 chưa thanh toán → ${fmtMonth(billingMain)} (hạn ${fmtDate(dueDateMain)})`);
     console.log(`   -  10 quá hạn         → ${fmtMonth(billingOver)} (hạn ${fmtDate(dueDateOver)}, slot cuối = phòng xu4ns0n)`);
-    if (specialRoomId) {
-      console.log(`   ✓ xu4ns0n@gmail.com có hóa đơn quá hạn → sẵn sàng test VNPay`);
-    } else {
-      console.log(`   ⚠ Không tìm thấy user xu4ns0n, slot quá hạn cuối dùng phòng ngẫu nhiên`);
-    }
+    console.log(`   ✓ Slot quá hạn cuối dùng phòng ngẫu nhiên trong 200 phòng đã chọn`);
 
   } catch (error) {
     console.error("❌ Lỗi khi tạo fake data:", error);
