@@ -30,7 +30,7 @@ paths_to_save = [
 
 # Check and copy to brain artifact if exists
 user_home = os.path.expanduser("~")
-artifact_dir = os.path.join(user_home, ".gemini", "antigravity-ide", "brain", "855c31cf-5b3b-4f8f-aeef-3bae39b1f6b1")
+artifact_dir = os.path.join(user_home, ".gemini", "antigravity-ide", "brain", "89db7af7-68ca-4a84-9633-93af4f082fb8")
 if os.path.exists(artifact_dir):
     paths_to_save.append(os.path.join(artifact_dir, "chuc_nang_phu_tro.png"))
 
@@ -230,6 +230,11 @@ def generate_graphic():
                     'icon': 'door-closed'
                 },
                 {
+                    'title': 'Quản lý hóa đơn',
+                    'desc': 'Lập hóa đơn điện, nước, phòng',
+                    'icon': 'credit-card'
+                },
+                {
                     'title': 'Quản lý tài sản thiết bị',
                     'desc': 'Nhập/xuất kho, tình trạng từng phòng',
                     'icon': 'armchair'
@@ -263,8 +268,8 @@ def generate_graphic():
                     'icon': 'file-text'
                 },
                 {
-                    'title': 'Xem hóa đơn',
-                    'desc': 'Lịch sử thanh toán, trạng thái nợ',
+                    'title': 'Thanh toán hóa đơn',
+                    'desc': 'Thanh toán trực tuyến qua VNPay',
                     'icon': 'credit-card'
                 },
                 {
@@ -310,10 +315,10 @@ def generate_graphic():
     ]
     
     # Layout configuration
-    card_y = 0.02
-    card_h = 0.96
+    card_y = 0.015
+    card_h = 0.97
     header_h = 0.105
-    header_y = card_y + card_h - header_h  # 0.875 to 0.98
+    header_y = card_y + card_h - header_h  # 0.88 to 0.985
     
     for col in columns:
         x = col['x']
@@ -361,8 +366,8 @@ def generate_graphic():
         # 5. Draw Items inside column
         items = col['items']
         # Vertical spacing details
-        item_start_y = 0.81
-        item_spacing = 0.125
+        item_start_y = 0.815
+        item_spacing = 0.118
         
         for idx, item in enumerate(items):
             item_cy = item_start_y - idx * item_spacing
@@ -397,7 +402,7 @@ def generate_graphic():
     # Save image
     for save_path in paths_to_save:
         plt.savefig(save_path, dpi=300, facecolor='#ffffff', bbox_inches='tight')
-        print(f"Saved graphic to: {save_path}")
+        print("Saved graphic to path.")
         
     plt.close()
 
