@@ -520,7 +520,7 @@ async function generateFakeStudentContracts() {
 
         const tag = plan.slotTags[slotIndex];
         const gender = plan.room.gender_type;
-        const isSpecialStudent = !specialStudentPlaced && plan.cohort === "returning_students" && tag === "general";
+        const isSpecialStudent = plan.room.id === "room-200" && tag === "general" && !specialStudentPlaced;
         const studentName = isSpecialStudent ? specialStudent.fullName : (tag === "international" ? generateForeignName(gender) : generateName(gender));
         const studentId = isSpecialStudent ? specialStudent.studentId : `287116${String(studentIndex).padStart(4, "0")}`;
         const email = isSpecialStudent ? specialStudent.email : generateEmail(studentName, studentId);

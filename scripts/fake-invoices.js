@@ -128,39 +128,9 @@ async function generateFakeInvoices() {
       invoices.push(buildInvoice(room, 170 + i, billingMain, dueDateMain, "Chưa thanh toán", null, null, 0, "unpaid"));
     }
 
-    // Lấy room_id của user đặc biệt xu4ns0n để đảm bảo có hóa đơn quá hạn cho test VNPay
-    const specialUserResult = await pool.query(`
-      SELECT sc.room_id
-      FROM users u
-      INNER JOIN student_contracts sc ON sc.user_id = u.id AND sc.status = 'Active'
-      WHERE u.email = 'xu4ns0n@gmail.com'
-      LIMIT 1
-    `);
-    const specialRoomId = specialUserResult.rows[0]?.room_id || null;
-
-    // 10 QUÁ HẠN tháng trước (phòng 190-199, slot cuối thay bằng phòng xu4ns0n nếu có)
+    // 10 QUÁ HẠN tháng trước (phòng 190-199)
     for (let i = 0; i < 10; i++) {
-      let room;
-      if (i === 9 && specialRoomId) {
-        // Slot cuối: dùng phòng của xu4ns0n để test thanh toán VNPay
-        const specialRoomResult = await pool.query(`
-          SELECT DISTINCT
-            r.id as room_id,
-            r.room_number,
-            r.building,
-            r.capacity as current_occupancy,
-            u.id as sample_user_id,
-            u.full_name as sample_user_name
-          FROM rooms r
-          INNER JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
-          INNER JOIN users u ON u.id = sc.user_id AND u.email = 'xu4ns0n@gmail.com'
-          WHERE r.id = $1
-          LIMIT 1
-        `, [specialRoomId]);
-        room = specialRoomResult.rows[0] || rooms[(190 + i) % rooms.length];
-      } else {
-        room = rooms[(190 + i) % rooms.length];
-      }
+      const room = rooms[(190 + i) % rooms.length];
       const penalty = randInt(50000, 150000);
       invoices.push(buildInvoice(room, 190 + i, billingOver, dueDateOver, "Quá hạn", null, null, penalty, "overdue"));
     }
