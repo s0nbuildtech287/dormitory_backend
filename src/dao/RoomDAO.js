@@ -134,7 +134,9 @@ class RoomDAO extends BaseDAO {
                             'snapshot_year', sc.snapshot_year,
                             'priority_reasons', rf.priority_reasons,
                             'volunteer_role', sc.volunteer_role,
-                            'contract_id', sc.id
+                            'contract_id', sc.id,
+                            'gender', sc.snapshot_gender,
+                            'faculty', sc.snapshot_faculty
                         )
                     ) FILTER (WHERE sc.id IS NOT NULL), '[]'::json
                 ) AS students
