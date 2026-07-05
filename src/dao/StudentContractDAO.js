@@ -417,7 +417,16 @@ class StudentContractDAO extends BaseDAO {
                 sc.*,
                 u.full_name AS student_name,
                 u.email    AS student_email,
-                r.room_number
+                r.room_number,
+                r.building,
+                r.floor,
+                EXISTS (
+                    SELECT 1 
+                    FROM invoices i 
+                    WHERE i.room_id = sc.room_id 
+                      AND i.status IN ('Chưa thanh toán', 'Quá hạn')
+                      AND i.deleted_at IS NULL
+                ) AS has_unpaid_invoices
             FROM ${this.tableName} sc
             LEFT JOIN users u ON sc.user_id = u.id
             LEFT JOIN rooms r ON sc.room_id = r.id
