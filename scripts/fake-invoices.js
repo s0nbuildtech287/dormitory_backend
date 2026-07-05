@@ -70,17 +70,17 @@ async function generateFakeInvoices() {
 
     const buildInvoice = (room, idx, billingMonth, dueDate, status, paidAt, paymentMethod, penaltyAmount, suffix) => {
       const occupancy     = Math.max(Number(room.current_occupancy) || 1, 1);
-      const rentPerPerson = 500000;
-      const rentAmount    = rentPerPerson * occupancy;
-      const electricEnd   = randInt(50, 100);
+      const rentPerPerson = 0;
+      const rentAmount    = 0;
+      const electricEnd   = randInt(200, 260); // 700k - 910k
       const electricRate  = 3500;
       const electricAmount = electricEnd * electricRate;
-      const waterEnd      = randInt(3, 8);
+      const waterEnd      = randInt(10, 13);  // 150k - 195k
       const waterRate     = 15000;
       const waterAmount   = waterEnd * waterRate;
-      const garbageFee    = 70000;
-      const internetFee   = 300000;
-      const parkingCount  = randInt(1, occupancy);
+      const garbageFee    = 30000;
+      const internetFee   = 100000;
+      const parkingCount  = randInt(1, Math.max(1, Math.floor(occupancy / 2)));
       const parkingFee    = 50000 * parkingCount;
       const serviceFees   = garbageFee + internetFee + parkingFee;
       const totalAmount   = rentAmount + electricAmount + waterAmount + serviceFees + penaltyAmount;
