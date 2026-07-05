@@ -452,22 +452,21 @@ class ContractService {
       const contract = await StudentContractDAO.findById(id);
       if (!contract) throw new Error("Contract not found");
 
-      // If contract is Active with a room, terminate first to release room slot
-      if (contract.status === "Active" && contract.room_id) {
-        await StudentContractDAO.terminateContract(id);
-      }
-
-      await StudentContractDAO.delete(id);
-
-      await LogSystemDAO.log(adminId, "DELETE_CONTRACT", "student_contracts", id, contract, null, req);
-
-      // Also delete the associated user account
-      if (contract.user_id) {
-        const user = await UserDAO.findById(contract.user_id);
-        if (user) {
-          await UserDAO.delete(contract.user_id);
-          await LogSystemDAO.log(adminId, "DELETE_USER", "users", contract.user_id, user, null, req);
+      if (contract.status === "Terminated") {
+        // Nếu đã ở trạng thái Chấm dứt, thực hiện xóa cứng khỏi DB và xóa tài khoản user liên quan
+        await StudentContractDAO.delete(id);
+        if (contract.user_id) {
+          const user = await UserDAO.findById(contract.user_id);
+          if (user) {
+            await UserDAO.delete(contract.user_id);
+            await LogSystemDAO.log(adminId, "DELETE_USER", "users", contract.user_id, user, null, req);
+          }
         }
+        await LogSystemDAO.log(adminId, "DELETE_CONTRACT_HARD", "student_contracts", id, contract, null, req);
+      } else {
+        // Nếu chưa Chấm dứt, thực hiện xóa mềm (chấm dứt và giải phóng phòng)
+        await StudentContractDAO.terminateContract(id);
+        await LogSystemDAO.log(adminId, "DELETE_CONTRACT_SOFT", "student_contracts", id, contract, { status: "Terminated" }, req);
       }
 
       return { deleted: true };
