@@ -1826,6 +1826,7 @@ class RegistrationService {
       let quotas = { freshmen: 60, seniors: 40 };
       let facultyQuotas = {};
       let genderQuotas = { male: 0, female: 0 };
+      let facultySelectionRate = 0;
 
       if (setting?.value?.quotas) {
         if (setting.value.quotas.totalSlots) totalSlots = setting.value.quotas.totalSlots;
@@ -1836,6 +1837,9 @@ class RegistrationService {
         }
         if (setting.value.quotas.genderQuotas) {
           genderQuotas = { ...setting.value.quotas.genderQuotas };
+        }
+        if (setting.value.quotas.facultySelectionRate !== undefined) {
+          facultySelectionRate = parseFloat(setting.value.quotas.facultySelectionRate) || 0;
         }
       }
 
@@ -1850,6 +1854,9 @@ class RegistrationService {
         if (tempQuotas.genderQuotas) {
           genderQuotas = { ...tempQuotas.genderQuotas };
         }
+        if (tempQuotas.facultySelectionRate !== undefined) {
+          facultySelectionRate = parseFloat(tempQuotas.facultySelectionRate) || 0;
+        }
       }
 
       // If committing (not simulate) and tempQuotas is provided, save it permanently to settings DB
@@ -1862,7 +1869,8 @@ class RegistrationService {
             seniors: quotas.seniors,
             waterfall_enabled: true,
             facultyQuotas,
-            genderQuotas
+            genderQuotas,
+            facultySelectionRate
           };
           const newConfig = {
             quotas: updatedQuotas,
@@ -1948,6 +1956,24 @@ class RegistrationService {
       let totalRemainingSlots = Math.min(totalSlots - alreadyApproved.length, availableNow - alreadyApproved.length);
       totalRemainingSlots = Math.max(0, totalRemainingSlots);
 
+      // Tính hạn mức động theo tỷ lệ tuyển sinh mỗi khoa (nếu được cấu hình)
+      const pendingCountByFaculty = {};
+      registrations.forEach(r => {
+        const fac = r.faculty || "Không xác định";
+        pendingCountByFaculty[fac] = (pendingCountByFaculty[fac] || 0) + 1;
+      });
+
+      const dynamicFacultyLimits = {};
+      if (facultySelectionRate > 0) {
+        for (const [fac, count] of Object.entries(pendingCountByFaculty)) {
+          dynamicFacultyLimits[fac] = Math.max(1, Math.round(count * (facultySelectionRate / 100)));
+        }
+        console.log(`📊 Tỷ lệ tuyển sinh theo khoa: ${facultySelectionRate}% → Hạn mức:`, dynamicFacultyLimits);
+      }
+
+      // Bộ đếm số hồ sơ đã duyệt của từng khoa trong lượt chạy này
+      const approvedFacultyCountThisRun = {};
+
       // Khởi tạo các bộ đếm và hạn mức còn lại cho giới tính Nam/Nữ
       const remainingGenderSlots = {
         male: genderQuotas.male > 0 ? Math.max(0, genderQuotas.male - approvedMale) : 999999,
@@ -1999,6 +2025,15 @@ class RegistrationService {
           }
         }
 
+        // Kiểm tra giới hạn tỷ lệ tuyển sinh động theo khoa
+        let isDynamicFacultyLimitExceeded = false;
+        if (facultySelectionRate > 0 && dynamicFacultyLimits[studentFaculty] !== undefined) {
+          const runCount = approvedFacultyCountThisRun[studentFaculty] || 0;
+          if (runCount >= dynamicFacultyLimits[studentFaculty]) {
+            isDynamicFacultyLimitExceeded = true;
+          }
+        }
+
         // Kiểm tra chỉ tiêu giới tính
         let isGenderQuotaExceeded = false;
         if ((studentGender === "male" && genderQuotas.male > 0 && remainingGenderSlots.male <= 0) ||
@@ -2006,15 +2041,17 @@ class RegistrationService {
           isGenderQuotaExceeded = true;
         }
 
-        if (isGroupQuotaExceeded || isFacultyQuotaExceeded || isGenderQuotaExceeded) {
+        if (isGroupQuotaExceeded || isFacultyQuotaExceeded || isDynamicFacultyLimitExceeded || isGenderQuotaExceeded) {
           if (allowOverflow) {
             overflowCandidates.push(reg);
           } else {
             const reason = isGenderQuotaExceeded
               ? `Hết chỉ tiêu giới tính ${reg.gender === "Nam" ? "Nam" : "Nữ"}`
-              : isGroupQuotaExceeded 
-                ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
-                : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facLimit === 'object' ? facLimit[quotaKey] : facLimit} chỗ)`;
+              : isDynamicFacultyLimitExceeded
+                ? `Vượt quá tỷ lệ tuyển sinh của khoa ${studentFaculty} (${facultySelectionRate}% = ${dynamicFacultyLimits[studentFaculty]} chỗ)`
+                : isGroupQuotaExceeded 
+                  ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
+                  : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facLimit === 'object' ? facLimit[quotaKey] : facLimit} chỗ)`;
             skipped.push({
               id: reg.id,
               student_name: reg.student_name,
@@ -2048,6 +2085,8 @@ class RegistrationService {
             remainingFacultySlots[studentFaculty]--;
           }
         }
+        // Cập nhật bộ đếm tỷ lệ khoa
+        approvedFacultyCountThisRun[studentFaculty] = (approvedFacultyCountThisRun[studentFaculty] || 0) + 1;
 
         approved.push({
           id: reg.id,
@@ -2055,7 +2094,7 @@ class RegistrationService {
           student_id: reg.student_id,
           faculty: studentFaculty,
           status: simulate ? "Simulated-Approved" : "Pending",
-          source: "Phase 1: Đúng chỉ tiêu nhóm & khoa",
+          source: facultySelectionRate > 0 ? `Phase 1: Đúng chỉ tiêu nhóm & khoa (Tỷ lệ ${facultySelectionRate}%)` : "Phase 1: Đúng chỉ tiêu nhóm & khoa",
           year: reg.year,
           basket: this.determineBasket(reg.priority_reasons, reg.year)
         });
@@ -2229,7 +2268,9 @@ class RegistrationService {
         isSimulation,
         allowOverflow,
         overflowDetails,
-        overflowAllocations
+        overflowAllocations,
+        facultySelectionRate,
+        dynamicFacultyLimits: Object.keys(dynamicFacultyLimits).length > 0 ? dynamicFacultyLimits : null
       };
     } catch (error) {
       throw new Error(`Bulk approve registrations failed: ${error.message}`);
