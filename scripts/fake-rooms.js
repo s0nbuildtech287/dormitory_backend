@@ -22,6 +22,23 @@ async function generateFakeRooms() {
           const roomNumber = `room-${roomSequence}-${building}-${floor}`; // room-100-BLD-1-1, room-101-BLD-1-1, etc.
           const id = `room-${roomCounter.toString().padStart(3, "0")}`;
 
+          let reservedFor = "general";
+          if (building === "BLD-1") {
+            if (floor === 1 && roomNum <= 2) reservedFor = "xung_kich";
+            else if (floor <= 8) reservedFor = "freshmen";
+            else if (floor === 9) reservedFor = "international";
+            else reservedFor = "general";
+          } else if (building === "BLD-2") {
+            if (floor === 1 && roomNum <= 2) reservedFor = "xung_kich";
+            else if (floor <= 8) reservedFor = "returning_students";
+            else if (floor === 9) reservedFor = "international";
+            else reservedFor = "general";
+          } else if (building === "BLD-3" || building === "BLD-4") {
+            if (floor <= 4) reservedFor = "freshmen";
+            else if (floor <= 8) reservedFor = "returning_students";
+            else reservedFor = "general";
+          }
+
           const room = {
             id,
             room_number: roomNumber,
@@ -35,7 +52,7 @@ async function generateFakeRooms() {
             internet_fee: 50000.0, // 50,000 VNĐ
             parking_fee: 30000.0, // 30,000 VNĐ
             status: "Active",
-            reserved_for: (floor === 1 && roomNum <= 2) ? "xung_kich" : "general",
+            reserved_for: reservedFor,
             area: 25.0, // 25 m²
             qr_code: `QR_${roomNumber}`, // Fake QR code
             electric_meter_reading: 0.0,

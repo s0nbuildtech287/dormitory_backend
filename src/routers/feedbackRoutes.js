@@ -3,38 +3,38 @@ const router = express.Router();
 const FeedbackController = require('../controllers/FeedbackController');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
 
-// All routes require authentication
+// Yêu cầu đăng nhập đối với tất cả các API phản ánh ý kiến
 router.use(authenticate);
 
-// Get all feedbacks
+// Lấy danh sách toàn bộ phản ánh
 router.get('/', FeedbackController.getAll);
 
-// Get statistics
+// Thống kê phản ánh thông thường
 router.get('/statistics', requireAdmin, FeedbackController.getStatistics);
 
-// Get AI statistics
+// Thống kê phân tích sắc thái phản ánh bằng AI (chỉ số cảm xúc, mức độ ưu tiên)
 router.get('/ai-statistics', requireAdmin, FeedbackController.getAIStatistics);
 
-// Get pending count
+// Lấy số lượng phản ánh mới chưa xử lý
 router.get('/pending-count', requireAdmin, FeedbackController.getPendingCount);
 
-// Get feedbacks by user
+// Lấy danh sách phản ánh của sinh viên
 router.get('/user', FeedbackController.getByUser);
 router.get('/user/:userId', FeedbackController.getByUser);
 
-// Get feedback by ID
+// Lấy thông tin chi tiết một phản ánh theo ID
 router.get('/:id', FeedbackController.getById);
 
-// Create new feedback
+// Gửi phản ánh mới
 router.post('/', FeedbackController.create);
 
-// Update feedback
+// Cập nhật thông tin phản ánh
 router.put('/:id', FeedbackController.update);
 
-// Update feedback status (Admin only)
+// Cập nhật trạng thái xử lý phản ánh (Chỉ dành cho Admin)
 router.post('/:id/status', requireAdmin, FeedbackController.updateStatus);
 
-// Delete feedback
+// Xóa phản ánh
 router.delete('/:id', FeedbackController.delete);
 
 module.exports = router;

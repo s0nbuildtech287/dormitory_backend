@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Làm rõ nội dung Đồ án tốt nghiệp - Bùi Xuân Sơn</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0b2e4f;
+      --navy-deep: #081f38;
+      --sky: #1f6fb2;
+      --sky-light: #eaf3fb;
+      --gold: #c8932c;
+      --gold-light: #fbf1dd;
+      --ink: #1c2733;
+      --muted: #5b6b7c;
+      --line: #d8e3ee;
+      --green: #1f8a4c;
+      --red: #c23b3b;
+      --paper: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Be Vietnam Pro', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 28px 24px 60px;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ===== HEADER ===== */
+    .sheet {
+      width: 98%;
+      max-width: 2200px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 18px 50px -25px rgba(11, 46, 79, 0.15);
+    }
+
+    .hero {
+      background: #ffffff;
+      color: var(--navy);
+      padding: 34px 36px 28px;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 2px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .hero-text {
+      flex: 1;
+    }
+
+    .hero-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: #fafcfe;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+      min-width: 160px;
+    }
+
+    .hero-logo svg {
+      margin: 6px 0;
+    }
+
+    .hero .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: .16em;
+      font-size: .72rem;
+      color: var(--sky);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+      font-weight: 800;
+      margin: 6px 0 8px;
+      line-height: 1.25;
+      color: var(--navy);
+    }
+
+    .hero .subtitle {
+      font-size: .92rem;
+      color: var(--muted);
+      font-weight: 500;
+      max-width: 820px;
+      line-height: 1.5;
+    }
+
+    .hero .goal-line {
+      margin-top: 14px;
+      font-size: .82rem;
+      background: var(--sky-light);
+      border: 1px solid rgba(31, 111, 178, 0.2);
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 999px;
+      color: var(--sky);
+      font-weight: 600;
+    }
+
+    /* ===== INFO BLOCK ===== */
+    .info-block {
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 24px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 40px;
+    }
+
+    .info-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px dashed #d8e3ee;
+      font-size: .92rem;
+    }
+
+    .info-row .label {
+      color: var(--navy);
+      font-weight: 700;
+      white-space: nowrap;
+      min-width: 168px;
+    }
+
+    .info-row .value {
+      flex: 1;
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .info-row .value.blank {
+      color: transparent;
+      border-bottom: 1px solid #9fb8cf;
+      min-height: 1.2em;
+    }
+
+    .info-row .value.prefilled {
+      color: var(--sky);
+      font-weight: 600;
+    }
+
+    /* ===== TABLE HEADER ROW ===== */
+    .table-head {
+      display: grid;
+      grid-template-columns: 180px 1.0fr 1.7fr 280px;
+      background: var(--navy);
+      color: #fff;
+      font-size: .78rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .table-head>div {
+      padding: 8px 18px;
+    }
+
+    .table-head>div+div {
+      border-left: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* ===== STEP ROWS ===== */
+    .step-row {
+      display: grid;
+      grid-template-columns: 180px 1.0fr 1.7fr 280px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .step-row:nth-child(odd) {
+      background: #fff;
+    }
+
+    .step-row:nth-child(even) {
+      background: #fafcfe;
+    }
+
+    .cell {
+      padding: 10px 18px;
+      border-left: 1px solid var(--line);
+    }
+
+    .cell:first-child {
+      border-left: none;
+    }
+
+    /* step label cell */
+    .step-label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .step-num-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .step-num {
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: var(--sky);
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+
+    .step-icon-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 4px;
+      margin-bottom: 2px;
+    }
+
+    .step-title-vn {
+      font-weight: 800;
+      font-size: .98rem;
+      color: var(--navy);
+      line-height: 1.25;
+    }
+
+    .step-title-en {
+      font-size: .74rem;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    /* questions cell */
+    .q-list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: .85rem;
+      color: var(--ink);
+      line-height: 1.55;
+      font-weight: 600;
+    }
+
+    .q-list li {
+      margin-bottom: 6px;
+    }
+
+    /* answer cell */
+    .answer {
+      font-size: .87rem;
+      line-height: 1.62;
+      color: var(--ink);
+    }
+
+    .answer p {
+      margin: 0 0 8px;
+    }
+
+    .answer p:last-child {
+      margin-bottom: 0;
+    }
+
+    .answer b {
+      color: var(--navy);
+    }
+
+    .metric {
+      display: inline-block;
+      background: var(--gold-light);
+      color: #8a5e10;
+      border: 1px solid #ecd49a;
+      border-radius: 6px;
+      padding: 1px 7px;
+      font-weight: 700;
+      font-size: .82rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* checklist cell */
+    .check-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: .82rem;
+    }
+
+    .check-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      margin-bottom: 7px;
+      color: var(--ink);
+    }
+
+    .check-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    .checkbox-blank {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid currentColor;
+      background: #fff;
+      display: inline-block;
+      margin-top: 2px;
+    }
+
+    .tick {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: #e4f4ea;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .66rem;
+      font-weight: 900;
+      margin-top: 1px;
+    }
+
+    /* color accents per row */
+    .accent-1 .step-num {
+      color: #1f8a4c;
+    }
+
+    .accent-1 .checkbox-blank {
+      color: #1f8a4c;
+    }
+
+    .accent-2 .step-num {
+      color: #c23b3b;
+    }
+
+    .accent-2 .checkbox-blank {
+      color: #c23b3b;
+    }
+
+    .accent-3 .step-num {
+      color: #1f6fb2;
+    }
+
+    .accent-3 .checkbox-blank {
+      color: #1f6fb2;
+    }
+
+    .accent-4 .step-num {
+      color: #6a4cad;
+    }
+
+    .accent-4 .checkbox-blank {
+      color: #6a4cad;
+    }
+
+    .accent-5 .step-num {
+      color: #0b2e4f;
+    }
+
+    .accent-5 .checkbox-blank {
+      color: #0b2e4f;
+    }
+
+    .accent-6 .step-num {
+      color: #1f6fb2;
+    }
+
+    .accent-6 .checkbox-blank {
+      color: #1f6fb2;
+    }
+
+    .accent-7 .step-num {
+      color: #c8932c;
+    }
+
+    .accent-7 .checkbox-blank {
+      color: #c8932c;
+    }
+
+    .accent-8 .step-num {
+      color: #1f8a4c;
+    }
+
+    .accent-8 .checkbox-blank {
+      color: #1f8a4c;
+    }
+
+    /* ===== FOOTER BLOCKS ===== */
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr 0.9fr;
+      border-top: 3px solid var(--navy);
+    }
+
+    .footer-grid>div {
+      padding: 16px 20px;
+      border-left: 1px solid var(--line);
+    }
+
+    .footer-grid>div:first-child {
+      border-left: none;
+    }
+
+    .footer-title {
+      font-weight: 800;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--navy);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--sky);
+    }
+
+    .contrib-text {
+      font-size: .85rem;
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    .quick-check {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: .83rem;
+    }
+
+    .quick-check li {
+      display: flex;
+      gap: 7px;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+
+    /* Đánh giá tổng quan css */
+    .score-line {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--navy);
+      margin-bottom: 12px;
+    }
+
+    .score-fill {
+      font-size: 1.4rem;
+      font-family: 'JetBrains Mono', monospace;
+      border-bottom: 2px dashed #9fb8cf;
+      padding: 0 16px;
+      min-width: 80px;
+      display: inline-block;
+      text-align: center;
+    }
+
+    .comment-section {
+      margin-top: 8px;
+    }
+
+    .comment-line {
+      border-bottom: 1px dashed var(--line);
+      margin-bottom: 10px;
+      height: 18px;
+    }
+
+    .tip-bar {
+      background: var(--navy-deep);
+      color: #fff;
+      padding: 13px 28px;
+      font-size: .85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .tip-bar .badge-tip {
+      background: var(--gold);
+      color: #1c1300;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 3px 12px;
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      flex-shrink: 0;
+    }
+
+    .tip-bar .flow {
+      color: #fde9b8;
+      font-weight: 700;
+    }
+
+    @media (max-width: 980px) {
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .table-head {
+        display: none;
+      }
+
+      .step-row {
+        grid-template-columns: 1fr;
+      }
+
+      .cell {
+        border-left: none;
+        border-top: 1px solid var(--line);
+      }
+
+      .cell:first-child {
+        border-top: none;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-grid>div {
+        border-left: none;
+        border-top: 1px solid var(--line);
+      }
+
+      .footer-grid>div:first-child {
+        border-top: none;
+      }
+
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero-logo {
+        margin-top: 12px;
+        align-self: flex-start;
+      }
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+
+      .sheet {
+        box-shadow: none;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="sheet">
+
+    <!-- HERO -->
+    <div class="hero" style="display: block; text-align: center; padding: 16px 20px;">
+      <h1
+        style="margin: 0; font-size: clamp(1.3rem, 2.5vw, 1.8rem); font-weight: 800; color: var(--navy); line-height: 1.3;">
+        LÀM RÕ NỘI DUNG ĐỒ ÁN: XÂY DỰNG HỆ THỐNG THÔNG TIN QUẢN LÝ KÝ TÚC XÁ TRƯỜNG ĐẠI HỌC THỦY LỢI</h1>
+    </div>
+
+    <!-- INFO -->
+    <div class="info-block">
+      <div class="info-grid">
+        <div>
+          <div class="info-row"><span class="label">Sinh viên:</span><span class="value prefilled">Bùi Xuân Sơn</span>
+          </div>
+          <div class="info-row"><span class="label">MSSV:</span><span class="value prefilled">2251162139</span></div>
+          <div class="info-row"><span class="label">Lớp:</span><span class="value prefilled">64HTTT4</span></div>
+          <div class="info-row"><span class="label">GVHD:</span><span class="value prefilled">ThS. Kiều Tuấn Dũng</span>
+          </div>
+        </div>
+        <div>
+          <div class="info-row"><span class="label">Tên đề tài:</span><span class="value prefilled">Xây dựng hệ thống
+              thông tin quản lý ký túc xá Trường Đại học Thủy Lợi</span></div>
+          <div class="info-row"><span class="label">Đối tượng sử dụng:</span><span class="value prefilled">Ban quản lý,
+              Kế toán, Sinh viên</span></div>
+          <div class="info-row"><span class="label">Công nghệ chính:</span><span class="value prefilled">React,
+              Node.js/Express, PostgreSQL, Socket.IO, Google Cloud, OpenAI API</span></div>
+          <div class="info-row"><span class="label">Thời gian thực hiện:</span><span class="value prefilled">01/2026 -
+              06/2026</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE HEAD -->
+    <div class="table-head">
+      <div>Bước</div>
+      <div>SV cần làm rõ</div>
+      <div>Câu trả lời / Minh chứng</div>
+      <div>GV phản biện kiểm tra nhanh</div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="step-row accent-1">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">1</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#1f8a4c" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">NGỮ CẢNH &<br>BÀI TOÁN</div>
+        <div class="step-title-en">Context</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Bài toán thực tế đang tồn tại là gì?</li>
+          <li>Ai gặp vấn đề này? Trong bối cảnh nào?</li>
+          <li>Hiện trạng đang được xử lý ra sao?</li>
+          <li>Nếu không giải quyết thì ảnh hưởng gì?</li>
+          <li>Phạm vi bài toán đến đâu?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Bối cảnh: Quy mô đào tạo tại ĐH Thủy Lợi rất lớn, lượng sinh viên nội trú đông dẫn đến áp lực vận hành KTX
+          rất cao. Hiện tại, công tác quản lý vẫn chủ yếu dựa trên hồ sơ giấy tờ, bảng tính và các quy trình thủ công
+          (từ việc tiếp nhận thông tin cho đến thông báo qua các kênh liên lạc trực tiếp), gây khó khăn lớn trong việc
+          lưu trữ dữ liệu, theo dõi hợp đồng, gán phòng, tính toán hóa đơn và thống kê báo cáo. Về phía sinh viên, việc
+          thiếu một nền tảng chuyên biệt trực tuyến khiến họ gặp khó khăn khi muốn chủ động tự tra cứu thông tin hợp
+          đồng, hóa đơn dịch vụ hay gửi các phản hồi thắc mắc, đồng nghĩa với việc chất lượng đời sống sinh hoạt nội trú
+          chưa được tối ưu.</p>
+        <p>Điểm nghẽn cốt lõi: Tình trạng bất cân đối cung - cầu nghiêm trọng khi nhu cầu đăng ký nội trú của sinh viên
+          vượt xa nguồn cung phòng thực tế; việc phân bổ phòng thủ công chưa tối ưu dễ dẫn đến phòng quá đông hoặc phòng
+          lại quá vắng, thiếu tính minh bạch và công bằng.</p>
+        <p>Phạm vi bài toán: Xây dựng hệ thống thông tin quản lý KTX trên nền tảng Web phục vụ riêng cho KTX Đại học
+          Thủy Lợi (bao gồm cả Ban quản lý và Sinh viên); tin học hóa toàn diện quy trình quản lý ký túc xá hiện tại;
+          chưa tích hợp thiết bị phần cứng IoT và chưa phát triển app di động.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Hiểu đúng bài toán</span></li>
+          <li><span class="checkbox-blank"></span><span>Đúng đối tượng sử dụng</span></li>
+          <li><span class="checkbox-blank"></span><span>Có bối cảnh thực tế</span></li>
+          <li><span class="checkbox-blank"></span><span>Phạm vi rõ ràng</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step-row accent-2">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">2</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#c23b3b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">VẤN ĐỀ<br>CỐT LÕI</div>
+        <div class="step-title-en">Pain Point</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Vấn đề chính cần giải quyết là gì?</li>
+          <li>Nguyên nhân gốc rễ là gì?</li>
+          <li>Điểm bất cập của cách hiện tại?</li>
+          <li>Ảnh hưởng cụ thể (thời gian, chi phí, độ chính xác, trải nghiệm...)?</li>
+          <li>Vì sao vấn đề này đáng làm đồ án?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Các bất cập thực tế: (1) Hồ sơ giấy tờ và dữ liệu phân tán gây lãng phí nguồn lực và chậm trễ thủ tục hành
+          chính; (2) Thiếu nền tảng trực tuyến khiến sinh viên không thể tự tra cứu hợp đồng, hóa đơn mà phải gặp trực
+          tiếp; (3) Phân bổ phòng thủ công chưa tối ưu gây bất cân đối cung - cầu và mất cân bằng mật độ phòng ở; (4)
+          Hóa đơn điện nước nhập tay dễ phát sinh sai sót, thiếu minh bạch; (5) Phản ánh của sinh viên chưa được phản
+          hồi kịp thời và cơ chế xử lý kỷ luật vi phạm nội quy còn lỏng lẻo.</p>
+        <p>Nguyên nhân gốc: Thiếu một hệ thống thông tin quản lý đồng bộ và tập trung dữ liệu, chưa thiết lập được quy
+          trình vận hành khép kín và tự động hóa các nghiệp vụ phức tạp.</p>
+        <p>Tác động: Giảm hiệu quả quản lý của KTX, ảnh hưởng xấu tới mức độ hài lòng và trải nghiệm sống của sinh viên
+          nội trú.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Nêu đúng vấn đề</span></li>
+          <li><span class="checkbox-blank"></span><span>Có phân tích nguyên nhân</span></li>
+          <li><span class="checkbox-blank"></span><span>Không mô tả chung chung</span></li>
+          <li><span class="checkbox-blank"></span><span>Xác định rõ ràng</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step-row accent-3">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">3</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#1f6fb2" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="6"></circle>
+              <circle cx="12" cy="12" r="2"></circle>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">MỤC TIÊU</div>
+        <div class="step-title-en">Objective</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Hệ thống phải đạt được điều gì?</li>
+          <li>Các mục tiêu cụ thể thế nào để đo được?</li>
+          <li>Chức năng cốt lõi cần hoàn thành là gì?</li>
+          <li>Tiêu chí nào dùng để đánh giá thành công?</li>
+          <li>Mục tiêu nào là bắt buộc, mục tiêu nào là mở rộng?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Xây dựng nền tảng quản lý tập trung, đồng bộ dữ liệu và quản lý các khâu vận hành KTX trên nền tảng Web.</p>
+        <p>Mục tiêu cụ thể: (1) Số hóa quy trình đăng ký, ký hợp đồng; (2) Ứng dụng thuật toán xếp hạng tự động để xét
+          duyệt hồ sơ và xếp phòng công bằng; (3) Minh bạch hóa tài chính (quản lý hóa đơn, tích hợp thanh toán trực
+          tuyến); (4) Ứng dụng AI tăng cường tương tác và hỗ trợ quản lý (chatbot hỗ trợ, phân tích cảm xúc phản ánh, tóm tắt tin tức bằng
+          OpenAI API và Google Cloud Vision OCR).</p>
+        <p>Tiêu chí thành công: Hệ thống vận hành online ổn định tại kytucxatlu.site, vượt qua 30/30 kịch bản kiểm thử hộp đen (100% PASS) bao quát các nghiệp vụ cốt lõi.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Mục tiêu rõ ràng</span></li>
+          <li><span class="checkbox-blank"></span><span>Đo lường được</span></li>
+          <li><span class="checkbox-blank"></span><span>Có tiêu chí đánh giá</span></li>
+          <li><span class="checkbox-blank"></span><span>Phù hợp phạm vi</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step-row accent-4">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">4</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#6a4cad" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">RÀNG BUỘC</div>
+        <div class="step-title-en">Constraint</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Ràng buộc kỹ thuật là gì?</li>
+          <li>Ràng buộc dữ liệu, thiết bị, thời gian, nhân lực?</li>
+          <li>Yêu cầu bảo mật, pháp lý, vận hành?</li>
+          <li>Giới hạn nào khiến giải pháp phải thay đổi?</li>
+          <li>Những gì KHÔNG làm trong đồ án?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Ràng buộc phạm vi kỹ thuật: Chỉ xây dựng hệ thống phần mềm quản lý trên nền tảng Web, chưa tích hợp thiết bị
+          phần cứng IoT (công tơ điện nước thông minh, khóa cửa vân tay) và chưa có app di động.</p>
+        <p>Ràng buộc dịch vụ bên thứ ba: Tích hợp cổng thanh toán VNPay nhưng hiện tại mới chạy ở môi trường thử nghiệm
+          (Sandbox) do kết nối chính thức yêu cầu tư cách pháp nhân trường học; các dịch vụ AI (OpenAI API, Google Cloud
+          Vision) phụ thuộc vào đường truyền internet và giới hạn gói API.</p>
+        <p>Hạ tầng triển khai: Vận hành thực tế trên VPS (VM Instance), Nginx, Cloudflare bảo mật.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Liệt kê đủ ràng buộc</span></li>
+          <li><span class="checkbox-blank"></span><span>Hợp lý và khả thi</span></li>
+          <li><span class="checkbox-blank"></span><span>Có giới hạn phạm vi</span></li>
+          <li><span class="checkbox-blank"></span><span>Nêu rõ phần loại trừ</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="step-row accent-5">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">5</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#0b2e4f" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">GIẢI PHÁP /<br>CÁCH LÀM</div>
+        <div class="step-title-en">Method</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Giải pháp cốt lõi là gì?</li>
+          <li>Kiến trúc tổng thể hoặc quy trình xử lý ra sao?</li>
+          <li>Dữ liệu vào/ra là gì?</li>
+          <li>Công nghệ nào được dùng và vì sao chọn?</li>
+          <li>Phần nào là do SV thực sự thiết kế, lập trình, tích hợp hay tối ưu?</li>
+          <li>Điểm mới hoặc khác biệt thực sự nằm ở đâu?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Kiến trúc & Mô hình: Kiến trúc Client-Server (giao tiếp REST API, JSON); Frontend React + Backend
+          Node.js/Express. Mô hình 3 tầng phân lớp rõ rệt: Controller - Service - DAO để tách biệt nghiệp vụ và truy cập
+          cơ sở dữ liệu PostgreSQL (11 bảng quan hệ).</p>
+        <p>Giải pháp tự phát triển: (1) Thuật toán tự động tính điểm xét tuyển hồ sơ theo công thức Score = (P * wPrior)
+          + (Y * wYear) + (G * wGPA) và tự động gán phòng theo cơ chế ưu tiên theo từng tiêu chí; (2) Cơ chế thông báo realtime qua Socket.IO; (3) Tích hợp OpenAI API
+          (Trợ lý ảo 24/7, NLP phân tích cảm xúc phản ánh tiêu cực/bức xúc để cảnh báo BQL, cào và tóm tắt tin tức từ
+          website tlu.edu.vn); (4) Tích hợp Google Cloud Vision OCR đối soát ảnh minh chứng tự động.</p>
+        <p>Phần tự làm: Thiết kế CSDL, lập trình toàn bộ logic nghiệp vụ (thuật toán xét duyệt, xếp phòng, gán hóa đơn,
+          phân tích phản ánh) và giao diện. Phần kế thừa: Các thư viện nền tảng và API của bên thứ ba.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Giải pháp phù hợp vấn đề</span></li>
+          <li><span class="checkbox-blank"></span><span>Kiến trúc hợp lý</span></li>
+          <li><span class="checkbox-blank"></span><span>Nói rõ phần SV làm</span></li>
+          <li><span class="checkbox-blank"></span><span>Có điểm mới hoặc khác biệt</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- STEP 6 -->
+    <div class="step-row accent-6">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">6</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#1f6fb2" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">ĐÁNH GIÁ /<br>KIỂM CHỨNG</div>
+        <div class="step-title-en">Evaluation</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Đánh giá bằng cách nào?</li>
+          <li>Dữ liệu/Kịch bản thử nghiệm là gì?</li>
+          <li>Chỉ số đánh giá nào được dùng?</li>
+          <li>Kết quả đạt được ra sao?</li>
+          <li>Có so sánh trước/sau hoặc với baseline không?</li>
+          <li>Minh chứng gồm số liệu, ảnh chụp, video, log, biểu đồ nào?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Phương pháp đánh giá: Kiểm thử hộp đen (Black-box Testing) với 30 kịch bản kiểm thử cốt lõi (100% đạt trạng
+          thái PASS) bao quát toàn bộ nghiệp vụ (Xác thực, Hợp đồng, Hóa đơn, AI Sentiment, AI OCR, Realtime).</p>
+        <p>Đo lường thời gian đáp ứng: Tự động hóa giúp rút ngắn thời gian xử lý các tác vụ nặng như tự động duyệt hồ sơ đăng ký, tự động gán phòng, tự động sinh hoá đơn thanh toán hằng tháng.</p>
+        <p>Hạn chế kỹ thuật: Cổng VNPay mới chỉ hoạt động ở môi trường Sandbox (thử nghiệm); chỉ số điện nước vẫn cần
+          sinh viên tự khai báo online hoặc quản lý nhập tay, chưa tự động hóa hoàn toàn từ phần cứng công tơ.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Có phương pháp đánh giá</span></li>
+          <li><span class="checkbox-blank"></span><span>Có chỉ số phù hợp</span></li>
+          <li><span class="checkbox-blank"></span><span>Kết quả có bằng chứng</span></li>
+          <li><span class="checkbox-blank"></span><span>Có so sánh đối chiếu</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- STEP 7 -->
+    <div class="step-row accent-7">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">7</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#c8932c" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+              </path>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">ĐÓNG GÓP &<br>GIÁ TRỊ THỰC</div>
+        <div class="step-title-en">Impact</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Đồ án thực sự đóng góp gì?</li>
+          <li>Người dùng hoặc đơn vị hưởng lợi như thế nào?</li>
+          <li>Sản phẩm đã làm được điểm nào tốt?</li>
+          <li>Có thể triển khai mở rộng hay chuyển giao không?</li>
+          <li>Hạn chế hiện tại là gì và hướng phát triển tiếp theo?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Đóng góp thực tiễn: Xây dựng thành công giải pháp số hóa toàn diện giúp hiện đại hóa công tác quản lý KTX Đại
+          học Thủy Lợi, nâng cao tính công bằng và minh bạch tài chính. Tự động hóa 90% quy trình vận hành liên thông
+          khép kín.</p>
+        <p>Giá trị mang lại: Ban quản lý tối ưu hiệu năng vận hành, rút ngắn thời gian xét duyệt và gán phòng xuống đáng kể
+          ; Sinh viên dễ dàng tự tra cứu hợp đồng, hóa đơn điện nước trực tuyến và nhận hỗ trợ 24/7.
+        </p>
+        <p>Hướng phát triển: (1) Tích hợp thiết bị IoT (công tơ điện nước thông minh tự đồng bộ chỉ số, khóa cửa vân
+          tay/khuôn mặt quản lý ra vào các tòa nhà); (2) Phát triển ứng dụng di động (Mobile App Android/iOS) để tối ưu
+          trải nghiệm nhận thông báo đẩy.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Đóng góp rõ ràng</span></li>
+          <li><span class="checkbox-blank"></span><span>Giá trị cụ thể</span></li>
+          <li><span class="checkbox-blank"></span><span>Không phóng đại kết quả</span></li>
+          <li><span class="checkbox-blank"></span><span>Nêu được hạn chế</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- STEP 8 -->
+    <div class="step-row accent-8">
+      <div class="cell step-label">
+        <div class="step-num-container">
+          <div class="step-num">8</div>
+          <div class="step-icon-container">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#1f8a4c" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="step-title-vn">TỰ ĐÁNH GIÁ<br>& CAM KẾT</div>
+        <div class="step-title-en">Self-assessment</div>
+      </div>
+      <div class="cell">
+        <ul class="q-list">
+          <li>Để tôi/thành phẩm tham khảo từ nguồn khác khoảng bao nhiêu %?</li>
+          <li>Phần nào là kế thừa/tham khảo?</li>
+          <li>Phần nào SV thực sự tự làm?</li>
+          <li>Mức độ tự hiểu và làm chủ hệ thống khoảng bao nhiêu %?</li>
+          <li>Nếu làm theo nhóm hoặc kế thừa mã nguồn có sẵn, phần việc cá nhân là gì?</li>
+          <li>SV có cam kết trung thực học thuật và chịu trách nhiệm nhiệm vụ nội dung trình bày không?</li>
+        </ul>
+      </div>
+      <div class="cell answer">
+        <p>Kế thừa mô hình kiến trúc phổ biến (Client-Server, 3 lớp) và vận dụng linh hoạt vào bài toán cụ thể của KTX
+          TLU. Toàn bộ thiết kế cơ sở dữ liệu gồm 11 bảng quan hệ, logic lập trình thuật toán xếp phòng, tích hợp xử lý
+          NLP phản ánh và OCR đối soát đều do sinh viên tự nghiên cứu triển khai.</p>
+        <p>Mức độ tự hiểu và làm chủ: Sinh viên tự hiểu và làm chủ hệ thống cao (khoảng 85-90%). Cam kết trung thực học
+          thuật và chịu trách nhiệm hoàn toàn về sản phẩm báo cáo.</p>
+      </div>
+      <div class="cell">
+        <ul class="check-list">
+          <li><span class="checkbox-blank"></span><span>Tự đánh giá rõ ràng</span></li>
+          <li><span class="checkbox-blank"></span><span>Nêu được phần tự làm</span></li>
+          <li><span class="checkbox-blank"></span><span>Nêu được phần kế thừa/tham khảo</span></li>
+          <li><span class="checkbox-blank"></span><span>Mức độ tự hiểu phù hợp phần trình bày</span></li>
+          <li><span class="checkbox-blank"></span><span>Có cam kết trung thực</span></li>
+        </ul>
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer-grid">
+      <div>
+        <div class="footer-title"><span class="dot"></span>Đồ án thực sự đóng góp gì</div>
+        <div class="contrib-text">
+          Xây dựng được hệ thống thông tin quản lý KTX hoạt động thực tế, hỗ trợ Ban quản lý số hóa quy trình đăng ký –
+          xét duyệt – thu phí, đồng thời cung cấp kênh hỗ trợ sinh viên 24/7 qua chatbot AI và xác thực giấy tờ tự động
+          bằng OCR.
+        </div>
+      </div>
+      <div>
+        <div class="footer-title"><span class="dot"></span>Checklist nhanh cho SV</div>
+        <ul class="quick-check">
+          <li><span class="tick">✓</span>Trả lời đúng vấn đề cần giải quyết</li>
+          <li><span class="tick">✓</span>Mô tả đúng phạm vi triển khai</li>
+          <li><span class="tick">✓</span>Có minh chứng cho kết quả kiểm thử</li>
+          <li><span class="tick">✓</span>Mục tiêu và đánh giá khớp nhau</li>
+          <li><span class="tick">✓</span>Không dùng từ hoa mỹ, chung chung</li>
+          <li><span class="tick">✓</span>Không mô tả mơ hồ, làm một nửa</li>
+          <li><span class="tick">✓</span>Khai báo trung thực mức độ tham khảo và tự làm</li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-title"><span class="dot"></span>ĐÁNH GIÁ TỔNG QUAN</div>
+        <div class="score-line">
+          Điểm: <span class="score-fill">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> / 10
+        </div>
+        <div class="comment-section">
+          <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; color: var(--navy);">Nhận xét chung:
+          </div>
+          <div class="comment-line"></div>
+          <div class="comment-line"></div>
+          <div class="comment-line"></div>
+          <div class="comment-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIP BAR -->
+    <div class="tip-bar">
+      <span class="badge-tip">Gợi ý</span>
+      <span>Viết ngắn gọn, cụ thể, có số liệu và minh chứng. Tập trung vào:
+        <span class="flow">làm gì → vì sao làm → làm như thế nào → kết quả ra sao → đóng góp thực sự là gì</span>
+      </span>
+    </div>
+
+  </div>
+
+</body>
+
+</html>

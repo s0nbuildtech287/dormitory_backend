@@ -70,17 +70,17 @@ async function generateFakeInvoices() {
 
     const buildInvoice = (room, idx, billingMonth, dueDate, status, paidAt, paymentMethod, penaltyAmount, suffix) => {
       const occupancy     = Math.max(Number(room.current_occupancy) || 1, 1);
-      const rentPerPerson = 500000;
-      const rentAmount    = rentPerPerson * occupancy;
-      const electricEnd   = randInt(50, 100);
+      const rentPerPerson = 0;
+      const rentAmount    = 0;
+      const electricEnd   = randInt(200, 260); // 700k - 910k
       const electricRate  = 3500;
       const electricAmount = electricEnd * electricRate;
-      const waterEnd      = randInt(3, 8);
+      const waterEnd      = randInt(10, 13);  // 150k - 195k
       const waterRate     = 15000;
       const waterAmount   = waterEnd * waterRate;
-      const garbageFee    = 70000;
-      const internetFee   = 300000;
-      const parkingCount  = randInt(1, occupancy);
+      const garbageFee    = 30000;
+      const internetFee   = 100000;
+      const parkingCount  = randInt(1, Math.max(1, Math.floor(occupancy / 2)));
       const parkingFee    = 50000 * parkingCount;
       const serviceFees   = garbageFee + internetFee + parkingFee;
       const totalAmount   = rentAmount + electricAmount + waterAmount + serviceFees + penaltyAmount;
@@ -128,39 +128,9 @@ async function generateFakeInvoices() {
       invoices.push(buildInvoice(room, 170 + i, billingMain, dueDateMain, "Chưa thanh toán", null, null, 0, "unpaid"));
     }
 
-    // Lấy room_id của user đặc biệt xu4ns0n để đảm bảo có hóa đơn quá hạn cho test VNPay
-    const specialUserResult = await pool.query(`
-      SELECT sc.room_id
-      FROM users u
-      INNER JOIN student_contracts sc ON sc.user_id = u.id AND sc.status = 'Active'
-      WHERE u.email = 'xu4ns0n@gmail.com'
-      LIMIT 1
-    `);
-    const specialRoomId = specialUserResult.rows[0]?.room_id || null;
-
-    // 10 QUÁ HẠN tháng trước (phòng 190-199, slot cuối thay bằng phòng xu4ns0n nếu có)
+    // 10 QUÁ HẠN tháng trước (phòng 190-199)
     for (let i = 0; i < 10; i++) {
-      let room;
-      if (i === 9 && specialRoomId) {
-        // Slot cuối: dùng phòng của xu4ns0n để test thanh toán VNPay
-        const specialRoomResult = await pool.query(`
-          SELECT DISTINCT
-            r.id as room_id,
-            r.room_number,
-            r.building,
-            r.capacity as current_occupancy,
-            u.id as sample_user_id,
-            u.full_name as sample_user_name
-          FROM rooms r
-          INNER JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
-          INNER JOIN users u ON u.id = sc.user_id AND u.email = 'xu4ns0n@gmail.com'
-          WHERE r.id = $1
-          LIMIT 1
-        `, [specialRoomId]);
-        room = specialRoomResult.rows[0] || rooms[(190 + i) % rooms.length];
-      } else {
-        room = rooms[(190 + i) % rooms.length];
-      }
+      const room = rooms[(190 + i) % rooms.length];
       const penalty = randInt(50000, 150000);
       invoices.push(buildInvoice(room, 190 + i, billingOver, dueDateOver, "Quá hạn", null, null, penalty, "overdue"));
     }
@@ -210,11 +180,7 @@ async function generateFakeInvoices() {
     console.log(`   - 170 đã thanh toán  → ${fmtMonth(billingMain)} (hạn ${fmtDate(dueDateMain)})`);
     console.log(`   -  20 chưa thanh toán → ${fmtMonth(billingMain)} (hạn ${fmtDate(dueDateMain)})`);
     console.log(`   -  10 quá hạn         → ${fmtMonth(billingOver)} (hạn ${fmtDate(dueDateOver)}, slot cuối = phòng xu4ns0n)`);
-    if (specialRoomId) {
-      console.log(`   ✓ xu4ns0n@gmail.com có hóa đơn quá hạn → sẵn sàng test VNPay`);
-    } else {
-      console.log(`   ⚠ Không tìm thấy user xu4ns0n, slot quá hạn cuối dùng phòng ngẫu nhiên`);
-    }
+    console.log(`   ✓ Slot quá hạn cuối dùng phòng ngẫu nhiên trong 200 phòng đã chọn`);
 
   } catch (error) {
     console.error("❌ Lỗi khi tạo fake data:", error);

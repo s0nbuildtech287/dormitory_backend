@@ -6,16 +6,12 @@ class RoomDAO extends BaseDAO {
         super('rooms');
     }
 
-    /**
-     * Find rooms by building
-     */
+    // Tìm phòng theo tòa nhà, sắp xếp theo tầng và số phòng tăng dần
     async findByBuilding(building) {
         return this.findAll({ building }, ['floor ASC', 'room_number ASC']);
     }
 
-    /**
-     * Get next room sequence for a building/floor pair based on room_number format room-XXX-B-F
-     */
+    // Lấy số thứ tự phòng tiếp theo để tự động tạo số phòng mới (dạng room-XXX-B-F)
     async getNextRoomSequence(building, floor, fallbackStart = 100) {
         const query = `
             SELECT MAX(
@@ -27,8 +23,8 @@ class RoomDAO extends BaseDAO {
             ) AS max_sequence
             FROM ${this.tableName}
             WHERE building = $1
-              AND floor = $2
-              AND room_number LIKE 'room-%'
+               AND floor = $2
+               AND room_number LIKE 'room-%'
         `;
 
         const rows = await this.executeQuery(query, [building, floor]);
@@ -40,9 +36,7 @@ class RoomDAO extends BaseDAO {
         return Number(maxSequence) + 1;
     }
 
-    /**
-     * Get building/floor metadata derived from rooms table
-     */
+    // Lấy thông tin cấu trúc (số phòng, số tầng) của từng tòa nhà
     async getStructureMetadata() {
         const query = `
             SELECT
@@ -60,9 +54,7 @@ class RoomDAO extends BaseDAO {
         return this.executeQuery(query);
     }
 
-    /**
-     * Check if any room_number exists in the provided list
-     */
+    // Kiểm tra danh sách số phòng xem có số nào đã tồn tại trong DB chưa
     async findExistingRoomNumbers(roomNumbers = []) {
         if (!roomNumbers.length) return [];
 
@@ -76,9 +68,7 @@ class RoomDAO extends BaseDAO {
         return rows.map((row) => row.room_number);
     }
 
-    /**
-     * Create many rooms in one transaction
-     */
+    // Tạo nhiều phòng cùng lúc trong một transaction
     async createMany(rooms = []) {
         if (!rooms.length) return [];
 
@@ -112,9 +102,7 @@ class RoomDAO extends BaseDAO {
         }
     }
 
-    /**
-     * Find available rooms (has space)
-     */
+    // Tìm các phòng còn chỗ trống (ưu tiên lọc theo loại giới tính phòng)
     async findAvailableRooms(genderType = null) {
         let query = `SELECT * FROM ${this.tableName} WHERE current_occupancy < capacity AND status = 'Active'`;
         const values = [];
@@ -128,9 +116,7 @@ class RoomDAO extends BaseDAO {
         return this.executeQuery(query, values);
     }
 
-    /**
-     * Search and filter rooms
-     */
+    // Tìm kiếm và lọc danh sách phòng kèm theo thông tin sinh viên hiện tại
     async searchAndFilter(filters = {}) {
         let paramIndex = 1;
         const values = [];
@@ -148,7 +134,9 @@ class RoomDAO extends BaseDAO {
                             'snapshot_year', sc.snapshot_year,
                             'priority_reasons', rf.priority_reasons,
                             'volunteer_role', sc.volunteer_role,
-                            'contract_id', sc.id
+                            'contract_id', sc.id,
+                            'gender', sc.snapshot_gender,
+                            'faculty', sc.snapshot_faculty
                         )
                     ) FILTER (WHERE sc.id IS NOT NULL), '[]'::json
                 ) AS students
@@ -179,7 +167,7 @@ class RoomDAO extends BaseDAO {
             values.push(`%${filters.searchTerm}%`);
         }
 
-        // Occupancy filters
+        // Lọc theo trạng thái số người trong phòng
         if (filters.occupancyStatus === 'Full') {
             query += ` AND r.current_occupancy >= r.capacity`;
         } else if (filters.occupancyStatus === 'Available') {
@@ -192,9 +180,7 @@ class RoomDAO extends BaseDAO {
         return this.executeQuery(query, values);
     }
 
-    /**
-     * Get room with students
-     */
+    // Lấy thông tin phòng chi tiết kèm danh sách sinh viên đang ở
     async getRoomWithStudents(roomId) {
         const query = `
             SELECT 
@@ -220,29 +206,22 @@ class RoomDAO extends BaseDAO {
         return this.executeQuery(query, [roomId]);
     }
 
-    /**
-     * Increment occupancy
-     */
+    // Tăng số người thực tế trong phòng lên 1
     async incrementOccupancy(roomId) {
-        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy + 1 WHERE id = $1`;
-        const [result] = await this.executeQuery(query, [roomId]);
-        return result.affectedRows > 0;
+        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy + 1 WHERE id = $1 RETURNING *`;
+        const rows = await this.executeQuery(query, [roomId]);
+        return rows.length > 0;
     }
 
-    /**
-     * Decrement occupancy
-     */
+    // Giảm số người thực tế trong phòng xuống 1
     async decrementOccupancy(roomId) {
-        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy - 1 WHERE id = $1 AND current_occupancy > 0`;
-        const [result] = await this.executeQuery(query, [roomId]);
-        return result.affectedRows > 0;
+        const query = `UPDATE ${this.tableName} SET current_occupancy = current_occupancy - 1 WHERE id = $1 AND current_occupancy > 0 RETURNING *`;
+        const rows = await this.executeQuery(query, [roomId]);
+        return rows.length > 0;
     }
 
-    /**
-     * Get room statistics
-     */
+    // Thống kê tổng số phòng, số sinh viên, và tỷ lệ lấp đầy
     async getStatistics() {
-        // Trả về 1 row tổng hợp toàn bộ
         const query = `
             SELECT 
                 COUNT(*) as total_rooms,
@@ -263,9 +242,7 @@ class RoomDAO extends BaseDAO {
         return result[0] || {};
     }
 
-    /**
-     * Update meter readings
-     */
+    // Cập nhật chỉ số điện, nước mới cho phòng
     async updateMeterReadings(roomId, electricReading, waterReading) {
         return this.update(roomId, {
             electric_meter_reading: electricReading,
@@ -273,9 +250,7 @@ class RoomDAO extends BaseDAO {
         });
     }
 
-    /**
-     * Count total available (empty) slots across all active rooms
-     */
+    // Đếm tổng số giường còn trống của các phòng đang hoạt động
     async countAvailableRooms() {
         const query = `
             SELECT COALESCE(SUM(capacity - current_occupancy), 0) AS available_slots
@@ -286,9 +261,7 @@ class RoomDAO extends BaseDAO {
         return parseInt(result[0]?.available_slots || 0, 10);
     }
 
-    /**
-     * Count available slots grouped by building AND floor (for heatmap table)
-     */
+    // Thống kê số giường trống theo tòa và tầng (phục vụ biểu đồ heatmap)
     async countAvailableByBuilding() {
         const query = `
             SELECT

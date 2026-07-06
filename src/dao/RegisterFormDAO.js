@@ -5,60 +5,54 @@ class RegisterFormDAO extends BaseDAO {
         super('register_forms');
     }
 
-    /**
-     * Find by status
-     */
+    // Tìm kiếm đơn đăng ký theo trạng thái
     async findByStatus(status) {
         return this.findAll({ status }, ['created_at DESC']);
     }
 
-    /**
-     * Find by student ID
-     */
+    // Tìm kiếm đơn đăng ký theo mã sinh viên (student_id)
     async findByStudentId(studentId) {
         return this.findAll({ student_id: studentId });
     }
 
-    /**
-     * Search and filter registrations
-     */
+    // Tìm kiếm và lọc đơn đăng ký phòng
     async searchAndFilter(filters = {}) {
         let query = `SELECT * FROM ${this.tableName} WHERE 1=1`;
         const values = [];
+        let paramIndex = 1;
 
         if (filters.status) {
-            query += ` AND status = ?`;
+            query += ` AND status = $${paramIndex++}`;
             values.push(filters.status);
         }
 
         if (filters.gender) {
-            query += ` AND gender = ?`;
+            query += ` AND gender = $${paramIndex++}`;
             values.push(filters.gender);
         }
 
         if (filters.searchTerm) {
-            query += ` AND (student_name LIKE ? OR student_id LIKE ? OR email LIKE ?)`;
+            query += ` AND (student_name ILIKE $${paramIndex} OR student_id ILIKE $${paramIndex + 1} OR email ILIKE $${paramIndex + 2})`;
             values.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
+            paramIndex += 3;
         }
 
         if (filters.aiSuggestion) {
-            query += ` AND ai_suggestion = ?`;
+            query += ` AND ai_suggestion = $${paramIndex++}`;
             values.push(filters.aiSuggestion);
         }
 
         query += ` ORDER BY created_at DESC`;
 
         if (filters.limit) {
-            query += ` LIMIT ?`;
+            query += ` LIMIT $${paramIndex++}`;
             values.push(filters.limit);
         }
 
         return this.executeQuery(query, values);
     }
 
-    /**
-     * Update status and reviewer
-     */
+    // Cập nhật trạng thái duyệt đơn đăng ký kèm ghi chú và người duyệt
     async updateStatus(id, status, reviewedBy, note = null) {
         const data = {
             status,
@@ -69,9 +63,7 @@ class RegisterFormDAO extends BaseDAO {
         return this.update(id, data);
     }
 
-    /**
-     * Get statistics by status
-     */
+    // Thống kê số lượng đơn đăng ký theo trạng thái và gợi ý của AI
     async getStatistics() {
         const query = `
             SELECT 
@@ -86,9 +78,7 @@ class RegisterFormDAO extends BaseDAO {
         return this.executeQuery(query);
     }
 
-    /**
-     * Import from Excel data
-     */
+    // Thêm nhiều đơn đăng ký cùng lúc (phục vụ import CSV/Excel)
     async bulkCreate(dataArray) {
         try {
             const results = [];
@@ -102,9 +92,7 @@ class RegisterFormDAO extends BaseDAO {
         }
     }
 
-    /**
-     * Get scoring weights settings from settings table
-     */
+    // Lấy cài đặt trọng số chấm điểm AI từ bảng settings
     async getScoringWeightsSettings() {
         const query = `
             SELECT * FROM settings 
@@ -115,9 +103,7 @@ class RegisterFormDAO extends BaseDAO {
         return result[0] || null;
     }
 
-    /**
-     * Create scoring weights settings in settings table
-     */
+    // Khởi tạo trọng số chấm điểm AI mới vào bảng settings
     async createScoringWeightsSettings(settingData) {
         const query = `
             INSERT INTO settings (id, category, name, value, description, is_active, updated_at)
@@ -135,9 +121,7 @@ class RegisterFormDAO extends BaseDAO {
         return result[0];
     }
 
-    /**
-     * Update scoring weights settings in settings table
-     */
+    // Cập nhật trọng số chấm điểm AI
     async updateScoringWeightsSettings(value, updatedBy = null) {
         const query = `
             UPDATE settings 
@@ -149,9 +133,7 @@ class RegisterFormDAO extends BaseDAO {
         return result[0];
     }
 
-    /**
-     * Count registrations created in a specific year (for demand forecast)
-     */
+    // Đếm số lượng đơn đăng ký được tạo trong năm được chọn
     async countByYear(year) {
         const query = `
             SELECT COUNT(*) AS count
@@ -162,9 +144,7 @@ class RegisterFormDAO extends BaseDAO {
         return parseInt(result[0]?.count || 0, 10);
     }
 
-    /**
-     * Count registrations by target group (năm 1, năm 2-4, chính sách) for a given year
-     */
+    // Thống kê đơn đăng ký theo nhóm đối tượng (tân sinh viên, sinh viên cũ, diện chính sách)
     async countByTargetGroup(year) {
         const query = `
             SELECT

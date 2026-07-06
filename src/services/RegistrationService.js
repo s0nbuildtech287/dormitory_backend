@@ -42,7 +42,7 @@ class RegistrationService {
    */
 
   /**
-   * Fetch scoring weights from settings with default values
+   * Lấy cấu hình các trọng số điểm ưu tiên kèm giá trị mặc định
    */
   async getScoringWeights() {
     try {
@@ -73,7 +73,7 @@ class RegistrationService {
   }
 
   /**
-   * Fetch score mappings from settings
+   * Lấy bảng điểm quy đổi từ cấu hình
    */
   async getScoreMappings() {
     try {
@@ -95,16 +95,16 @@ class RegistrationService {
         non_priority: 0,
       },
       priority_detailed: {
-        ho_ngheo: 40,
-        can_ngheo: 35,
-        khuyet_tat: 30,
-        liet_sy: 50,
-        thuong_binh: 45,
-        luu_hoc_sinh: 40,
-        vung_sau_xa: 20,
-        hai_dao: 25,
-        hoan_canh_kho_khan: 30,
-        giay_xac_nhan: 15,
+        ho_ngheo: 80,
+        can_ngheo: 80,
+        khuyet_tat: 60,
+        liet_sy: 100,
+        thuong_binh: 100,
+        luu_hoc_sinh: 80,
+        vung_sau_xa: 40,
+        hai_dao: 40,
+        hoan_canh_kho_khan: 60,
+        giay_xac_nhan: 20,
       },
       year: {
         year1: 100,
@@ -120,24 +120,24 @@ class RegistrationService {
   }
 
   /**
-   * Calculate Priority Score based on priority_reasons (CUMULATIVE SCORING)
-   * @param {string} priorityReasons - Priority reason string
-   * @param {object} scoreMappings - Score mappings from settings
-   * @returns {number} Priority score (0-150, capped at 100 in final calculation)
+   * Tính toán điểm ưu tiên cộng dồn dựa trên các lý do/diện ưu tiên
+   * @param {string} priorityReasons - Chuỗi lý do ưu tiên
+   * @param {object} scoreMappings - Bảng điểm quy đổi
+   * @returns {number} Điểm ưu tiên (tối đa 100 điểm)
    */
   calculatePriorityScore(priorityReasons, scoreMappings = null) {
     // Use detailed mappings or defaults
     const detailedMappings = scoreMappings?.priority_detailed || {
-      ho_ngheo: 40,
-      can_ngheo: 35,
-      khuyet_tat: 30,
-      liet_sy: 50,
-      thuong_binh: 45,
-      luu_hoc_sinh: 40,
-      vung_sau_xa: 20,
-      hai_dao: 25,
-      hoan_canh_kho_khan: 30,
-      giay_xac_nhan: 15,
+      ho_ngheo: 80,
+      can_ngheo: 80,
+      khuyet_tat: 60,
+      liet_sy: 100,
+      thuong_binh: 100,
+      luu_hoc_sinh: 80,
+      vung_sau_xa: 40,
+      hai_dao: 40,
+      hoan_canh_kho_khan: 60,
+      giay_xac_nhan: 20,
     };
 
     if (!priorityReasons || priorityReasons.trim() === "") {
@@ -204,10 +204,10 @@ class RegistrationService {
   }
 
   /**
-   * Calculate Year Score based on student year
-   * @param {number} year - Student year (1-4)
-   * @param {object} scoreMappings - Score mappings from settings
-   * @returns {number} Year score (0-100)
+   * Tính toán điểm năm học
+   * @param {number} year - Năm học (1-4)
+   * @param {object} scoreMappings - Bảng điểm quy đổi
+   * @returns {number} Điểm năm học (0-100)
    */
   calculateYearScore(year, scoreMappings = null) {
     // Use defaults if no mappings provided
@@ -233,12 +233,12 @@ class RegistrationService {
   }
 
   /**
-   * Calculate GPA Score
-   * Formula: GPA × conversion_factor (default 25 for 4.0 system)
-   * Special case: Year 1 students with GPA = 0 get score = 50 (haven't taken courses yet)
-   * @param {number} gpa - Student GPA
-   * @param {number} year - Student year (1-4)
-   * @param {object} scoreMappings - Score mappings from settings
+   * Tính toán điểm tích lũy GPA
+   * Công thức: GPA × hệ số quy đổi (mặc định 25 cho hệ 4.0)
+   * Trường hợp đặc biệt: Sinh viên năm 1 chưa có điểm GPA sẽ được mặc định 50 điểm
+   * @param {number} gpa - Điểm GPA tích lũy
+   * @param {number} year - Năm học (1-4)
+   * @param {object} scoreMappings - Bảng điểm quy đổi
    * @returns {object} { score: number, isFiltered: boolean }
    */
   calculateGPAScore(gpa, year = null, scoreMappings = null) {
@@ -284,10 +284,10 @@ class RegistrationService {
   }
 
   /**
-   * Determine basket for registration (3-basket system)
-   * @param {string} priorityReasons - Priority reasons
-   * @param {number} year - Student year
-   * @returns {number} Basket number (1, 2, or 3)
+   * Phân nhóm hồ sơ xét tuyển (Hệ thống 3 nhóm - 3 Baskets)
+   * @param {string} priorityReasons - Các lý do ưu tiên
+   * @param {number} year - Năm học
+   * @returns {number} Nhóm hồ sơ (1, 2, hoặc 3)
    */
   determineBasket(priorityReasons, year) {
     // Nhóm 1: Chính sách - chỉ khi priority_reasons chứa keyword ưu tiên thực sự
@@ -325,13 +325,13 @@ class RegistrationService {
   }
 
   /**
-   * Get basket-specific scoring weights
-   * Each basket has different priorities:
-   * - Nhóm 1 (Chính sách): Priority > Year > GPA
-   * - Nhóm 2 (Tân SV): Year > Priority, GPA ít quan trọng
-   * - Nhóm 3 (Khóa cũ): GPA > Year > Priority
-   * @param {number} basket - Basket number (1, 2, or 3)
-   * @returns {object} Weights { w1_priority, w2_year, w3_gpa }
+   * Lấy cấu hình các trọng số đặc thù cho từng nhóm hồ sơ
+   * Mỗi nhóm có sự ưu tiên khác nhau:
+   * - Nhóm 1 (Chính sách): Ưu tiên gia cảnh > Năm học > GPA
+   * - Nhóm 2 (Tân SV): Năm học > Ưu tiên gia cảnh > GPA
+   * - Nhóm 3 (Khóa cũ): GPA > Năm học > Ưu tiên gia cảnh
+   * @param {number} basket - Số hiệu nhóm hồ sơ (1, 2, hoặc 3)
+   * @returns {object} Trọng số { w1_priority, w2_year, w3_gpa }
    */
   async getBasketWeights(basket) {
     try {
@@ -366,10 +366,10 @@ class RegistrationService {
   }
 
   /**
-   * Calculate final AI Score (0-100 scale)
-   * Formula uses basket-specific weights
+   * Tính toán điểm AI xét tuyển cuối cùng (thang điểm 100)
+   * Sử dụng các trọng số tương ứng của từng nhóm
    * @param {object} params - { priorityScore, yearScore, gpaScore, basket, weights }
-   * @returns {number} Final AI score (0-100)
+   * @returns {number} Điểm AI tổng hợp (0-100)
    */
   calculateFinalAIScore(params) {
     const { priorityScore, yearScore, gpaScore, weights } = params;
@@ -381,11 +381,11 @@ class RegistrationService {
   }
 
   /**
-   * Determine AI Suggestion based on score and basket
-   * Different baskets have different thresholds
-   * @param {number} score - AI score (0-100)
-   * @param {number} basket - Basket number (1, 2, or 3)
-   * @returns {string} AI suggestion
+   * Đưa ra đề xuất AI (AI Suggestion) dựa trên điểm số và nhóm hồ sơ
+   * Mỗi nhóm có ngưỡng điểm sàn đề xuất khác nhau
+   * @param {number} score - Điểm xét tuyển AI (0-100)
+   * @param {number} basket - Nhóm hồ sơ (1, 2, hoặc 3)
+   * @returns {string} Đề xuất xét duyệt của AI
    */
   determineAISuggestion(score, basket) {
     // Nhóm 1 (Chính sách): Nới lỏng tiêu chuẩn vì ưu tiên hoàn cảnh
@@ -408,9 +408,9 @@ class RegistrationService {
     }
   }
   /**
-   * Get all registrations with filters
-   * Results are sorted by: Basket (1 → 2 → 3) then AI Score within each basket
-   * Also marks registrations as "full" if they exceed available slots
+   * Lấy danh sách toàn bộ hồ sơ đăng ký kèm bộ lọc
+   * Kết quả sắp xếp theo: Nhóm (1 → 2 → 3) rồi đến Điểm AI xét tuyển từ cao xuống thấp
+   * Đánh dấu hồ sơ vượt quá chỉ tiêu là "isFull = true"
    */
   async getRegistrations(filters = {}) {
     try {
@@ -532,20 +532,20 @@ class RegistrationService {
   }
 
   /**
-   * Create new registration with complete validation and AI scoring
+   * Tạo mới một hồ sơ đăng ký (xác thực dữ liệu và chấm điểm AI tự động)
    *
-   * Flow:
-   * 1. Validate input data
-   * 2. Check for duplicate student_id
-   * 3. Calculate AI scores
-   * 4. Determine basket and AI suggestion
-   * 5. Create AI reasoning object
-   * 6. Save to database
-   * 7. Log action
+   * Quy trình:
+   * 1. Kiểm tra tính hợp lệ của dữ liệu đầu vào
+   * 2. Kiểm tra trùng lặp mã sinh viên (student_id)
+   * 3. Tính toán các điểm số thành phần
+   * 4. Phân nhóm hồ sơ và đưa ra gợi ý AI
+   * 5. Tạo đối tượng giải trình lý do chấm điểm AI
+   * 6. Lưu vào cơ sở dữ liệu
+   * 7. Ghi nhật ký hoạt động hệ thống
    *
-   * @param {object} data - Registration data from admin form
-   * @param {object} req - Express request object
-   * @returns {object} Created registration with AI scores and suggestion
+   * @param {object} data - Dữ liệu hồ sơ
+   * @param {object} req - Đối tượng request Express
+   * @returns {object} Hồ sơ được tạo kèm điểm số và gợi ý AI
    */
   async createRegistration(data, req = null) {
     try {
@@ -750,7 +750,7 @@ class RegistrationService {
   }
 
   /**
-   * Approve registration
+   * Phê duyệt hồ sơ đăng ký phòng
    */
   async approveRegistration(id, adminId, note = null, req = null) {
     try {
@@ -761,6 +761,43 @@ class RegistrationService {
 
       if (oldData.status !== "Chờ duyệt") {
         throw new Error("Chỉ duyệt được hồ sơ ở trạng thái Chờ duyệt");
+      }
+
+      // Kiểm tra chỗ trống khả dụng thực tế của KTX trước khi duyệt
+      const RoomDAO = require("../dao/RoomDAO");
+      const availableNow = await RoomDAO.countAvailableRooms();
+      
+      const pendingContractsCountRes = await StudentContractDAO.executeQuery(
+        "SELECT COUNT(*) AS count FROM student_contracts WHERE status = 'Pending'"
+      );
+      const pendingCount = parseInt(pendingContractsCountRes[0]?.count || 0, 10);
+      
+      const realAvailableSlots = availableNow - pendingCount;
+      if (realAvailableSlots <= 0) {
+        throw new Error("Không thể duyệt thêm hồ sơ. Ký túc xá đã hết chỗ trống khả dụng (đã đầy hoặc toàn bộ chỗ trống còn lại đã được đặt trước bởi các hồ sơ chờ gán phòng).");
+      }
+
+      // Kiểm tra chỉ tiêu giới tính nếu được cấu hình
+      const setting = await RegisterFormDAO.getScoringWeightsSettings();
+      const genderQuotas = setting?.value?.quotas?.genderQuotas || { male: 0, female: 0 };
+      const studentGender = oldData.gender; // "Nam" hoặc "Nữ"
+
+      if (studentGender === "Nam" && genderQuotas.male > 0) {
+        const activeMaleContractsRes = await StudentContractDAO.executeQuery(
+          "SELECT COUNT(*) AS count FROM student_contracts WHERE snapshot_gender = 'Nam' AND status IN ('Active', 'Pending')"
+        );
+        const currentMaleCount = parseInt(activeMaleContractsRes[0]?.count || 0, 10);
+        if (currentMaleCount >= genderQuotas.male) {
+          throw new Error(`Không thể duyệt. Đã đạt giới hạn chỉ tiêu tối đa cho sinh viên Nam (${genderQuotas.male} chỉ tiêu)!`);
+        }
+      } else if (studentGender === "Nữ" && genderQuotas.female > 0) {
+        const activeFemaleContractsRes = await StudentContractDAO.executeQuery(
+          "SELECT COUNT(*) AS count FROM student_contracts WHERE snapshot_gender = 'Nữ' AND status IN ('Active', 'Pending')"
+        );
+        const currentFemaleCount = parseInt(activeFemaleContractsRes[0]?.count || 0, 10);
+        if (currentFemaleCount >= genderQuotas.female) {
+          throw new Error(`Không thể duyệt. Đã đạt giới hạn chỉ tiêu tối đa cho sinh viên Nữ (${genderQuotas.female} chỉ tiêu)!`);
+        }
       }
 
       await RegisterFormDAO.updateStatus(id, "Chấp nhận", adminId, note);
@@ -841,7 +878,7 @@ class RegistrationService {
   }
 
   /**
-   * Reject registration
+   * Từ chối hồ sơ đăng ký phòng
    */
   async rejectRegistration(id, adminId, note, req = null) {
     try {
@@ -862,11 +899,11 @@ class RegistrationService {
   }
 
   /**
-   * Delete registration
-   * @param {string} id - Registration ID
-   * @param {string} adminId - Admin ID performing the action
-   * @param {object} req - Request object for logging
-   * @returns {object} Deleted registration data
+   * Xóa hồ sơ đăng ký phòng
+   * @param {string} id - ID hồ sơ
+   * @param {string} adminId - ID người thực hiện
+   * @param {object} req - Đối tượng request Express để ghi nhật ký
+   * @returns {object} Dữ liệu hồ sơ bị xóa
    */
   async deleteRegistration(id, adminId, req = null) {
     try {
@@ -1440,6 +1477,7 @@ class RegistrationService {
               freshmen: 60,
               seniors: 40,
               waterfall_enabled: true,
+              genderQuotas: { male: 0, female: 0 },
             },
             weights: {
               basket1: {
@@ -1666,6 +1704,14 @@ class RegistrationService {
       `);
       const totalCapacity = parseInt(totalCapacityRes[0]?.total_capacity || 0, 10);
       
+      // Số hợp đồng Pending (chờ gán phòng)
+      const pendingContractsRes = await StudentContractDAO.executeQuery(`
+        SELECT COUNT(*) AS count 
+        FROM student_contracts 
+        WHERE status = 'Pending'
+      `);
+      const pendingContractsCount = parseInt(pendingContractsRes[0]?.count || 0, 10);
+
       return {
         available_now: availableNow,
         available_soon: availableSoon,
@@ -1673,7 +1719,8 @@ class RegistrationService {
         rooms_affected: roomIdsSoon.length,
         by_building: byBuilding,
         forecast_days: days,
-        total_capacity: totalCapacity
+        total_capacity: totalCapacity,
+        pending_contracts_count: pendingContractsCount
       };
     } catch (error) {
       throw new Error(`Get room forecast failed: ${error.message}`);
@@ -1778,6 +1825,8 @@ class RegistrationService {
       let totalSlots = 1000;
       let quotas = { freshmen: 60, seniors: 40 };
       let facultyQuotas = {};
+      let genderQuotas = { male: 0, female: 0 };
+      let facultySelectionRate = 0;
 
       if (setting?.value?.quotas) {
         if (setting.value.quotas.totalSlots) totalSlots = setting.value.quotas.totalSlots;
@@ -1785,6 +1834,12 @@ class RegistrationService {
         if (setting.value.quotas.seniors !== undefined) quotas.seniors = setting.value.quotas.seniors;
         if (setting.value.quotas.facultyQuotas) {
           facultyQuotas = { ...setting.value.quotas.facultyQuotas };
+        }
+        if (setting.value.quotas.genderQuotas) {
+          genderQuotas = { ...setting.value.quotas.genderQuotas };
+        }
+        if (setting.value.quotas.facultySelectionRate !== undefined) {
+          facultySelectionRate = parseFloat(setting.value.quotas.facultySelectionRate) || 0;
         }
       }
 
@@ -1795,6 +1850,12 @@ class RegistrationService {
         if (tempQuotas.seniors !== undefined) quotas.seniors = parseFloat(tempQuotas.seniors) || 40;
         if (tempQuotas.facultyQuotas) {
           facultyQuotas = { ...tempQuotas.facultyQuotas };
+        }
+        if (tempQuotas.genderQuotas) {
+          genderQuotas = { ...tempQuotas.genderQuotas };
+        }
+        if (tempQuotas.facultySelectionRate !== undefined) {
+          facultySelectionRate = parseFloat(tempQuotas.facultySelectionRate) || 0;
         }
       }
 
@@ -1807,7 +1868,9 @@ class RegistrationService {
             freshmen: quotas.freshmen,
             seniors: quotas.seniors,
             waterfall_enabled: true,
-            facultyQuotas
+            facultyQuotas,
+            genderQuotas,
+            facultySelectionRate
           };
           const newConfig = {
             quotas: updatedQuotas,
@@ -1821,27 +1884,55 @@ class RegistrationService {
         }
       }
 
+      // Lấy danh sách hợp đồng ở trạng thái 'Pending' (đã được duyệt trong đợt này nhưng chưa gán phòng)
+      const alreadyApproved = await RegisterFormDAO.executeQuery(
+        "SELECT snapshot_faculty AS faculty, snapshot_year AS year, snapshot_gender AS gender FROM student_contracts WHERE status = 'Pending'"
+      );
+
+      let approvedFreshmen = 0;
+      let approvedSeniors = 0;
+      let approvedMale = 0;
+      let approvedFemale = 0;
+      const approvedFacultyCounts = {};
+
+      for (const reg of alreadyApproved) {
+        const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+        if (quotaKey === "freshmen") approvedFreshmen++;
+        else approvedSeniors++;
+
+        if (reg.gender === "Nam") approvedMale++;
+        else if (reg.gender === "Nữ") approvedFemale++;
+
+        const studentFaculty = reg.faculty || "Không xác định";
+        if (!approvedFacultyCounts[studentFaculty]) {
+          approvedFacultyCounts[studentFaculty] = { freshmen: 0, seniors: 0, total: 0 };
+        }
+        approvedFacultyCounts[studentFaculty][quotaKey]++;
+        approvedFacultyCounts[studentFaculty].total++;
+      }
+
       const slotsPerBasket = {
         freshmen: Math.round((quotas.freshmen / 100) * totalSlots),
         seniors: Math.round((quotas.seniors / 100) * totalSlots),
       };
 
       const remainingSlots = {
-        freshmen: slotsPerBasket.freshmen,
-        seniors: slotsPerBasket.seniors,
+        freshmen: Math.max(0, slotsPerBasket.freshmen - approvedFreshmen),
+        seniors: Math.max(0, slotsPerBasket.seniors - approvedSeniors),
       };
 
       const remainingFacultySlots = {};
       const facultyQuotaEnabled = Object.keys(facultyQuotas).length > 0;
       if (facultyQuotaEnabled) {
         for (const [fac, cap] of Object.entries(facultyQuotas)) {
+          const approvedFac = approvedFacultyCounts[fac] || { freshmen: 0, seniors: 0, total: 0 };
           if (cap && typeof cap === 'object' && !Array.isArray(cap)) {
             remainingFacultySlots[fac] = {
-              freshmen: parseInt(cap.freshmen, 10) || 0,
-              seniors: parseInt(cap.seniors, 10) || 0
+              freshmen: Math.max(0, (parseInt(cap.freshmen, 10) || 0) - approvedFac.freshmen),
+              seniors: Math.max(0, (parseInt(cap.seniors, 10) || 0) - approvedFac.seniors)
             };
           } else {
-            remainingFacultySlots[fac] = parseInt(cap, 10) || 0;
+            remainingFacultySlots[fac] = Math.max(0, (parseInt(cap, 10) || 0) - approvedFac.total);
           }
         }
       }
@@ -1851,10 +1942,44 @@ class RegistrationService {
         const aBasket = this.determineBasket(a.priority_reasons, a.year);
         const bBasket = this.determineBasket(b.priority_reasons, b.year);
         if (aBasket !== bBasket) return aBasket - bBasket;
-        return (b.ai_score || 0) - (a.ai_score || 0);
+        const aScore = a.ai_score || 0;
+        const bScore = b.ai_score || 0;
+        if (aScore !== bScore) return bScore - aScore;
+        // Tiêu chí phụ: nộp trước được ưu tiên hơn khi điểm bằng nhau
+        return new Date(a.created_at) - new Date(b.created_at);
       });
 
-      let totalRemainingSlots = totalSlots;
+      const RoomDAO = require("../dao/RoomDAO");
+      const availableNow = await RoomDAO.countAvailableRooms();
+
+      // Chỉ tiêu còn lại thực tế là giá trị nhỏ nhất giữa cấu hình chỉ tiêu đợt tuyển và chỗ trống thực tế trong KTX
+      let totalRemainingSlots = Math.min(totalSlots - alreadyApproved.length, availableNow - alreadyApproved.length);
+      totalRemainingSlots = Math.max(0, totalRemainingSlots);
+
+      // Tính hạn mức động theo tỷ lệ tuyển sinh mỗi khoa (nếu được cấu hình)
+      const pendingCountByFaculty = {};
+      registrations.forEach(r => {
+        const fac = r.faculty || "Không xác định";
+        pendingCountByFaculty[fac] = (pendingCountByFaculty[fac] || 0) + 1;
+      });
+
+      const dynamicFacultyLimits = {};
+      if (facultySelectionRate > 0) {
+        for (const [fac, count] of Object.entries(pendingCountByFaculty)) {
+          dynamicFacultyLimits[fac] = Math.max(1, Math.round(count * (facultySelectionRate / 100)));
+        }
+        console.log(`📊 Tỷ lệ tuyển sinh theo khoa: ${facultySelectionRate}% → Hạn mức:`, dynamicFacultyLimits);
+      }
+
+      // Bộ đếm số hồ sơ đã duyệt của từng khoa trong lượt chạy này
+      const approvedFacultyCountThisRun = {};
+
+      // Khởi tạo các bộ đếm và hạn mức còn lại cho giới tính Nam/Nữ
+      const remainingGenderSlots = {
+        male: genderQuotas.male > 0 ? Math.max(0, genderQuotas.male - approvedMale) : 999999,
+        female: genderQuotas.female > 0 ? Math.max(0, genderQuotas.female - approvedFemale) : 999999,
+      };
+
       const approved = [];
       const skipped = [];
       const overflowCandidates = [];
@@ -1864,17 +1989,22 @@ class RegistrationService {
       for (const reg of registrations) {
         const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
         const studentFaculty = reg.faculty || "Không xác định";
+        const studentGender = reg.gender === "Nam" ? "male" : "female";
         
         if (totalRemainingSlots <= 0) {
+          const reason = "Hết chỉ tiêu toàn KTX";
           skipped.push({
             id: reg.id,
             student_name: reg.student_name,
             student_id: reg.student_id,
             faculty: studentFaculty,
-            reason: "Hết chỉ tiêu toàn KTX",
+            reason: reason,
             year: reg.year,
             basket: this.determineBasket(reg.priority_reasons, reg.year)
           });
+          if (!simulate) {
+            await RegisterFormDAO.update(reg.id, { note: reason });
+          }
           skippedQuota++;
           continue;
         }
@@ -1895,13 +2025,33 @@ class RegistrationService {
           }
         }
 
-        if (isGroupQuotaExceeded || isFacultyQuotaExceeded) {
+        // Kiểm tra giới hạn tỷ lệ tuyển sinh động theo khoa
+        let isDynamicFacultyLimitExceeded = false;
+        if (facultySelectionRate > 0 && dynamicFacultyLimits[studentFaculty] !== undefined) {
+          const runCount = approvedFacultyCountThisRun[studentFaculty] || 0;
+          if (runCount >= dynamicFacultyLimits[studentFaculty]) {
+            isDynamicFacultyLimitExceeded = true;
+          }
+        }
+
+        // Kiểm tra chỉ tiêu giới tính
+        let isGenderQuotaExceeded = false;
+        if ((studentGender === "male" && genderQuotas.male > 0 && remainingGenderSlots.male <= 0) ||
+            (studentGender === "female" && genderQuotas.female > 0 && remainingGenderSlots.female <= 0)) {
+          isGenderQuotaExceeded = true;
+        }
+
+        if (isGroupQuotaExceeded || isFacultyQuotaExceeded || isDynamicFacultyLimitExceeded || isGenderQuotaExceeded) {
           if (allowOverflow) {
             overflowCandidates.push(reg);
           } else {
-            const reason = isGroupQuotaExceeded 
-              ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
-              : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facLimit === 'object' ? facLimit[quotaKey] : facLimit} chỗ)`;
+            const reason = isGenderQuotaExceeded
+              ? `Hết chỉ tiêu giới tính ${reg.gender === "Nam" ? "Nam" : "Nữ"}`
+              : isDynamicFacultyLimitExceeded
+                ? `Vượt quá tỷ lệ tuyển sinh của khoa ${studentFaculty} (${facultySelectionRate}% = ${dynamicFacultyLimits[studentFaculty]} chỗ)`
+                : isGroupQuotaExceeded 
+                  ? `Hết chỉ tiêu nhóm đối tượng (${quotaKey === "freshmen" ? "Tân sinh viên" : "Sinh viên khóa cũ"})`
+                  : `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facLimit === 'object' ? facLimit[quotaKey] : facLimit} chỗ)`;
             skipped.push({
               id: reg.id,
               student_name: reg.student_name,
@@ -1911,6 +2061,9 @@ class RegistrationService {
               year: reg.year,
               basket: this.determineBasket(reg.priority_reasons, reg.year)
             });
+            if (!simulate) {
+              await RegisterFormDAO.update(reg.id, { note: reason });
+            }
             skippedQuota++;
           }
           continue;
@@ -1921,6 +2074,9 @@ class RegistrationService {
         }
         processed++;
         remainingSlots[quotaKey]--;
+        if (studentGender === "male" && genderQuotas.male > 0) remainingGenderSlots.male--;
+        else if (studentGender === "female" && genderQuotas.female > 0) remainingGenderSlots.female--;
+        
         totalRemainingSlots--;
         if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
           if (typeof remainingFacultySlots[studentFaculty] === 'object') {
@@ -1929,6 +2085,8 @@ class RegistrationService {
             remainingFacultySlots[studentFaculty]--;
           }
         }
+        // Cập nhật bộ đếm tỷ lệ khoa
+        approvedFacultyCountThisRun[studentFaculty] = (approvedFacultyCountThisRun[studentFaculty] || 0) + 1;
 
         approved.push({
           id: reg.id,
@@ -1936,7 +2094,7 @@ class RegistrationService {
           student_id: reg.student_id,
           faculty: studentFaculty,
           status: simulate ? "Simulated-Approved" : "Pending",
-          source: "Phase 1: Đúng chỉ tiêu nhóm & khoa",
+          source: facultySelectionRate > 0 ? `Phase 1: Đúng chỉ tiêu nhóm & khoa (Tỷ lệ ${facultySelectionRate}%)` : "Phase 1: Đúng chỉ tiêu nhóm & khoa",
           year: reg.year,
           basket: this.determineBasket(reg.priority_reasons, reg.year)
         });
@@ -1947,17 +2105,47 @@ class RegistrationService {
         for (const reg of overflowCandidates) {
           const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
           const studentFaculty = reg.faculty || "Không xác định";
+          const studentGender = reg.gender === "Nam" ? "male" : "female";
 
           if (totalRemainingSlots <= 0) {
+            const reason = "Hết chỗ trống KTX (khi dồn chỉ tiêu)";
             skipped.push({
               id: reg.id,
               student_name: reg.student_name,
               student_id: reg.student_id,
               faculty: studentFaculty,
-              reason: "Hết chỗ trống KTX (khi dồn chỉ tiêu)",
+              reason: reason,
               year: reg.year,
               basket: this.determineBasket(reg.priority_reasons, reg.year)
             });
+            if (!simulate) {
+              await RegisterFormDAO.update(reg.id, { note: reason });
+            }
+            skippedQuota++;
+            continue;
+          }
+
+          // Kể cả dồn chỉ tiêu vẫn phải tôn trọng giới hạn giới tính Nam/Nữ
+          let isGenderQuotaExceeded = false;
+          if ((studentGender === "male" && genderQuotas.male > 0 && remainingGenderSlots.male <= 0) ||
+              (studentGender === "female" && genderQuotas.female > 0 && remainingGenderSlots.female <= 0)) {
+            isGenderQuotaExceeded = true;
+          }
+
+          if (isGenderQuotaExceeded) {
+            const reason = `Hết chỉ tiêu giới tính ${reg.gender === "Nam" ? "Nam" : "Nữ"} (khi dồn chỉ tiêu)`;
+            skipped.push({
+              id: reg.id,
+              student_name: reg.student_name,
+              student_id: reg.student_id,
+              faculty: studentFaculty,
+              reason: reason,
+              year: reg.year,
+              basket: this.determineBasket(reg.priority_reasons, reg.year)
+            });
+            if (!simulate) {
+              await RegisterFormDAO.update(reg.id, { note: reason });
+            }
             skippedQuota++;
             continue;
           }
@@ -1968,6 +2156,9 @@ class RegistrationService {
 
           processed++;
           remainingSlots[quotaKey]--;
+          if (studentGender === "male" && genderQuotas.male > 0) remainingGenderSlots.male--;
+          else if (studentGender === "female" && genderQuotas.female > 0) remainingGenderSlots.female--;
+          
           totalRemainingSlots--;
           if (facultyQuotaEnabled && remainingFacultySlots[studentFaculty] !== undefined) {
             if (typeof remainingFacultySlots[studentFaculty] === 'object') {
@@ -1994,15 +2185,19 @@ class RegistrationService {
         for (const reg of overflowCandidates) {
           const studentFaculty = reg.faculty || "Không xác định";
           const quotaKey = reg.year === 1 ? "freshmen" : "seniors";
+          const reason = `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facultyQuotas[studentFaculty] === 'object' ? facultyQuotas[studentFaculty][quotaKey] : facultyQuotas[studentFaculty]} chỗ)`;
           skipped.push({
             id: reg.id,
             student_name: reg.student_name,
             student_id: reg.student_id,
             faculty: studentFaculty,
-            reason: `Vượt quá chỉ tiêu khoa ${studentFaculty} (${typeof facultyQuotas[studentFaculty] === 'object' ? facultyQuotas[studentFaculty][quotaKey] : facultyQuotas[studentFaculty]} chỗ)`,
+            reason: reason,
             year: reg.year,
             basket: this.determineBasket(reg.priority_reasons, reg.year)
           });
+          if (!simulate) {
+            await RegisterFormDAO.update(reg.id, { note: reason });
+          }
           skippedQuota++;
         }
       }
@@ -2073,7 +2268,9 @@ class RegistrationService {
         isSimulation,
         allowOverflow,
         overflowDetails,
-        overflowAllocations
+        overflowAllocations,
+        facultySelectionRate,
+        dynamicFacultyLimits: Object.keys(dynamicFacultyLimits).length > 0 ? dynamicFacultyLimits : null
       };
     } catch (error) {
       throw new Error(`Bulk approve registrations failed: ${error.message}`);

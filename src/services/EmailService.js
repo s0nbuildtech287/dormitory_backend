@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-const LOGO_URL = `http://localhost:${process.env.PORT || 1234}/uploads/logo/logo.png`;
+const LOGO_URL = `${process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 1234}`}/uploads/logo/logo.png`;
 
 class EmailService {
     async sendOtp(toEmail, otpCode) {

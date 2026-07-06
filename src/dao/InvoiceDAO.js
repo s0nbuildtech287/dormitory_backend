@@ -5,23 +5,17 @@ class InvoiceDAO extends BaseDAO {
         super('invoices');
     }
 
-    /**
-     * Find invoices by room ID
-     */
+    // Tìm kiếm hóa đơn theo ID phòng
     async findByRoomId(roomId) {
         return this.findAll({ room_id: roomId }, ['billing_month DESC']);
     }
 
-    /**
-     * Find invoices by status
-     */
+    // Tìm kiếm hóa đơn theo trạng thái thanh toán
     async findByStatus(status) {
         return this.findAll({ status }, ['due_date ASC']);
     }
 
-    /**
-     * Search and filter invoices
-     */
+    // Tìm kiếm và lọc hóa đơn kèm thông tin phòng và danh sách sinh viên
     async searchAndFilter(filters = {}) {
         let query = `
             SELECT 
@@ -70,7 +64,7 @@ class InvoiceDAO extends BaseDAO {
             paramIndex += 2;
         }
 
-        // Sort: nếu lọc theo phòng thì sắp tăng dần theo tháng (cho chart), ngược lại mới nhất trước
+        // Sắp xếp: Tăng dần theo tháng nếu lọc theo phòng (cho biểu đồ), ngược lại hiển thị hóa đơn mới nhất trước
         query += filters.roomId
             ? ` ORDER BY i.billing_month ASC`
             : ` ORDER BY i.created_at DESC`;
@@ -83,23 +77,21 @@ class InvoiceDAO extends BaseDAO {
         return this.executeQuery(query, values);
     }
 
-    /**
-     * Calculate and create invoice
-     */
+    // Tính toán chi phí điện, nước và dịch vụ để tạo hóa đơn mới
     async createInvoice(invoiceData) {
-        // Calculate costs
+        // Tính lượng tiêu thụ và chi phí điện nước
         const electricUsage = invoiceData.electric_end - invoiceData.electric_start;
         const waterUsage = invoiceData.water_end - invoiceData.water_start;
 
         const electricAmount = electricUsage * invoiceData.electric_rate;
         const waterAmount = waterUsage * invoiceData.water_rate;
 
-        // Service fees
+        // Tính tổng phí dịch vụ cố định
         const serviceFees = (invoiceData.garbage_fee || 0) +
             (invoiceData.internet_fee || 0) +
             (invoiceData.parking_fee || 0);
 
-        // Total
+        // Tính tổng tiền hóa đơn cuối cùng
         const totalAmount = invoiceData.rent_amount +
             electricAmount +
             waterAmount +
@@ -118,9 +110,7 @@ class InvoiceDAO extends BaseDAO {
         return this.create(invoice);
     }
 
-    /**
-     * Mark invoice as paid
-     */
+    // Cập nhật trạng thái hóa đơn thành Đã thanh toán
     async markAsPaid(invoiceId, paymentMethod = 'Tiền mặt') {
         return this.update(invoiceId, {
             status: 'Đã thanh toán',
@@ -129,10 +119,7 @@ class InvoiceDAO extends BaseDAO {
         });
     }
 
-    /**
-     * Update overdue invoices
-     * Only updates invoices where due_date is strictly before today
-     */
+    // Quét và tự động chuyển các hóa đơn quá hạn thanh toán sang trạng thái Quá hạn
     async updateOverdueInvoices() {
         const query = `
             UPDATE ${this.tableName} 
@@ -146,7 +133,7 @@ class InvoiceDAO extends BaseDAO {
         `;
         const result = await this.executeQuery(query);
         
-        // Get total overdue count for logging
+        // Đếm tổng số hóa đơn đang bị quá hạn hiện tại để log
         const countQuery = `
             SELECT COUNT(*) as total
             FROM ${this.tableName}
@@ -155,7 +142,6 @@ class InvoiceDAO extends BaseDAO {
         const countResult = await this.executeQuery(countQuery);
         const totalOverdue = parseInt(countResult[0]?.total || 0);
         
-        // Log updated invoices
         if (result.length > 0) {
             console.log(`[InvoiceDAO] ✅ Đã chuyển ${result.length} hoá đơn sang trạng thái quá hạn`);
             result.forEach(inv => {
@@ -168,17 +154,12 @@ class InvoiceDAO extends BaseDAO {
         return result.length || 0;
     }
 
-    /**
-     * Get invoice statistics
-     * - For current month: includes overdue from previous months
-     * - For historical months: only data from that specific month
-     * @param {string} billingMonth - Optional billing month in YYYY-MM-DD format
-     */
+    // Lấy số liệu thống kê doanh thu hóa đơn (hỗ trợ phân biệt tháng hiện tại và tháng lịch sử)
     async getStatistics(billingMonth = null) {
         let currentBillingMonthStr;
         let isCurrentMonth = false;
         
-        // Determine current billing month (Feb 2026)
+        // Xác định tháng thanh toán mặc định (thường là tháng trước)
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth();
@@ -199,10 +180,10 @@ class InvoiceDAO extends BaseDAO {
         let query;
         
         if (isCurrentMonth) {
-            // Current month: include overdue from previous months
+            // Tháng hiện tại: tính cả các hóa đơn tồn đọng quá hạn từ các tháng trước
             query = `
                 SELECT 
-                    -- Total: current month + overdue from previous months
+                    -- Tổng số: hóa đơn tháng này + hóa đơn quá hạn tồn đọng
                     (
                         SELECT COUNT(DISTINCT id) 
                         FROM ${this.tableName}
@@ -212,8 +193,8 @@ class InvoiceDAO extends BaseDAO {
                             OR (status = 'Quá hạn' AND billing_month < $1)
                         )
                     ) as total_invoices,
-
-                    -- Paid: only from current month with status 'Đã thanh toán'
+ 
+                    -- Số lượng đã thanh toán trong tháng này
                     (
                         SELECT COUNT(*) 
                         FROM ${this.tableName}
@@ -221,8 +202,8 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Đã thanh toán'
                     ) as paid_count,
-
-                    -- Unpaid: only from current month with status 'Chưa thanh toán'
+ 
+                    -- Số lượng chưa thanh toán của tháng này
                     (
                         SELECT COUNT(*) 
                         FROM ${this.tableName}
@@ -230,16 +211,16 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Chưa thanh toán'
                     ) as unpaid_count,
-
-                    -- Overdue: all overdue from any month
+ 
+                    -- Tổng số hóa đơn quá hạn tồn đọng của tất cả các tháng
                     (
                         SELECT COUNT(*) 
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                         AND status = 'Quá hạn'
                     ) as overdue_count,
-
-                    -- Total amount: current month + overdue from previous months
+ 
+                    -- Tổng tiền cần thu: tháng này + quá hạn tích lũy
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
@@ -249,8 +230,8 @@ class InvoiceDAO extends BaseDAO {
                             OR (status = 'Quá hạn' AND billing_month < $1)
                         )
                     ) as total_amount,
-
-                    -- Paid amount: only from current month
+ 
+                    -- Tổng tiền đã thu của tháng này
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
@@ -258,8 +239,8 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Đã thanh toán'
                     ) as paid_amount,
-
-                    -- Unpaid amount: only from current month
+ 
+                    -- Tổng tiền chưa thu của tháng này
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
@@ -267,30 +248,30 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Chưa thanh toán'
                     ) as unpaid_amount,
-
-                    -- Overdue amount: all overdue from any month
+ 
+                    -- Tổng tiền quá hạn chưa thu tích lũy
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                         AND status = 'Quá hạn'
                     ) as overdue_amount,
-
-                    -- Average amount: from current month only
+ 
+                    -- Tiền hóa đơn trung bình của tháng này
                     (
                         SELECT COALESCE(ROUND(AVG(total_amount), 0), 0)
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                         AND billing_month = $1
                     ) as average_amount,
-
-                    -- Date range
+ 
+                    -- Khoảng thời gian dữ liệu hóa đơn trong DB
                     (
                         SELECT TO_CHAR(MIN(billing_month), 'YYYY-MM')
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                     ) as earliest_month,
-
+ 
                     (
                         SELECT TO_CHAR(MAX(billing_month), 'YYYY-MM')
                         FROM ${this.tableName}
@@ -298,18 +279,18 @@ class InvoiceDAO extends BaseDAO {
                     ) as latest_month
             `;
         } else {
-            // Historical month: only data from that specific month
+            // Tháng lịch sử: Chỉ lấy dữ liệu phát sinh đúng trong tháng được chọn
             query = `
                 SELECT 
-                    -- Total: only from selected month
+                    -- Tổng số hóa đơn trong tháng đó
                     (
                         SELECT COUNT(*) 
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                         AND billing_month = $1
                     ) as total_invoices,
-
-                    -- Paid: from selected month
+ 
+                    -- Đã thanh toán
                     (
                         SELECT COUNT(*) 
                         FROM ${this.tableName}
@@ -317,8 +298,8 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Đã thanh toán'
                     ) as paid_count,
-
-                    -- Unpaid: from selected month
+ 
+                    -- Chưa thanh toán
                     (
                         SELECT COUNT(*) 
                         FROM ${this.tableName}
@@ -326,8 +307,8 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Chưa thanh toán'
                     ) as unpaid_count,
-
-                    -- Overdue: from selected month
+ 
+                    -- Quá hạn
                     (
                         SELECT COUNT(*) 
                         FROM ${this.tableName}
@@ -335,16 +316,16 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Quá hạn'
                     ) as overdue_count,
-
-                    -- Total amount: from selected month
+ 
+                    -- Tổng tiền hóa đơn tháng đó
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                         AND billing_month = $1
                     ) as total_amount,
-
-                    -- Paid amount: from selected month
+ 
+                    -- Số tiền đã thu
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
@@ -352,8 +333,8 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Đã thanh toán'
                     ) as paid_amount,
-
-                    -- Unpaid amount: from selected month
+ 
+                    -- Số tiền chưa thu
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
@@ -361,8 +342,8 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Chưa thanh toán'
                     ) as unpaid_amount,
-
-                    -- Overdue amount: from selected month
+ 
+                    -- Số tiền quá hạn chưa thu
                     (
                         SELECT COALESCE(SUM(total_amount), 0)
                         FROM ${this.tableName}
@@ -370,22 +351,22 @@ class InvoiceDAO extends BaseDAO {
                         AND billing_month = $1
                         AND status = 'Quá hạn'
                     ) as overdue_amount,
-
-                    -- Average amount: from selected month
+ 
+                    -- Trung bình hóa đơn
                     (
                         SELECT COALESCE(ROUND(AVG(total_amount), 0), 0)
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                         AND billing_month = $1
                     ) as average_amount,
-
-                    -- Date range
+ 
+                    -- Khoảng thời gian dữ liệu
                     (
                         SELECT TO_CHAR(MIN(billing_month), 'YYYY-MM')
                         FROM ${this.tableName}
                         WHERE deleted_at IS NULL
                     ) as earliest_month,
-
+ 
                     (
                         SELECT TO_CHAR(MAX(billing_month), 'YYYY-MM')
                         FROM ${this.tableName}
@@ -398,10 +379,7 @@ class InvoiceDAO extends BaseDAO {
         return result[0] || {};
     }
 
-
-    /**
-     * Get revenue statistics (deprecated - use getStatistics instead)
-     */
+    // Lấy thống kê doanh thu theo khoảng thời gian (không khuyến khích sử dụng)
     async getRevenueStatistics(startDate, endDate) {
         const query = `
             SELECT 
@@ -419,9 +397,7 @@ class InvoiceDAO extends BaseDAO {
         return this.executeQuery(query, [startDate, endDate]);
     }
 
-    /**
-     * Get unpaid invoices for a user (by room)
-     */
+    // Lấy danh sách hóa đơn chưa thanh toán của một sinh viên (dựa trên phòng đang ở)
     async getUnpaidByUser(userId) {
         const query = `
             SELECT i.*, r.room_number, r.building
@@ -436,9 +412,7 @@ class InvoiceDAO extends BaseDAO {
         return this.executeQuery(query, [userId]);
     }
 
-    /**
-     * Get invoices by room
-     */
+    // Lấy danh sách hóa đơn của một phòng cụ thể
     async getByRoom(roomId, limit = null) {
         const query = `
             SELECT i.*
@@ -450,9 +424,7 @@ class InvoiceDAO extends BaseDAO {
         return this.executeQuery(query, limit ? [roomId, limit] : [roomId]);
     }
 
-    /**
-     * Check if invoice exists for room and billing month
-     */
+    // Kiểm tra xem hóa đơn phòng trong tháng được chọn đã tồn tại hay chưa
     async existsForRoomAndMonth(roomId, billingMonth) {
         const query = `
             SELECT COUNT(*) as count
@@ -464,9 +436,7 @@ class InvoiceDAO extends BaseDAO {
         return count > 0;
     }
 
-    /**
-     * Delete invoice by ID (soft delete)
-     */
+    // Xóa hóa đơn (sử dụng cơ chế Soft Delete)
     async delete(id) {
         const query = `
             UPDATE ${this.tableName} 
@@ -478,9 +448,7 @@ class InvoiceDAO extends BaseDAO {
         return result[0];
     }
 
-    /**
-     * Get pricing settings from settings table
-     */
+    // Lấy cài đặt đơn giá điện, nước, dịch vụ hiện tại
     async getPricingSettings() {
         const query = `
             SELECT * FROM settings 
@@ -491,9 +459,7 @@ class InvoiceDAO extends BaseDAO {
         return result[0] || null;
     }
 
-    /**
-     * Create pricing settings in settings table
-     */
+    // Khởi tạo bảng giá điện, nước, dịch vụ mới
     async createPricingSettings(settingData) {
         const query = `
             INSERT INTO settings (id, category, name, value, description, is_active, updated_at)
@@ -511,9 +477,7 @@ class InvoiceDAO extends BaseDAO {
         return result[0];
     }
 
-    /**
-     * Update pricing settings in settings table
-     */
+    // Cập nhật đơn giá điện, nước và dịch vụ
     async updatePricingSettings(value, updatedBy = null) {
         const query = `
             UPDATE settings 
@@ -525,12 +489,8 @@ class InvoiceDAO extends BaseDAO {
         return result[0];
     }
 
-    /**
-     * Lấy dữ liệu điện/nước của tất cả phòng trong N tháng gần nhất
-     * để phát hiện bất thường so với trung bình 3 tháng trước
-     */
+    // Lấy lượng điện/nước tiêu thụ trong N tháng trước để đối chiếu bất thường
     async getAnomalyData(monthsBack = 4) {
-        // Lấy tất cả hóa đơn trong 4 tháng gần nhất (3 tháng baseline + tháng hiện tại)
         const query = `
             SELECT
                 i.id,

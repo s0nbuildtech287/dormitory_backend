@@ -1,66 +1,60 @@
 const AuthService = require('../services/AuthService');
 
-/**
- * Middleware to verify JWT token and authenticate user
- */
+// Middleware xác thực token JWT của người dùng gửi lên
 const authenticate = async (req, res, next) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]; // Bearer TOKEN
+        const token = req.headers.authorization?.split(' ')[1]; // Định dạng: Bearer TOKEN
 
         if (!token) {
             return res.status(401).json({
                 success: false,
-                message: 'No token provided'
+                message: 'Không tìm thấy token xác thực'
             });
         }
 
         const decoded = AuthService.verifyToken(token);
-        req.user = decoded; // Attach user info to request
+        req.user = decoded; // Lưu thông tin giải mã vào request để sử dụng ở các controller sau
         next();
     } catch (error) {
         return res.status(401).json({
             success: false,
-            message: 'Invalid or expired token'
+            message: 'Token không hợp lệ hoặc đã hết hạn'
         });
     }
 };
 
-/**
- * Middleware to check if user is admin
- */
+// Middleware kiểm tra quyền quản trị viên (Admin/Super Admin/Staff)
 const requireAdmin = (req, res, next) => {
     if (!req.user) {
         return res.status(401).json({
             success: false,
-            message: 'Authentication required'
+            message: 'Yêu cầu đăng nhập tài khoản'
         });
     }
 
     if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'STAFF') {
         return res.status(403).json({
             success: false,
-            message: 'Admin access required'
+            message: 'Bạn không có quyền truy cập chức năng này'
         });
     }
 
     next();
 };
 
-/**
- * Middleware to check if user is student
- */
+// Middleware kiểm tra quyền sinh viên
 const requireStudent = (req, res, next) => {
     if (!req.user) {
         return res.status(401).json({
             success: false,
-            message: 'Authentication required'
+            message: 'Yêu cầu đăng nhập tài khoản'
         });
     }
 
     if (req.user.role !== 'STUDENT') {
         return res.status(403).json({
             success: false,
-            message: 'Student access required'
+            message: 'Chức năng này chỉ dành cho sinh viên'
         });
     }
 

@@ -1,35 +1,36 @@
 const BaseDAO = require("./BaseDAO");
 const db = require("../config/database");
 
+function checkIsInternational(priorityReasons) {
+  if (!priorityReasons) return false;
+  const normalized = priorityReasons
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return ["luu hoc sinh", "quoc te", "nuoc ngoai", "du hoc sinh", "du hoc", "lao", "campuchia"].some(kw => normalized.includes(kw));
+}
+
 class StudentContractDAO extends BaseDAO {
   constructor() {
     super("student_contracts");
   }
 
-  /**
-   * Find contracts by user ID
-   */
+  // Tìm danh sách hợp đồng theo ID người dùng
   async findByUserId(userId) {
     return this.findAll({ user_id: userId }, ["created_at DESC"]);
   }
 
-  /**
-   * Find contracts by room ID
-   */
+  // Tìm danh sách hợp đồng đang hoạt động trong phòng
   async findByRoomId(roomId) {
     return this.findAll({ room_id: roomId, status: "Active" });
   }
 
-  /**
-   * Find active contract by user
-   */
+  // Tìm hợp đồng đang hoạt động của người dùng
   async findActiveContractByUser(userId) {
     return this.findOne({ user_id: userId, status: "Active" });
   }
 
-  /**
-   * Get contract with full details (user, room, registration info)
-   */
+  // Lấy chi tiết hợp đồng kèm thông tin sinh viên, phòng và đơn đăng ký
   async getContractDetails(contractId) {
     const query = `
             SELECT 
@@ -68,9 +69,7 @@ class StudentContractDAO extends BaseDAO {
     return results.length > 0 ? results[0] : null;
   }
 
-  /**
-   * Search and filter contracts (supports 'Pending'|'Active'|'All')
-   */
+  // Tìm kiếm và lọc hợp đồng (hỗ trợ lọc theo trạng thái Pending, Active, Expired...)
   async searchAndFilter(filters = {}) {
       let paramIndex = 1;
       const values = [];
@@ -113,11 +112,7 @@ class StudentContractDAO extends BaseDAO {
       return this.executeQuery(query, values);
     }
 
-
-  /**
-   * Create a Pending contract record (no room yet)
-   * Used when admin approves a registration form
-   */
+  // Tạo hợp đồng ở trạng thái chờ xếp phòng (Pending) khi đơn đăng ký được duyệt
   async createPendingContract(contractData) {
     const columns = Object.keys(contractData);
     const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
@@ -131,33 +126,105 @@ class StudentContractDAO extends BaseDAO {
     return result.rows[0];
   }
 
-  /**
-   * Assign room to a Pending contract (atomic: update contract + increment room occupancy)
-   */
+  // Xếp sinh viên vào phòng (cập nhật trạng thái hợp đồng thành Active và tăng số người trong phòng)
+  // Rút phòng: đưa hợp đồng Active về Pending, giảm current_occupancy phòng cũ
+  async unassignRoom(contractId) {
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Lấy room_id hiện tại
+      const contractRes = await client.query(
+        `SELECT room_id, status FROM ${this.tableName} WHERE id = $1 FOR UPDATE`,
+        [contractId]
+      );
+      if (contractRes.rows.length === 0) throw new Error("Không tìm thấy hợp đồng");
+      const { room_id, status } = contractRes.rows[0];
+      if (status !== "Active") throw new Error("Hợp đồng không ở trạng thái Active");
+      if (!room_id) throw new Error("Hợp đồng chưa có phòng");
+
+      // Đưa hợp đồng về Pending, xóa room_id và signed_at
+      await client.query(
+        `UPDATE ${this.tableName}
+         SET room_id = NULL, status = 'Pending', signed_at = NULL, contract_number = NULL,
+             rent_price = NULL, volunteer_role = NULL, updated_at = NOW()
+         WHERE id = $1`,
+        [contractId]
+      );
+
+      // Giảm current_occupancy phòng cũ
+      await client.query(
+        `UPDATE rooms SET current_occupancy = GREATEST(current_occupancy - 1, 0), updated_at = NOW() WHERE id = $1`,
+        [room_id]
+      );
+
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async assignRoom(contractId, roomId) {
     const client = await db.connect();
     try {
       await client.query("BEGIN");
 
-      // Validate room still has capacity
+      // Khóa và kiểm tra thông tin phòng
       const roomRes = await client.query(`SELECT capacity, current_occupancy, gender_type, status FROM rooms WHERE id = $1 FOR UPDATE`, [roomId]);
-      if (roomRes.rows.length === 0) throw new Error("Room not found");
+      if (roomRes.rows.length === 0) throw new Error("Không tìm thấy phòng");
       const room = roomRes.rows[0];
-      if (room.status !== "Active") throw new Error("Room is not active");
-      if (room.current_occupancy >= room.capacity) throw new Error("Room is full");
+      if (room.status !== "Active") throw new Error("Phòng hiện không hoạt động");
+      if (room.current_occupancy >= room.capacity) throw new Error("Phòng đã đầy");
 
-      // Validate contract is still Pending
-      const contractRes = await client.query(`SELECT status, snapshot_gender FROM ${this.tableName} WHERE id = $1 FOR UPDATE`, [contractId]);
-      if (contractRes.rows.length === 0) throw new Error("Contract not found");
+      // Khóa và kiểm tra trạng thái hợp đồng
+      const contractRes = await client.query(
+        `SELECT status, snapshot_gender, register_form_id 
+         FROM ${this.tableName} 
+         WHERE id = $1 FOR UPDATE`,
+        [contractId]
+      );
+      if (contractRes.rows.length === 0) throw new Error("Không tìm thấy hợp đồng");
       const contract = contractRes.rows[0];
-      if (contract.status !== "Pending") throw new Error("Contract is not in Pending status");
+      if (contract.status !== "Pending") throw new Error("Hợp đồng không ở trạng thái chờ xếp phòng");
 
-      // Validate gender match
-      if (contract.snapshot_gender && room.gender_type !== contract.snapshot_gender) {
-        throw new Error(`Gender mismatch: room is ${room.gender_type}, student is ${contract.snapshot_gender}`);
+      // Lấy thông tin lý do ưu tiên từ register_forms
+      let priorityReasons = "";
+      if (contract.register_form_id) {
+        const rfRes = await client.query(`SELECT priority_reasons FROM register_forms WHERE id = $1`, [contract.register_form_id]);
+        if (rfRes.rows.length > 0) {
+          priorityReasons = rfRes.rows[0].priority_reasons || "";
+        }
       }
 
-      // Update contract → Active, assign room, set signed_at
+      // Kiểm tra sự phù hợp về giới tính
+      if (contract.snapshot_gender && room.gender_type !== contract.snapshot_gender) {
+        throw new Error(`Giới tính không phù hợp: Phòng dành cho ${room.gender_type}, Sinh viên giới tính ${contract.snapshot_gender}`);
+      }
+
+      // Ràng buộc cứng diện quốc tịch (quốc tế vs Việt Nam)
+      const isStudentInternational = checkIsInternational(priorityReasons);
+      const occupantsRes = await client.query(
+        `SELECT rf.priority_reasons
+         FROM ${this.tableName} sc
+         LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
+         WHERE sc.room_id = $1 AND sc.status = 'Active'`,
+        [roomId]
+      );
+      if (occupantsRes.rows.length > 0) {
+        const hasInternationalOccupant = occupantsRes.rows.some(o => checkIsInternational(o.priority_reasons));
+        if (isStudentInternational && !hasInternationalOccupant) {
+          throw new Error("Không thể xếp sinh viên quốc tế ở chung phòng với sinh viên Việt Nam");
+        }
+        if (!isStudentInternational && hasInternationalOccupant) {
+          throw new Error("Không thể xếp sinh viên Việt Nam ở chung phòng với sinh viên quốc tế");
+        }
+      }
+
+      // Cập nhật hợp đồng sang Active và điền thông tin phòng
       await client.query(
         `UPDATE ${this.tableName}
                  SET room_id = $1, status = 'Active', signed_at = NOW(), updated_at = NOW()
@@ -165,7 +232,7 @@ class StudentContractDAO extends BaseDAO {
         [roomId, contractId],
       );
 
-      // Increment room occupancy
+      // Tăng số người thực tế trong phòng
       await client.query(`UPDATE rooms SET current_occupancy = current_occupancy + 1, updated_at = NOW() WHERE id = $1`, [roomId]);
 
       await client.query("COMMIT");
@@ -178,23 +245,50 @@ class StudentContractDAO extends BaseDAO {
     }
   }
 
-  /**
-   * Transfer room for an Active contract (atomic: decrement old room occupancy + increment new room occupancy + update contract)
-   */
+  // Chuyển phòng cho sinh viên (giảm số người phòng cũ, tăng số người phòng mới và cập nhật hợp đồng)
   async transferRoom(contractId, oldRoomId, newRoomId) {
     const client = await db.connect();
     try {
       await client.query("BEGIN");
 
-      // Decrement old room occupancy
+      // Ràng buộc cứng diện quốc tịch (quốc tế vs Việt Nam) cho phòng mới
+      const contractRes = await client.query(
+        `SELECT rf.priority_reasons 
+         FROM ${this.tableName} sc
+         LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
+         WHERE sc.id = $1`,
+        [contractId]
+      );
+      if (contractRes.rows.length === 0) throw new Error("Không tìm thấy hợp đồng");
+      const contract = contractRes.rows[0];
+      const isStudentInternational = checkIsInternational(contract.priority_reasons);
+
+      const occupantsRes = await client.query(
+        `SELECT rf.priority_reasons
+         FROM ${this.tableName} sc
+         LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
+         WHERE sc.room_id = $1 AND sc.status = 'Active'`,
+        [newRoomId]
+      );
+      if (occupantsRes.rows.length > 0) {
+        const hasInternationalOccupant = occupantsRes.rows.some(o => checkIsInternational(o.priority_reasons));
+        if (isStudentInternational && !hasInternationalOccupant) {
+          throw new Error("Không thể chuyển sinh viên quốc tế vào phòng có sinh viên Việt Nam");
+        }
+        if (!isStudentInternational && hasInternationalOccupant) {
+          throw new Error("Không thể chuyển sinh viên Việt Nam vào phòng có sinh viên quốc tế");
+        }
+      }
+
+      // Giảm số người phòng cũ
       if (oldRoomId) {
         await client.query(`UPDATE rooms SET current_occupancy = GREATEST(current_occupancy - 1, 0), updated_at = NOW() WHERE id = $1`, [oldRoomId]);
       }
 
-      // Increment new room occupancy
+      // Tăng số người phòng mới
       await client.query(`UPDATE rooms SET current_occupancy = current_occupancy + 1, updated_at = NOW() WHERE id = $1`, [newRoomId]);
 
-      // Update contract
+      // Cập nhật số phòng mới trong hợp đồng
       await client.query(
         `UPDATE ${this.tableName}
          SET room_id = $1, updated_at = NOW()
@@ -212,9 +306,7 @@ class StudentContractDAO extends BaseDAO {
     }
   }
 
-  /**
-   * Create contract and update room occupancy in one transaction (for manual creation)
-   */
+  // Tạo hợp đồng trực tiếp đã xếp phòng trong cùng một transaction
   async createContractWithRoom(contractData) {
     const client = await db.connect();
     try {
@@ -240,16 +332,14 @@ class StudentContractDAO extends BaseDAO {
     }
   }
 
-  /**
-   * Terminate contract and update room occupancy
-   */
+  // Chấm dứt hợp đồng sớm và cập nhật số người trong phòng tương ứng
   async terminateContract(contractId) {
     const client = await db.connect();
     try {
       await client.query("BEGIN");
 
       const contractRes = await client.query(`SELECT room_id FROM ${this.tableName} WHERE id = $1`, [contractId]);
-      if (contractRes.rows.length === 0) throw new Error("Contract not found");
+      if (contractRes.rows.length === 0) throw new Error("Không tìm thấy hợp đồng");
 
       const { room_id } = contractRes.rows[0];
 
@@ -269,11 +359,8 @@ class StudentContractDAO extends BaseDAO {
     }
   }
 
-  /**
-   * Get top suggested rooms for a pending contract based on gender + year + faculty matching
-   * Scoring: Ưu tiên phòng có nhiều SV cùng năm + cùng khoa, rồi đến phòng gần đầy
-   */
-  async getSuggestedRooms(gender, year, faculty = null, limit = 5) {
+  // Đề xuất danh sách phòng phù hợp cho sinh viên (dựa trên giới tính, số khóa học, cùng khoa...)
+  async getSuggestedRooms(gender, year, faculty = null) {
     const query = `
             SELECT
                 r.id,
@@ -283,43 +370,63 @@ class StudentContractDAO extends BaseDAO {
                 r.capacity,
                 r.current_occupancy,
                 r.rent_price,
+                r.reserved_for,
                 r.capacity - r.current_occupancy AS available_slots,
                 COUNT(sc.id) FILTER (
                     WHERE sc.status = 'Active' AND sc.snapshot_year = $2
                 ) AS same_year_count,
                 COUNT(sc.id) FILTER (
-                    WHERE sc.status = 'Active' AND sc.snapshot_faculty = $4
+                    WHERE sc.status = 'Active' AND sc.snapshot_faculty = $3
                 ) AS same_faculty_count,
                 COUNT(sc.id) FILTER (
-                    WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $4
+                    WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $3
                 ) AS same_year_faculty_count,
                 ROUND(
                     (COUNT(sc.id) FILTER (
-                        WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $4
+                        WHERE sc.status = 'Active' AND sc.snapshot_year = $2 AND sc.snapshot_faculty = $3
                     ) * 100.0 / NULLIF(r.capacity, 0))
-                , 1) AS match_score
+                , 1) AS match_score,
+                COALESCE(
+                    JSON_AGG(
+                        JSON_BUILD_OBJECT(
+                            'name',     u.full_name,
+                            'year',     sc.snapshot_year,
+                            'faculty',  sc.snapshot_faculty,
+                            'priority', rf.priority_reasons
+                        ) ORDER BY u.full_name
+                    ) FILTER (WHERE sc.id IS NOT NULL AND sc.status = 'Active'),
+                    '[]'
+                ) AS occupants
             FROM rooms r
             LEFT JOIN student_contracts sc ON sc.room_id = r.id AND sc.status = 'Active'
+            LEFT JOIN users u ON sc.user_id = u.id
+            LEFT JOIN register_forms rf ON sc.register_form_id = rf.id
             WHERE r.gender_type = $1
               AND r.status = 'Active'
               AND r.current_occupancy < r.capacity
             GROUP BY r.id
             ORDER BY match_score DESC, same_year_faculty_count DESC, r.current_occupancy DESC
-            LIMIT $3
         `;
-    return this.executeQuery(query, [gender, year, limit, faculty]);
+    return this.executeQuery(query, [gender, year, faculty]);
   }
 
-  /**
-   * Get expiring contracts (within next N days)
-   */
+  // Tìm kiếm danh sách các hợp đồng sắp hết hạn (trong vòng N ngày)
   async getExpiringContracts(days = 30) {
     const query = `
             SELECT 
                 sc.*,
                 u.full_name AS student_name,
                 u.email    AS student_email,
-                r.room_number
+                r.room_number,
+                r.building,
+                r.floor,
+                EXISTS (
+                    SELECT 1 
+                    FROM invoices i 
+                    WHERE i.room_id = sc.room_id 
+                      AND i.status IN ('Chưa thanh toán', 'Quá hạn')
+                      AND i.deleted_at IS NULL
+                ) AS has_unpaid_invoices
             FROM ${this.tableName} sc
             LEFT JOIN users u ON sc.user_id = u.id
             LEFT JOIN rooms r ON sc.room_id = r.id
@@ -330,9 +437,7 @@ class StudentContractDAO extends BaseDAO {
     return this.executeQuery(query, [days]);
   }
 
-  /**
-   * Get statistics: count by status
-   */
+  // Thống kê số lượng hợp đồng theo từng trạng thái (Pending, Active, Expired...)
   async getStats() {
     const query = `
             SELECT

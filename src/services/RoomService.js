@@ -82,27 +82,27 @@ class RoomService {
     }
 
     /**
-     * Get all rooms with filters
+     * Lấy danh sách tất cả các phòng có bộ lọc
      */
     async getRooms(filters = {}) {
         try {
             return await RoomDAO.searchAndFilter(filters);
         } catch (error) {
-            throw new Error(`Get rooms failed: ${error.message}`);
+            throw new Error(`Lấy danh sách phòng thất bại: ${error.message}`);
         }
     }
 
     /**
-     * Get room by ID with students
+     * Lấy chi tiết thông tin phòng theo ID kèm danh sách sinh viên
      */
     async getRoomById(id) {
         try {
             const roomData = await RoomDAO.getRoomWithStudents(id);
             if (roomData.length === 0) {
-                throw new Error('Room not found');
+                throw new Error('Không tìm thấy thông tin phòng');
             }
 
-            // Group students data
+            // Gom nhóm dữ liệu sinh viên trong phòng
             const room = {
                 ...roomData[0],
                 students: []
@@ -124,12 +124,12 @@ class RoomService {
 
             return room;
         } catch (error) {
-            throw new Error(`Get room failed: ${error.message}`);
+            throw new Error(`Lấy thông tin phòng thất bại: ${error.message}`);
         }
     }
 
     /**
-     * Create new room
+     * Tạo phòng mới
      */
     async createRoom(data, adminId, req = null) {
         try {
@@ -148,7 +148,7 @@ class RoomService {
                 status: sanitizedData.status || 'Active'
             });
 
-            // Log action
+            // Ghi nhật ký hoạt động hệ thống
             await LogSystemDAO.log(
                 adminId,
                 'CREATE_ROOM',
@@ -161,27 +161,33 @@ class RoomService {
 
             return room;
         } catch (error) {
-            throw new Error(`Create room failed: ${error.message}`);
+            throw new Error(`Tạo phòng mới thất bại: ${error.message}`);
         }
     }
 
     /**
-     * Update room
+     * Cập nhật thông tin phòng
      */
     async updateRoom(id, data, adminId, req = null) {
         try {
             const oldData = await RoomDAO.findById(id);
             if (!oldData) {
-                throw new Error('Room not found');
+                throw new Error('Không tìm thấy thông tin phòng');
             }
 
             const sanitizedData = pickAllowedFields(data, ROOM_UPDATE_FIELDS);
             if (Object.keys(sanitizedData).length === 0) {
-                throw new Error('No valid room fields provided for update');
+                throw new Error('Không có trường dữ liệu hợp lệ nào được cung cấp để cập nhật');
+            }
+
+            if (sanitizedData.gender_type && sanitizedData.gender_type !== oldData.gender_type) {
+                if (oldData.current_occupancy > 0) {
+                    throw new Error('Không thể thay đổi giới tính của phòng đang có sinh viên lưu trú');
+                }
             }
 
             if (sanitizedData.reserved_for && !RESERVED_FOR_VALUES.includes(sanitizedData.reserved_for)) {
-                throw new Error(`Invalid reserved_for value. Allowed values: ${RESERVED_FOR_VALUES.join(', ')}`);
+                throw new Error(`Đối tượng ưu tiên không hợp lệ. Cho phép: ${RESERVED_FOR_VALUES.join(', ')}`);
             }
 
             if (sanitizedData.reserved_for === 'xung_kich') {
@@ -201,7 +207,7 @@ class RoomService {
 
             await RoomDAO.update(id, sanitizedData);
 
-            // Log action
+            // Ghi nhật ký hoạt động hệ thống
             await LogSystemDAO.log(
                 adminId,
                 'UPDATE_ROOM',
@@ -214,27 +220,27 @@ class RoomService {
 
             return await RoomDAO.findById(id);
         } catch (error) {
-            throw new Error(`Update room failed: ${error.message}`);
+            throw new Error(`Cập nhật thông tin phòng thất bại: ${error.message}`);
         }
     }
 
     /**
-     * Delete room (only if empty)
+     * Xóa phòng (chỉ cho phép khi phòng trống không có sinh viên ở)
      */
     async deleteRoom(id, adminId, req = null) {
         try {
             const room = await RoomDAO.findById(id);
             if (!room) {
-                throw new Error('Room not found');
+                throw new Error('Không tìm thấy thông tin phòng');
             }
 
             if (room.current_occupancy > 0) {
-                throw new Error('Cannot delete room with occupants');
+                throw new Error('Không thể xóa phòng đang có sinh viên sinh hoạt');
             }
 
             await RoomDAO.delete(id);
 
-            // Log action
+            // Ghi nhật ký hoạt động hệ thống
             await LogSystemDAO.log(
                 adminId,
                 'DELETE_ROOM',
@@ -247,29 +253,29 @@ class RoomService {
 
             return true;
         } catch (error) {
-            throw new Error(`Delete room failed: ${error.message}`);
+            throw new Error(`Xóa phòng thất bại: ${error.message}`);
         }
     }
 
     /**
-     * Get available rooms for assignment
+     * Lấy danh sách phòng trống phù hợp theo loại giới tính
      */
     async getAvailableRooms(genderType) {
         try {
             return await RoomDAO.findAvailableRooms(genderType);
         } catch (error) {
-            throw new Error(`Get available rooms failed: ${error.message}`);
+            throw new Error(`Lấy danh sách phòng trống thất bại: ${error.message}`);
         }
     }
 
     /**
-     * Get room statistics
+     * Lấy số liệu thống kê phòng
      */
     async getStatistics() {
         try {
             return await RoomDAO.getStatistics();
         } catch (error) {
-            throw new Error(`Get statistics failed: ${error.message}`);
+            throw new Error(`Lấy thống kê phòng thất bại: ${error.message}`);
         }
     }
 
@@ -496,15 +502,15 @@ class RoomService {
     }
 
     /**
-     * Batch update reserved_for for building/floor rooms
+     * Cập nhật hàng loạt loại đối tượng ưu tiên cho các phòng thuộc tòa nhà/tầng
      */
     async updateBatchReservedFor(building, floor, reservedFor, adminId, req = null) {
         try {
             if (!building) {
-                throw new Error("Building is required for batch update");
+                throw new Error("Yêu cầu nhập tên tòa nhà để thực hiện cập nhật hàng loạt");
             }
             if (reservedFor && !RESERVED_FOR_VALUES.includes(reservedFor)) {
-                throw new Error(`Invalid reserved_for value. Allowed values: ${RESERVED_FOR_VALUES.join(', ')}`);
+                throw new Error(`Đối tượng ưu tiên không hợp lệ. Cho phép: ${RESERVED_FOR_VALUES.join(', ')}`);
             }
 
             if (reservedFor === 'xung_kich') {
@@ -549,7 +555,7 @@ class RoomService {
 
             const result = await db.query(query, params);
 
-            // Log action
+            // Ghi nhật ký hoạt động hệ thống
             await LogSystemDAO.log(
                 adminId,
                 'BATCH_UPDATE_ROOMS_RESERVED_FOR',
@@ -562,23 +568,23 @@ class RoomService {
 
             return result.rows;
         } catch (error) {
-            throw new Error(`Batch update reserved_for failed: ${error.message}`);
+            throw new Error(`Cập nhật hàng loạt đối tượng ưu tiên thất bại: ${error.message}`);
         }
     }
 
     /**
-     * Update meter readings
+     * Cập nhật chỉ số đồng hồ điện nước của phòng
      */
     async updateMeterReadings(roomId, electricReading, waterReading, adminId, req = null) {
         try {
             const oldData = await RoomDAO.findById(roomId);
             if (!oldData) {
-                throw new Error('Room not found');
+                throw new Error('Không tìm thấy thông tin phòng');
             }
 
             await RoomDAO.updateMeterReadings(roomId, electricReading, waterReading);
 
-            // Log action
+            // Ghi nhật ký hoạt động hệ thống
             await LogSystemDAO.log(
                 adminId,
                 'UPDATE_METER_READINGS',
@@ -597,7 +603,70 @@ class RoomService {
 
             return await RoomDAO.findById(roomId);
         } catch (error) {
-            throw new Error(`Update meter readings failed: ${error.message}`);
+            throw new Error(`Cập nhật chỉ số điện nước thất bại: ${error.message}`);
+        }
+    }
+
+    /**
+     * Cập nhật hàng loạt giới tính cho các phòng thuộc tòa nhà/tầng
+     */
+    async updateBatchGender(building, floor, genderType, adminId, req = null) {
+        try {
+            if (!building) {
+                throw new Error("Yêu cầu nhập tên tòa nhà để thực hiện cập nhật hàng loạt");
+            }
+            if (!genderType || !['Nam', 'Nữ'].includes(genderType)) {
+                throw new Error("Giới tính không hợp lệ. Chỉ cho phép: Nam, Nữ");
+            }
+
+            // Kiểm tra xem có phòng nào thuộc phạm vi cập nhật đang có người ở không
+            let checkQuery = `
+                SELECT COUNT(*) as active_count
+                FROM rooms
+                WHERE building = $1 AND current_occupancy > 0
+            `;
+            const checkParams = [building];
+            if (floor !== undefined && floor !== null) {
+                checkQuery += " AND floor = $2";
+                checkParams.push(Number(floor));
+            }
+            
+            const checkRes = await db.query(checkQuery, checkParams);
+            const activeCount = parseInt(checkRes.rows[0].active_count, 10);
+            if (activeCount > 0) {
+                throw new Error("Không thể thay đổi giới tính vì tòa/tầng đang có sinh viên lưu trú.");
+            }
+
+            let query = `
+                UPDATE rooms 
+                SET gender_type = $1, updated_at = NOW() 
+                WHERE building = $2
+            `;
+            const params = [genderType, building];
+
+            if (floor !== undefined && floor !== null) {
+                query += " AND floor = $3";
+                params.push(Number(floor));
+            }
+
+            query += " RETURNING *";
+
+            const result = await db.query(query, params);
+
+            // Ghi nhật ký hoạt động hệ thống
+            await LogSystemDAO.log(
+                adminId,
+                'BATCH_UPDATE_ROOMS_GENDER',
+                'rooms',
+                null,
+                null,
+                { building, floor, gender_type: genderType, affected_count: result.rowCount },
+                req
+            );
+
+            return result.rows;
+        } catch (error) {
+            throw new Error(`Cập nhật hàng loạt giới tính thất bại: ${error.message}`);
         }
     }
 }

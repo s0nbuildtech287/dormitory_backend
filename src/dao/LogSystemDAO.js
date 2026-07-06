@@ -5,9 +5,7 @@ class LogSystemDAO extends BaseDAO {
         super('log_system');
     }
 
-    /**
-     * Create log entry — normalize ::1 → 127.0.0.1
-     */
+    // Ghi nhật ký hoạt động hệ thống (chuẩn hóa địa chỉ IP ::1 về 127.0.0.1)
     async log(userId, action, entityType, entityId, oldValue, newValue, req = null) {
         const rawIp = req
             ? (req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || null)
@@ -29,14 +27,17 @@ class LogSystemDAO extends BaseDAO {
         return this.create(logData);
     }
 
+    // Lấy danh sách nhật ký theo ID người thực hiện
     async getByUser(userId, limit = 50) {
         return this.findAll({ user_id: userId }, ['created_at DESC'], limit);
     }
 
+    // Lấy danh sách nhật ký theo đối tượng được tác động (Ví dụ: entityType='rooms', entityId='room_id')
     async getByEntity(entityType, entityId, limit = 50) {
         return this.findAll({ entity_type: entityType, entity_id: entityId }, ['created_at DESC'], limit);
     }
 
+    // Lấy danh sách các hoạt động mới nhất kèm thông tin người thực hiện
     async getRecentActivity(limit = 50) {
         const query = `
             SELECT l.*, u.full_name as user_name, u.email as user_email, u.role as user_role, u.staff_title as user_staff_title
@@ -48,9 +49,7 @@ class LogSystemDAO extends BaseDAO {
         return this.executeQuery(query, [limit]);
     }
 
-    /**
-     * Get activity logs with filters + pagination (PostgreSQL $N placeholders)
-     */
+    // Lấy danh sách nhật ký hoạt động kèm bộ lọc và phân trang (dùng tham số truyền động kiểu PostgreSQL)
     async getActivityLogs(filters = {}) {
         const values = [];
         const conditions = [];
@@ -85,11 +84,11 @@ class LogSystemDAO extends BaseDAO {
         const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
         const baseFrom = 'FROM ' + this.tableName + ' l LEFT JOIN users u ON l.user_id = u.id ' + where;
 
-        // Count
+        // Đếm tổng số dòng thỏa mãn bộ lọc
         const countResult = await this.executeQuery('SELECT COUNT(*) as total ' + baseFrom, values);
         const total = parseInt(countResult[0].total);
 
-        // Paginated rows
+        // Lấy dữ liệu phân trang
         const limit  = filters.limit  ? parseInt(filters.limit)  : 10;
         const offset = filters.offset ? parseInt(filters.offset) : 0;
         const dataValues = [...values, limit, offset];
@@ -106,6 +105,7 @@ class LogSystemDAO extends BaseDAO {
         return { rows, total };
     }
 
+    // Thống kê số lượng hoạt động theo loại hành động, loại đối tượng và ngày
     async getActionStatistics(startDate, endDate) {
         const query = `
             SELECT action, entity_type, COUNT(*) as count, DATE(created_at) as date
@@ -117,6 +117,7 @@ class LogSystemDAO extends BaseDAO {
         return this.executeQuery(query, [startDate, endDate]);
     }
 
+    // Xóa các nhật ký hệ thống cũ hơn N ngày để giải phóng dung lượng DB
     async cleanOldLogs(days = 90) {
         const query = `
             DELETE FROM ${this.tableName}

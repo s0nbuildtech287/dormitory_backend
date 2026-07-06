@@ -2,13 +2,13 @@ const AssetService = require('../services/AssetService');
 
 class AssetController {
     /**
-     * Get all assets or asset summary
+     * Lấy danh sách toàn bộ tài sản hoặc tóm tắt tài sản
      */
     async getAll(req, res, next) {
         try {
             const { summary } = req.query;
 
-            // If summary=true, return grouped summary by asset_code
+            // Nếu summary=true, trả về danh sách tóm tắt gộp theo mã tài sản (asset_code)
             if (summary === 'true') {
                 const assetSummary = await AssetService.getAssetSummary();
                 return res.json({
@@ -17,7 +17,7 @@ class AssetController {
                 });
             }
 
-            // Otherwise return all assets with filters
+            // Ngược lại, trả về toàn bộ tài sản kèm bộ lọc
             const filters = {
                 search: req.query.search,
                 category: req.query.category,
@@ -36,7 +36,7 @@ class AssetController {
     }
 
     /**
-     * Get asset by ID
+     * Lấy chi tiết thông tin tài sản theo ID
      */
     async getById(req, res, next) {
         try {
@@ -51,7 +51,7 @@ class AssetController {
     }
 
     /**
-     * Create new asset
+     * Khởi tạo tài sản mới
      */
     async create(req, res, next) {
         try {
@@ -67,7 +67,7 @@ class AssetController {
     }
 
     /**
-     * Update asset
+     * Cập nhật thông tin tài sản
      */
     async update(req, res, next) {
         try {
@@ -83,7 +83,7 @@ class AssetController {
     }
 
     /**
-     * Delete asset
+     * Xóa tài sản
      */
     async delete(req, res, next) {
         try {
@@ -98,7 +98,7 @@ class AssetController {
     }
 
     /**
-     * Get asset distribution by building
+     * Lấy phân bổ tài sản theo từng tòa nhà
      */
     async getAssetsByBuilding(req, res, next) {
         try {
@@ -113,7 +113,7 @@ class AssetController {
     }
 
     /**
-     * Get asset statistics
+     * Lấy số liệu thống kê tài sản tổng quan
      */
     async getStatistics(req, res, next) {
         try {
@@ -128,7 +128,7 @@ class AssetController {
     }
 
     /**
-     * Import asset to warehouse
+     * Nhập tài sản vào kho
      */
     async importAsset(req, res, next) {
         try {
@@ -144,7 +144,7 @@ class AssetController {
     }
 
     /**
-     * Export asset from warehouse to room
+     * Xuất bàn giao tài sản từ kho về phòng
      */
     async exportAsset(req, res, next) {
         try {
@@ -160,7 +160,7 @@ class AssetController {
     }
 
     /**
-     * Get assets by room
+     * Lấy danh sách tài sản theo ID phòng
      */
     async getAssetsByRoom(req, res, next) {
         try {
@@ -175,12 +175,12 @@ class AssetController {
     }
 
     /**
-     * Get import/export history
+     * Lấy lịch sử nhập/xuất kho tài sản
      */
     async getHistory(req, res, next) {
         try {
             const filters = {
-                type: req.query.type, // 'import' or 'export'
+                type: req.query.type, // 'import' (nhập kho) hoặc 'export' (xuất kho)
                 date_from: req.query.date_from,
                 date_to: req.query.date_to,
                 limit: req.query.limit || 100
@@ -197,7 +197,7 @@ class AssetController {
     }
 
     /**
-     * Get asset limits
+     * Lấy cấu hình giới hạn định mức tài sản của phòng
      */
     async getAssetLimits(req, res, next) {
         try {
@@ -212,7 +212,7 @@ class AssetController {
     }
 
     /**
-     * Update asset limits
+     * Cập nhật cấu hình giới hạn định mức tài sản của phòng
      */
     async updateAssetLimits(req, res, next) {
         try {
@@ -231,7 +231,7 @@ class AssetController {
     }
 
     /**
-     * Get asset regulations
+     * Lấy cấu hình nội quy bàn giao sử dụng tài sản
      */
     async getAssetRegulations(req, res, next) {
         try {
@@ -246,7 +246,7 @@ class AssetController {
     }
 
     /**
-     * Update asset regulations
+     * Cập nhật cấu hình nội quy bàn giao sử dụng tài sản
      */
     async updateAssetRegulations(req, res, next) {
         try {

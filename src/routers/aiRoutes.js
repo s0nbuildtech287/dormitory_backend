@@ -7,7 +7,7 @@ const { authenticate, requireAdmin } = require('../middlewares/auth');
 router.get('/models', getModels);
 router.post('/chat', chat);
 
-// Re-analyze a feedback — ADMIN only
+// Phân tích lại phản ánh - Chỉ dành cho ADMIN
 router.post('/analyze-feedback', authenticate, requireAdmin, analyzeFeedbackEndpoint);
 
 module.exports = router;

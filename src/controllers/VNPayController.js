@@ -33,6 +33,31 @@ class VNPayController {
       if (!contract) return { rsp: "01", msg: "Order not found" };
       if (contract.deposit_paid) return { rsp: "02", msg: "Order already confirmed" };
       await StudentContractDAO.update(id, { deposit_paid: true });
+
+    } else if (type === "renew") {
+      const contract = await StudentContractDAO.findById(id);
+      if (!contract) return { rsp: "01", msg: "Order not found" };
+      
+      // Idempotency: Kiểm tra xem đã gia hạn gần đây chưa (trong vòng 24h)
+      if (contract.renewal_requested_at) {
+        const lastRequested = new Date(contract.renewal_requested_at);
+        const timeDiff = Date.now() - lastRequested.getTime();
+        if (timeDiff < 24 * 60 * 60 * 1000) {
+          return { rsp: "02", msg: "Order already confirmed" };
+        }
+      }
+
+      // Cộng thêm 6 tháng vào ngày kết thúc hợp đồng
+      const newEndDate = new Date(contract.end_date);
+      newEndDate.setMonth(newEndDate.getMonth() + 6);
+
+      await StudentContractDAO.update(id, {
+        end_date: newEndDate.toISOString().split("T")[0],
+        status: "Active",
+        renewal_requested_at: new Date(),
+        renewal_count: (contract.renewal_count || 0) + 1,
+        updated_at: new Date()
+      });
     }
 
     console.log(`[VNPay] ✅ Updated DB: ${txnRef}`);

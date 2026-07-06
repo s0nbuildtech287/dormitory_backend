@@ -4,6 +4,15 @@ const UserDAO = require("../dao/UserDAO");
 const RegisterFormDAO = require("../dao/RegisterFormDAO");
 const LogSystemDAO = require("../dao/LogSystemDAO");
 
+function checkIsInternational(priorityReasons) {
+  if (!priorityReasons) return false;
+  const normalized = priorityReasons
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return ["luu hoc sinh", "quoc te", "nuoc ngoai", "du hoc sinh", "du hoc", "lao", "campuchia"].some(kw => normalized.includes(kw));
+}
+
 class ContractService {
   /**
    * Get all contracts with filters
@@ -44,22 +53,72 @@ class ContractService {
 
   /**
    * Get suggested rooms for a pending contract
+   * Returns { suggested: [...5 top rooms], all: [...all valid rooms] }
    * Based on gender + year-cohort + faculty matching
    */
   async suggestRooms(contractId) {
     try {
-      const contract = await StudentContractDAO.findById(contractId);
-      if (!contract) throw new Error("Contract not found");
-      if (contract.status !== "Pending") throw new Error("Contract is not Pending");
+      const contractDetails = await StudentContractDAO.getContractDetails(contractId);
+      if (!contractDetails) throw new Error("Contract not found");
 
-      const gender = contract.snapshot_gender;
-      const year = contract.snapshot_year;
-      const faculty = contract.snapshot_faculty;
+      const gender = contractDetails.snapshot_gender;
+      const year = contractDetails.snapshot_year;
+      const faculty = contractDetails.snapshot_faculty;
 
       if (!gender) throw new Error("Contract missing gender information");
 
-      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, faculty, 5);
-      return suggested;
+      // Lấy toàn bộ phòng hợp lệ, không giới hạn
+      const suggested = await StudentContractDAO.getSuggestedRooms(gender, year || 1, faculty);
+
+      const isStudentInternational = checkIsInternational(contractDetails.rf_priority_reasons);
+
+      // Xác định studentCategory giống Auto Assign
+      let studentCategory = "general";
+      if (isStudentInternational) {
+        studentCategory = "international";
+      } else if ((year || 1) === 1) {
+        studentCategory = "freshmen";
+      } else {
+        studentCategory = "returning_students";
+      }
+
+      // Lấy danh sách các hợp đồng active kèm priority_reasons
+      const activeContracts = await StudentContractDAO.searchAndFilter({ status: "Active" });
+      const roomOccupantsMap = {};
+      for (const c of activeContracts) {
+        if (c.room_id) {
+          if (!roomOccupantsMap[c.room_id]) {
+            roomOccupantsMap[c.room_id] = [];
+          }
+          roomOccupantsMap[c.room_id].push(c.rf_priority_reasons || "");
+        }
+      }
+
+      // Lọc: reserved_for + quốc tịch (nhất quán với Auto Assign)
+      const filtered = suggested.filter(room => {
+        // Lọc reserved_for: phải khớp đúng loại hoặc là general (chỉ cho SV Việt Nam)
+        if (room.reserved_for === "xung_kich") return false;
+        if (room.reserved_for === "international" && studentCategory !== "international") return false;
+        if (studentCategory === "international" && room.reserved_for !== "international") return false;
+        if (room.reserved_for && room.reserved_for !== "general" && room.reserved_for !== studentCategory) return false;
+
+        // Lọc quốc tịch
+        const occupantsReasons = roomOccupantsMap[room.id] || [];
+        if (occupantsReasons.length === 0) return true;
+
+        const hasInternationalOccupant = occupantsReasons.some(r => checkIsInternational(r));
+        if (isStudentInternational) {
+          return hasInternationalOccupant;
+        } else {
+          return !hasInternationalOccupant;
+        }
+      });
+
+      // Top 5 gợi ý + toàn bộ danh sách hợp lệ
+      return {
+        suggested: filtered.slice(0, 5),
+        all: filtered
+      };
     } catch (error) {
       throw new Error(`Suggest rooms failed: ${error.message}`);
     }
@@ -237,6 +296,32 @@ class ContractService {
   }
 
   /**
+   * Unassign room: đưa hợp đồng Active về Pending, giải phóng chỗ phòng cũ
+   */
+  async unassignRoom(id, adminId, req = null) {
+    try {
+      const contract = await StudentContractDAO.findById(id);
+      if (!contract) throw new Error("Contract not found");
+      if (contract.status !== "Active") throw new Error("Chỉ có thể rút phòng khi hợp đồng đang Active");
+      if (!contract.room_id) throw new Error("Hợp đồng chưa được gán phòng");
+
+      const oldRoomId = contract.room_id;
+
+      await StudentContractDAO.unassignRoom(id);
+
+      await LogSystemDAO.log(adminId, "UNASSIGN_ROOM", "student_contracts", id,
+        { status: "Active", room_id: oldRoomId },
+        { status: "Pending", room_id: null },
+        req
+      );
+
+      return await StudentContractDAO.getContractDetails(id);
+    } catch (error) {
+      throw new Error(`Unassign room failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Get contracts by user
    */
   async getContractsByUser(userId) {
@@ -367,22 +452,21 @@ class ContractService {
       const contract = await StudentContractDAO.findById(id);
       if (!contract) throw new Error("Contract not found");
 
-      // If contract is Active with a room, terminate first to release room slot
-      if (contract.status === "Active" && contract.room_id) {
-        await StudentContractDAO.terminateContract(id);
-      }
-
-      await StudentContractDAO.delete(id);
-
-      await LogSystemDAO.log(adminId, "DELETE_CONTRACT", "student_contracts", id, contract, null, req);
-
-      // Also delete the associated user account
-      if (contract.user_id) {
-        const user = await UserDAO.findById(contract.user_id);
-        if (user) {
-          await UserDAO.delete(contract.user_id);
-          await LogSystemDAO.log(adminId, "DELETE_USER", "users", contract.user_id, user, null, req);
+      if (contract.status === "Terminated") {
+        // Nếu đã ở trạng thái Chấm dứt, thực hiện xóa cứng khỏi DB và xóa tài khoản user liên quan
+        await StudentContractDAO.delete(id);
+        if (contract.user_id) {
+          const user = await UserDAO.findById(contract.user_id);
+          if (user) {
+            await UserDAO.delete(contract.user_id);
+            await LogSystemDAO.log(adminId, "DELETE_USER", "users", contract.user_id, user, null, req);
+          }
         }
+        await LogSystemDAO.log(adminId, "DELETE_CONTRACT_HARD", "student_contracts", id, contract, null, req);
+      } else {
+        // Nếu chưa Chấm dứt, thực hiện xóa mềm (chấm dứt và giải phóng phòng)
+        await StudentContractDAO.terminateContract(id);
+        await LogSystemDAO.log(adminId, "DELETE_CONTRACT_SOFT", "student_contracts", id, contract, { status: "Terminated" }, req);
       }
 
       return { deleted: true };
@@ -522,6 +606,7 @@ class ContractService {
 
   /**
    * Gán phòng tự động cho các hợp đồng Pending (sau khi đã duyệt hồ sơ).
+   * Ưu tiên xếp cùng khoa và cùng năm học (khóa học).
    */
   async autoAssignPendingRooms({ faculty, adminId, req = null }) {
     try {
@@ -540,6 +625,26 @@ class ContractService {
         return (b.rf_ai_score || 0) - (a.rf_ai_score || 0);
       });
 
+      // Nạp danh sách các hợp đồng Active để làm bản đồ phân bổ sinh viên hiện tại trong bộ nhớ (Tránh N+1 query)
+      const activeContracts = await StudentContractDAO.searchAndFilter({ status: "Active" });
+      const roomOccupantsMap = {};
+      for (const c of activeContracts) {
+        if (c.room_id) {
+          if (!roomOccupantsMap[c.room_id]) {
+            roomOccupantsMap[c.room_id] = [];
+          }
+          const reasons = (c.rf_priority_reasons || "").toLowerCase();
+          const isOccupantInternational = reasons.includes("lưu học sinh") ||
+                                          reasons.includes("quốc tế") ||
+                                          reasons.includes("du học sinh");
+          roomOccupantsMap[c.room_id].push({
+            year: c.snapshot_year,
+            faculty: c.snapshot_faculty,
+            isInternational: isOccupantInternational
+          });
+        }
+      }
+
       const allocations = [];
       let processed = 0;
       let assigned = 0;
@@ -550,6 +655,7 @@ class ContractService {
         const priorityReasons = contract.rf_priority_reasons || "";
         const year = contract.snapshot_year;
         const gender = contract.snapshot_gender;
+        const studentFaculty = contract.snapshot_faculty;
 
         let studentCategory = "general";
         const lowerReason = priorityReasons.toLowerCase();
@@ -573,10 +679,44 @@ class ContractService {
           if (room.current_occupancy >= room.capacity) continue;
           if (room.reserved_for === "xung_kich") continue;
 
-          let score = 0;
-          if (room.reserved_for === studentCategory) score = 10;
-          else if (room.reserved_for === "general" || !room.reserved_for) score = 5;
+          let baseScore = 0;
+          if (room.reserved_for === studentCategory) baseScore = 10;
+          else if ((room.reserved_for === "general" || !room.reserved_for) && studentCategory !== "international") baseScore = 5;
           else continue;
+
+          // Ràng buộc cứng diện quốc tịch (quốc tế vs Việt Nam)
+          const occupants = roomOccupantsMap[room.id] || [];
+          if (occupants.length > 0) {
+            const hasInternational = occupants.some(o => o.isInternational);
+            if (studentCategory === "international" && !hasInternational) continue;
+            if (studentCategory !== "international" && hasInternational) continue;
+          }
+
+          // Tính điểm thưởng ghép phòng (cùng khóa, cùng khoa, cùng là du học sinh)
+          let sameYearCount = 0;
+          let sameFacultyCount = 0;
+          let sameYearFacultyCount = 0;
+          let sameInternationalCount = 0;
+
+          for (const occupant of occupants) {
+            const isSameYear = occupant.year === year;
+            const isSameFaculty = studentFaculty && occupant.faculty === studentFaculty;
+            
+            if (isSameYear) sameYearCount++;
+            if (isSameFaculty) sameFacultyCount++;
+            if (isSameYear && isSameFaculty) sameYearFacultyCount++;
+
+            // Thưởng thêm điểm nếu cả hai đều là sinh viên quốc tế/nước ngoài
+            if (studentCategory === "international" && occupant.isInternational) {
+              sameInternationalCount++;
+            }
+          }
+
+          const score = baseScore + 
+                        (sameYearCount * 1.0) + 
+                        (sameFacultyCount * 2.0) + 
+                        (sameYearFacultyCount * 3.0) +
+                        (sameInternationalCount * 4.0);
 
           if (score > bestScore) {
             bestScore = score;
@@ -593,6 +733,17 @@ class ContractService {
             await this.assignRoom(contract.id, bestRoom.id, adminId, req);
             bestRoom.current_occupancy++;
             assigned++;
+
+            // Cập nhật động bản đồ phân bổ trong bộ nhớ để xếp bạn tiếp theo
+            if (!roomOccupantsMap[bestRoom.id]) {
+              roomOccupantsMap[bestRoom.id] = [];
+            }
+            roomOccupantsMap[bestRoom.id].push({
+              year,
+              faculty: studentFaculty,
+              isInternational: studentCategory === "international"
+            });
+
             allocations.push({
               student_name: contract.student_name,
               student_id: contract.snapshot_student_id,

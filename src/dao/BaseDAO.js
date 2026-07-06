@@ -1,29 +1,22 @@
 const db = require('../config/database');
 
 /**
- * Base DAO Class - Provides generic CRUD operations
- * All specific DAO classes will extend this base class
- * Flexible design allows easy column additions/modifications
+ * Lớp DAO cơ sở định nghĩa các thao tác CRUD dùng chung cho database.
+ * Các lớp DAO cụ thể sẽ kế thừa từ lớp này.
  */
 class BaseDAO {
     constructor(tableName) {
         this.tableName = tableName;
     }
 
-    /**
-     * Get all records with optional conditions
-     * @param {Object} conditions - WHERE conditions
-     * @param {Array} orderBy - ORDER BY columns ['column DESC', 'column2 ASC']
-     * @param {Number} limit - LIMIT value
-     * @param {Number} offset - OFFSET value
-     */
+    // Lấy danh sách bản ghi theo điều kiện lọc, sắp xếp và phân trang
     async findAll(conditions = {}, orderBy = [], limit = null, offset = null) {
         try {
             let query = `SELECT * FROM ${this.tableName}`;
             const values = [];
             let paramIndex = 1;
 
-            // WHERE clause
+            // Thêm điều kiện WHERE động
             if (Object.keys(conditions).length > 0) {
                 const whereConditions = Object.keys(conditions).map(key => {
                     values.push(conditions[key]);
@@ -32,12 +25,12 @@ class BaseDAO {
                 query += ` WHERE ${whereConditions.join(' AND ')}`;
             }
 
-            // ORDER BY clause
+            // Thêm điều kiện sắp xếp ORDER BY
             if (orderBy.length > 0) {
                 query += ` ORDER BY ${orderBy.join(', ')}`;
             }
 
-            // LIMIT and OFFSET
+            // Thêm LIMIT và OFFSET để phân trang
             if (limit) {
                 query += ` LIMIT $${paramIndex++}`;
                 values.push(limit);
@@ -54,9 +47,7 @@ class BaseDAO {
         }
     }
 
-    /**
-     * Find one record by conditions
-     */
+    // Tìm duy nhất một bản ghi theo điều kiện
     async findOne(conditions) {
         try {
             const records = await this.findAll(conditions, [], 1);
@@ -66,17 +57,12 @@ class BaseDAO {
         }
     }
 
-    /**
-     * Find record by ID
-     */
+    // Tìm kiếm nhanh bản ghi theo ID
     async findById(id) {
         return this.findOne({ id });
     }
 
-    /**
-     * Create new record
-     * @param {Object} data - Data to insert
-     */
+    // Thêm mới một bản ghi vào bảng
     async create(data) {
         try {
             const columns = Object.keys(data);
@@ -92,11 +78,7 @@ class BaseDAO {
         }
     }
 
-    /**
-     * Update record by ID
-     * @param {String} id - Record ID
-     * @param {Object} data - Data to update
-     */
+    // Cập nhật thông tin bản ghi theo ID
     async update(id, data) {
         try {
             const columns = Object.keys(data);
@@ -112,9 +94,7 @@ class BaseDAO {
         }
     }
 
-    /**
-     * Delete record by ID
-     */
+    // Xóa bản ghi theo ID khỏi bảng
     async delete(id) {
         try {
             const query = `DELETE FROM ${this.tableName} WHERE id = $1`;
@@ -125,9 +105,7 @@ class BaseDAO {
         }
     }
 
-    /**
-     * Count records with optional conditions
-     */
+    // Đếm số lượng bản ghi thỏa mãn điều kiện lọc
     async count(conditions = {}) {
         try {
             let query = `SELECT COUNT(*) as count FROM ${this.tableName}`;
@@ -149,9 +127,7 @@ class BaseDAO {
         }
     }
 
-    /**
-     * Execute custom query
-     */
+    // Chạy câu lệnh SQL tùy chỉnh (custom query)
     async executeQuery(query, values = []) {
         try {
             const result = await db.query(query, values);
@@ -161,9 +137,7 @@ class BaseDAO {
         }
     }
 
-    /**
-     * Check if record exists
-     */
+    // Kiểm tra sự tồn tại của bản ghi thỏa mãn điều kiện lọc
     async exists(conditions) {
         const count = await this.count(conditions);
         return count > 0;

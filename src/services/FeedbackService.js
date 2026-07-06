@@ -1,6 +1,7 @@
 const FeedbackDAO = require('../dao/FeedbackDAO');
 const LogSystemDAO = require('../dao/LogSystemDAO');
-const { emitAdminAlert } = require('../socket.js');
+const NotificationDAO = require('../dao/NotificationDAO');
+const { emitAdminAlert, emitNotification } = require('../socket.js');
 const { analyzeFeedback } = require('./openaiService');
 
 /**
@@ -117,6 +118,24 @@ class FeedbackService {
                 { status, admin_response: adminResponse },
                 req
             );
+
+            // Tạo thông báo DB và phát socket realtime về cho sinh viên gửi phản ánh
+            try {
+                const notifTitle = `Phản hồi về phản ánh của bạn`;
+                const notifContent = `Phản ánh [${oldData.category || 'Khác'}] của bạn đã được cập nhật trạng thái sang "${status}". Phản hồi từ BQL: ${adminResponse || 'Không có'}`;
+                const newNotif = await NotificationDAO.sendToSpecificUsers(
+                    notifTitle,
+                    notifContent,
+                    'Thông báo chung',
+                    [oldData.user_id],
+                    adminId
+                );
+
+                // Phát qua socket
+                emitNotification(newNotif);
+            } catch (notifErr) {
+                console.error('[Notification Alert] Không thể gửi thông báo phản hồi phản ánh:', notifErr.message);
+            }
 
             return await FeedbackDAO.findById(id);
         } catch (error) {

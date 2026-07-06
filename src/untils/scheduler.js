@@ -61,6 +61,49 @@ async function fillDefaultMeterReadings() {
 }
 
 /**
+ * Gửi email nhắc gia hạn tự động cho các hợp đồng còn <= 35 ngày.
+ * Gửi tối đa 1 lần/tuần cho mỗi hợp đồng.
+ */
+async function sendExpiryReminders() {
+    try {
+        const ContractService = require('../services/ContractService');
+
+        // Lấy hợp đồng Active còn ≤ 35 ngày
+        const expiring = await ContractService.getExpiringContracts(35);
+        
+        // Lọc những hợp đồng chưa nhắc hoặc lần nhắc cuối cách đây >= 7 ngày
+        const toNotify = expiring.filter(c => {
+            if (!c.renewal_reminded_at) return true;
+            const lastSent = new Date(c.renewal_reminded_at);
+            const daysSinceLast = (Date.now() - lastSent) / (1000 * 60 * 60 * 24);
+            return daysSinceLast >= 7; // Gửi tối đa 1 lần/tuần
+        });
+
+        if (toNotify.length === 0) {
+            console.log(`[Scheduler] 📅 Không có hợp đồng nào cần gửi email nhắc gia hạn hôm nay.`);
+            return;
+        }
+
+        const ids = toNotify.map(c => c.id);
+        const result = await ContractService.sendRenewalReminders(ids, 'system', null);
+
+        // Cập nhật ngày nhắc renewal_reminded_at trong DB cho các hợp đồng đã gửi thành công
+        if (result.details && result.details.sent && result.details.sent.length > 0) {
+            await db.query(
+                `UPDATE student_contracts 
+                 SET renewal_reminded_at = NOW() 
+                 WHERE id = ANY($1::text[])`,
+                [result.details.sent]
+            );
+        }
+
+        console.log(`[Scheduler] ✅ Gửi email nhắc gia hạn tự động: ${result.sent} thành công, ${result.failed} thất bại`);
+    } catch (err) {
+        console.error('[Scheduler] ❌ Lỗi gửi email nhắc gia hạn tự động:', err.message);
+    }
+}
+
+/**
  * Khởi động scheduler tự động cập nhật hóa đơn quá hạn.
  * - Chạy ngay khi server start.
  * - Chạy lại mỗi ngày lúc 00:01 giờ local.
@@ -84,6 +127,7 @@ function startOverdueScheduler() {
     // Chạy ngay khi server khởi động
     runOverdueUpdate();
     fillDefaultMeterReadings(); // Chạy ngay khi start (nếu đúng ngày 6)
+    sendExpiryReminders();      // Chạy ngay khi start để quét và gửi email nhắc
 
     // Tính ms đến 00:01 sáng hôm sau rồi lặp mỗi 24h
     const now = new Date();
@@ -95,9 +139,11 @@ function startOverdueScheduler() {
     setTimeout(() => {
         runOverdueUpdate();
         fillDefaultMeterReadings();
+        sendExpiryReminders();
         setInterval(() => {
             runOverdueUpdate();
             fillDefaultMeterReadings();
+            sendExpiryReminders();
         }, 24 * 60 * 60 * 1000);
     }, msUntilNextRun);
 

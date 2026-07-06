@@ -3,8 +3,8 @@ const cors = require("cors");
 const path = require("path");
 
 // ──────────────────────────────────────────────────────────
-// Global error guards (must be first – before any require)
-// Node ≥ 15 exits on unhandledRejection by default; catch it
+// Cơ chế bắt lỗi toàn cục (phải đặt ở đầu tiên - trước mọi require)
+// Bắt các ngoại lệ chưa được xử lý để tránh crash server
 // ──────────────────────────────────────────────────────────
 process.on("uncaughtException", (err) => {
   console.error("[uncaughtException] Server will NOT exit:", err.message);
@@ -14,12 +14,12 @@ process.on("unhandledRejection", (reason) => {
   console.error("[unhandledRejection] Server will NOT exit:", reason instanceof Error ? reason.message : reason);
 });
 
-// Log WHY the process is exiting (diagnostic)
+// Ghi nhật ký lý do tiến trình bị tắt (chẩn đoán)
 process.on("exit", (code) => {
   console.error(`[exit] Process exiting with code ${code}`);
 });
 
-// Graceful shutdown on SIGTERM / SIGINT (Ctrl+C) – keeps the event loop alive
+// Tắt tiến trình an toàn khi nhận tín hiệu SIGTERM / SIGINT (Ctrl+C)
 process.on("SIGTERM", () => {
   console.log("[SIGTERM] Received, shutting down gracefully...");
   process.exit(0);
@@ -30,9 +30,9 @@ process.on("SIGINT", () => {
   process.exit(0);
 });
 
-// Temporarily disable console.log to hide dotenv messages
+// Ẩn tạm thời console.log để tránh hiển thị các thông báo từ dotenv
 const originalConsoleLog = console.log;
-console.log = () => { }; // Disable logging temporarily
+console.log = () => { }; // Tắt ghi log tạm thời
 require("dotenv").config();
 console.log = originalConsoleLog; // Restore logging
 
@@ -45,16 +45,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
+// Cung cấp các file tĩnh từ thư mục uploads và dist (frontend)
 app.use("/uploads", express.static("uploads"));
 app.use(express.static(path.join(__dirname, "../dist")));
 
-// Routes
+// Định nghĩa các tuyến đường (Routes)
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to the Dormitory System Backend!" });
 });
 
-// API Routes
+// Các tuyến API chính của hệ thống
 const authRoutes = require("./routers/authRoutes");
 const registrationRoutes = require("./routers/registrationRoutes");
 const roomRoutes = require("./routers/roomRoutes");
@@ -92,11 +92,11 @@ app.get(/^\/(?!api|uploads).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../dist/index.html"));
 });
 
-// 404 handler (must come after all routes)
+// Bộ xử lý lỗi 404 Not Found (đặt sau tất cả các route)
 const { errorHandler, notFound } = require("./middlewares/errorHandler");
 app.use(notFound);
 
-// Central error handler (must be last middleware, 4 params)
+// Middleware xử lý lỗi tập trung (phải là middleware cuối cùng, có 4 tham số)
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 1234;

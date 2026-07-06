@@ -1,11 +1,9 @@
-/**
- * Error handling middleware
- */
+// Middleware xử lý lỗi tập trung của ứng dụng Express
 const errorHandler = (err, req, res, next) => {
     console.error('Error:', err);
 
     const statusCode = err.statusCode || 500;
-    const message = err.message || 'Internal server error';
+    const message = err.message || 'Đã xảy ra lỗi máy chủ nội bộ';
 
     res.status(statusCode).json({
         success: false,
@@ -14,13 +12,11 @@ const errorHandler = (err, req, res, next) => {
     });
 };
 
-/**
- * 404 Not Found handler
- */
+// Middleware xử lý lỗi 404 Not Found (đường dẫn không tồn tại)
 const notFound = (req, res) => {
     res.status(404).json({
         success: false,
-        message: 'Route not found'
+        message: 'Đường dẫn API không tồn tại'
     });
 };
 

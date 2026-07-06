@@ -206,12 +206,13 @@ class StudentController {
                 return res.status(401).json({ success: false, message: 'Không xác thực được người dùng' });
             }
 
-            // Kiểm tra trong 5 ngày đầu tháng
+            // Kiểm tra trong 9 ngày đầu tháng (tạm thời để demo bảo vệ đồ án, code gốc là 5 ngày)
             const today = new Date();
-            if (today.getDate() > 5) {
+            // Code gốc check 5 ngày: if (today.getDate() > 5) {
+            if (today.getDate() > 9) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Chỉ được gửi số điện/nước trong 5 ngày đầu tháng (ngày 1-5)',
+                    message: 'Chỉ được gửi số điện/nước trong 9 ngày đầu tháng (ngày 1-9)',
                 });
             }
 
