@@ -112,39 +112,66 @@ def create_table_image(title, headers, data, filename, col_widths=None, figsize=
 
 def generate_formula_infographic():
     """
-    Sinh ảnh infographic công thức tính điểm xét duyệt tự động (Tối giản, không có phần notes).
+    Sinh ảnh infographic công thức tính điểm xét duyệt tự động (chỉ công thức, không notes).
     """
-    fig, ax = plt.subplots(figsize=(11.5, 3.8), dpi=300)
+    fig, ax = plt.subplots(figsize=(11.5, 2.4), dpi=300)
     ax.axis('off')
-    
+
     # Tiêu đề chính
-    plt.text(0.5, 0.88, "CÔNG THỨC TÍNH ĐIỂM XẾP HẠNG HỒ SƠ XÉT TUYỂN", 
-             fontsize=15, weight='bold', ha='center', color='#1e3a8a')
-    
-    # 1. Vẽ khung Công thức chính (Blue box)
+    plt.text(0.5, 0.88, "CÔNG THỨC TÍNH ĐIỂM XẾP HẠNG HỒ SƠ XÉT TUYỂN",
+             fontsize=15, weight='bold', ha='center', color='#1e3a8a',
+             transform=ax.transAxes)
+
+    # Khung công thức (Blue box) — chỉ chứa công thức
     rect_formula = patches.FancyBboxPatch(
-        (0.05, 0.15), 0.90, 0.58, boxstyle="round,pad=0.01",
-        facecolor='#eff6ff', edgecolor='#2563eb', linewidth=2
+        (0.05, 0.12), 0.90, 0.60, boxstyle="round,pad=0.01",
+        facecolor='#eff6ff', edgecolor='#2563eb', linewidth=2,
+        transform=ax.transAxes
     )
     ax.add_patch(rect_formula)
-    
-    # Viết công thức
-    plt.text(0.5, 0.52, r"Score = (P $\times$ wPrior) + (Y $\times$ wYear) + (G $\times$ wGPA)", 
-             fontsize=17, weight='bold', ha='center', color='#1e40af')
-    
-    # Giải thích biến số trong khung công thức
-    desc_text = (
-        "Trong đó:\n"
-        "• P: Điểm chính sách ưu tiên  |  • Y: Điểm năm học của sinh viên  |  • G: Điểm học tập quy đổi (từ GPA)\n"
-        "• wPrior, wYear, wGPA: Trọng số tương ứng của Nhóm xét tuyển (wPrior + wYear + wGPA = 1.0)"
-    )
-    plt.text(0.5, 0.28, desc_text, fontsize=9.5, ha='center', color='#1e293b', linespacing=1.6)
-    
+
+    # Công thức — căn giữa trong khung
+    ax.text(0.5, 0.42, r"Score = (P $\times$ wPrior) + (Y $\times$ wYear) + (G $\times$ wGPA)",
+            fontsize=18, weight='bold', ha='center', va='center',
+            color='#1e40af', transform=ax.transAxes)
+
     # Lưu file ảnh công thức
     output_path = os.path.join(OUTPUT_DIR, "table_scoring_formula.png")
     plt.savefig(output_path, bbox_inches='tight', dpi=300)
     plt.close()
     print(f"Saved formula infographic: {output_path}")
+
+def generate_room_score_formula():
+    """
+    Sinh ảnh infographic công thức tính điểm phòng trong gán phòng tự động.
+    """
+    fig, ax = plt.subplots(figsize=(11.5, 2.4), dpi=300)
+    ax.axis('off')
+
+    # Tiêu đề
+    ax.text(0.5, 0.88, "CÔNG THỨC TÍNH ĐIỂM PHÙ HỢP PHÒNG — GÁN PHÒNG TỰ ĐỘNG",
+            fontsize=15, weight='bold', ha='center', color='#1e3a8a',
+            transform=ax.transAxes)
+
+    # Khung công thức
+    rect = patches.FancyBboxPatch(
+        (0.05, 0.12), 0.90, 0.60, boxstyle="round,pad=0.01",
+        facecolor='#eff6ff', edgecolor='#2563eb', linewidth=2,
+        transform=ax.transAxes
+    )
+    ax.add_patch(rect)
+
+    # Công thức
+    ax.text(0.5, 0.42,
+            r"Score = B + (n$_y$ $\times$ 1) + (n$_f$ $\times$ 2) + (n$_{yf}$ $\times$ 3)",
+            fontsize=18, weight='bold', ha='center', va='center',
+            color='#1e40af', transform=ax.transAxes)
+
+    output_path = os.path.join(OUTPUT_DIR, "table_room_score_formula.png")
+    plt.savefig(output_path, bbox_inches='tight', dpi=300)
+    plt.close()
+    print(f"Saved room score formula: {output_path}")
+
 
 def generate_all_tables():
     # ----------------------------------------------------
@@ -219,6 +246,11 @@ def generate_all_tables():
     # BẢNG 5: Sinh hình ảnh công thức xét tuyển tổng hợp (Infographic)
     # ----------------------------------------------------
     generate_formula_infographic()
+
+    # ----------------------------------------------------
+    # BẢNG 6: Công thức tính điểm phòng gán phòng tự động
+    # ----------------------------------------------------
+    generate_room_score_formula()
 
 if __name__ == "__main__":
     print("Starting generating scoring tables...")
